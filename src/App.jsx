@@ -1,23 +1,59 @@
-import { useEffect, useState } from 'react'
-import { supabase } from './lib/supabase'
+import { createBrowserRouter, RouterProvider } from 'react-router-dom'
+import Navbar from './components/Navbar'
+import Dashboard from './pages/Dashboard'
+import Projects from './pages/Projects'
+import Beneficiaries from './pages/Beneficiaries'
+import Contacts from './pages/Contacts'
+
+const router = createBrowserRouter([
+  {
+    path: '/',
+    element: (
+      <>
+        <Navbar />
+        <main className="p-6">
+          <Dashboard />
+        </main>
+      </>
+    ),
+  },
+  {
+    path: '/projects',
+    element: (
+      <>
+        <Navbar />
+        <main className="p-6">
+          <Projects />
+        </main>
+      </>
+    ),
+  },
+  {
+    path: '/beneficiaries',
+    element: (
+      <>
+        <Navbar />
+        <main className="p-6">
+          <Beneficiaries />
+        </main>
+      </>
+    ),
+  },
+  {
+    path: '/contacts',
+    element: (
+      <>
+        <Navbar />
+        <main className="p-6">
+          <Contacts />
+        </main>
+      </>
+    )
+  }
+])
 
 function App() {
-  const [status, setStatus] = useState('Connecting...')
-
-  useEffect(() => {
-    async function test() {
-      const { data, error } = await supabase.from('project_types').select('*')
-      if (error) setStatus('Error: ' + error.message)
-      else setStatus('Supabase connected!')
-    }
-    test()
-  }, [])
-
-  return (
-    <div className="bg-blue-500 text-white p-8 text-2xl">
-      {status}
-    </div>
-  )
+  return <RouterProvider router={router} />
 }
 
 export default App
