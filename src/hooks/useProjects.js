@@ -19,7 +19,8 @@ export function useProjects() {
         project_types (id, name),
         beneficiaries (id, name, category, municipality, barangay)
     `)
-    .order('year', { ascending: false })
+    .order('year', { ascending: false });
+    console.log(data)
     if (error) setError(error.message)
     else setProjects(data)
     setLoading(false)
@@ -30,6 +31,7 @@ export function useProjects() {
       .from('project_instances')
       .update(updates)
       .eq('id', id)
+      console.log("update passed")
 
     if (error) return { error: error.message }
     await fetchProjects()
