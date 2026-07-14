@@ -7,11 +7,16 @@ import {
 } from '@tanstack/react-table'
 import { useState } from 'react'
 import { useProjects } from '../hooks/useProjects'
+import { useEffect } from 'react'
 
 function EditableCell({ getValue, row, column, table }) {
   const initialValue = getValue()
   const [value, setValue] = useState(initialValue ?? '')
   const [editing, setEditing] = useState(false)
+
+  useEffect(() => {
+    setValue(initialValue ?? '')
+  }, [initialValue])
 
   async function onBlur() {
     setEditing(false)
@@ -105,7 +110,7 @@ const columns = [
   },
   {
     accessorKey: 'overall_status',
-    header: 'Status',
+    header: 'Overall Status',
     cell: StatusCell,
   },
   {

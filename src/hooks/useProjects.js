@@ -12,18 +12,21 @@ export function useProjects() {
 
   async function fetchProjects() {
     setLoading(true)
-    const { data, error } = await supabase
-    .from('project_instances')
-    .select(`
-        *,
-        project_types (id, name),
-        beneficiaries (id, name, category, municipality, barangay)
-    `)
-    .order('year', { ascending: false });
-    console.log(data)
-    if (error) setError(error.message)
-    else setProjects(data)
-    setLoading(false)
+    try {
+      const { data, error } = await supabase
+        .from('project_instances')
+        .select(`
+          *,
+          project_types (id, name),
+          beneficiaries (id, name, category, municipality, barangay)
+        `)
+        .order('year', { ascending: false })
+
+      if (error) setError(error.message)
+      else setProjects(data)
+    } finally {
+      setLoading(false)
+    }
   }
 
   async function updateProject(id, updates) {
