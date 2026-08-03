@@ -21,6 +21,7 @@ export function useProjects() {
           beneficiaries (id, name, category, municipality, barangay)
         `)
         .order('year', { ascending: false })
+        console.log("fetch passed")
 
       if (error) setError(error.message)
       else setProjects(data)
