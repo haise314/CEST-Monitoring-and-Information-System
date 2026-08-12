@@ -1,7 +1,7 @@
 import { createBrowserRouter, RouterProvider, Outlet } from 'react-router'
 import Navbar from './components/Navbar'
 import Dashboard from './pages/Dashboard'
-import Projects from './pages/Projects'
+import Projects from './pages/projects/Projects'
 import Beneficiaries from './pages/Beneficiaries'
 import Contacts from './pages/Contacts'
 

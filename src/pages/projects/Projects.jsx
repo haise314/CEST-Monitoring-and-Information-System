@@ -1,0 +1,157 @@
+import {
+  useReactTable,
+  getCoreRowModel,
+  getSortedRowModel,
+  getFilteredRowModel,
+  getPaginationRowModel,
+  flexRender,
+} from '@tanstack/react-table'
+import { useState, useMemo } from 'react'
+import { useProjects } from '../../hooks/useProjects'
+import { ALL_COLUMNS, DEFAULT_VISIBLE, FILTERABLE_COLUMN_IDS } from './columns'
+import VisibilityPanel from './visibilityPanel'
+import FilterBar from './filterBar'
+import PaginationBar from './paginationBar'
+
+// ─── Main Component ───────────────────────────────────────────────────────────
+
+function Projects() {
+  const { projects, loading, error } = useProjects()
+  const [globalFilter, setGlobalFilter] = useState('')
+  const [sorting, setSorting] = useState([])
+  const [columnVisibility, setColumnVisibility] = useState(DEFAULT_VISIBLE)
+  const [showVisibilityPanel, setShowVisibilityPanel] = useState(false)
+  const [filters, setFilters] = useState(
+    Object.fromEntries(FILTERABLE_COLUMN_IDS.map(id => [id, '']))
+  )
+
+  // Apply dropdown filters before TanStack
+  const filtered = useMemo(() =>
+    projects.filter(p => {
+      if (filters.year          && String(p.year) !== String(filters.year)) return false
+      if (filters.municipality  && p.beneficiaries?.municipality !== filters.municipality) return false
+      if (filters.barangay      && p.beneficiaries?.barangay !== filters.barangay) return false
+      if (filters.district      && p.beneficiaries?.district !== filters.district) return false
+      if (filters.category      && p.beneficiaries?.category !== filters.category) return false
+      if (filters.overall_status     && p.overall_status !== filters.overall_status) return false
+      if (filters.operational_status && p.operational_status !== filters.operational_status) return false
+      if (filters.project_type  && p.project_types?.name !== filters.project_type) return false
+      if (filters.entry_point   && p.entry_point !== filters.entry_point) return false
+      return true
+    })
+  , [projects, filters])
+
+  const table = useReactTable({
+    data: filtered,
+    columns: ALL_COLUMNS,
+    state: { globalFilter, sorting, columnVisibility },
+    onGlobalFilterChange: setGlobalFilter,
+    onSortingChange: setSorting,
+    onColumnVisibilityChange: setColumnVisibility,
+    getCoreRowModel: getCoreRowModel(),
+    getFilteredRowModel: getFilteredRowModel(),
+    getSortedRowModel: getSortedRowModel(),
+    getPaginationRowModel: getPaginationRowModel(),
+    initialState: { pagination: { pageSize: 25 } },
+  })
+
+  // Visible column ids for FilterBar
+  const visibleColumnIds = table.getVisibleLeafColumns().map(c => c.id)
+
+  if (loading) return <div className="p-6 text-gray-500">Loading projects...</div>
+  if (error)   return <div className="p-6 text-red-500">Error: {error}</div>
+
+  return (
+    <div>
+      {/* ── Header ── */}
+      <div className="flex items-center justify-between mb-3">
+        <h1 className="text-xl font-bold text-gray-800">
+          Projects
+          <span className="ml-2 text-sm font-normal text-gray-400">
+            {table.getFilteredRowModel().rows.length} of {projects.length}
+          </span>
+        </h1>
+        <div className="flex items-center gap-2">
+          {/* Search */}
+          <input
+            type="text"
+            placeholder="Search..."
+            value={globalFilter}
+            onChange={e => setGlobalFilter(e.target.value)}
+            className="border border-gray-300 rounded px-3 py-1.5 text-sm w-52 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+          {/* Column visibility toggle */}
+          <div className="relative">
+            <button
+              onClick={() => setShowVisibilityPanel(v => !v)}
+              className="border border-gray-300 rounded px-3 py-1.5 text-sm hover:bg-gray-50 flex items-center gap-1"
+            >
+              ⊞ Columns
+            </button>
+            {showVisibilityPanel && (
+              <VisibilityPanel
+                table={table}
+                onClose={() => setShowVisibilityPanel(false)}
+              />
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* ── Filter Bar ── */}
+      <FilterBar
+        projects={projects}
+        filters={filters}
+        setFilters={setFilters}
+        visibleColumnIds={visibleColumnIds}
+      />
+
+      {/* ── Table ── */}
+      <div className="overflow-x-auto rounded-lg border border-gray-200">
+        <table className="min-w-full text-sm">
+          <thead className="bg-gray-50 text-gray-600 uppercase text-xs">
+            {table.getHeaderGroups().map(headerGroup => (
+              <tr key={headerGroup.id}>
+                {headerGroup.headers.map(header => (
+                  <th
+                    key={header.id}
+                    onClick={header.column.getToggleSortingHandler()}
+                    className="px-4 py-3 text-left font-medium cursor-pointer select-none hover:bg-gray-100 whitespace-nowrap"
+                  >
+                    {flexRender(header.column.columnDef.header, header.getContext())}
+                    {header.column.getIsSorted() === 'asc' ? ' ↑'
+                      : header.column.getIsSorted() === 'desc' ? ' ↓' : ''}
+                  </th>
+                ))}
+              </tr>
+            ))}
+          </thead>
+          <tbody className="divide-y divide-gray-100 bg-white">
+            {table.getRowModel().rows.length === 0 ? (
+              <tr>
+                <td colSpan={ALL_COLUMNS.length} className="px-4 py-8 text-center text-gray-400">
+                  No projects found
+                </td>
+              </tr>
+            ) : (
+              table.getRowModel().rows.map(row => (
+                <tr key={row.id} className="hover:bg-gray-50 cursor-pointer">
+                  {row.getVisibleCells().map(cell => (
+                    <td key={cell.id} className="px-4 py-3 whitespace-nowrap">
+                      {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                    </td>
+                  ))}
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
+      </div>
+
+      {/* ── Pagination ── */}
+      <PaginationBar table={table} />
+    </div>
+  )
+}
+
+export default Projects
