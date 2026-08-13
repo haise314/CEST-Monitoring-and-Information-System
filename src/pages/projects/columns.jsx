@@ -1,17 +1,32 @@
 import StatusCell, { OperationalCell } from './statusCell'
 
+// ─── Project Category Cell ────────────────────────────────────────────────────
+
+function ProjectCategoryCell({ getValue }) {
+  const value = getValue()
+  const colors = {
+    'In-house':      'bg-indigo-100 text-indigo-800',
+    'Fund Transfer': 'bg-teal-100 text-teal-800',
+  }
+  return (
+    <span className={`px-2 py-1 rounded-full text-xs font-medium whitespace-nowrap ${colors[value] ?? 'bg-gray-100 text-gray-800'}`}>
+      {value ?? '—'}
+    </span>
+  )
+}
+
 // ─── Column Definitions ───────────────────────────────────────────────────────
 
-// Each column has a `group` for the visibility panel
 export const ALL_COLUMNS = [
   // CORE
-  { accessorKey: 'year',            header: 'Year',          group: 'Core',        cell: ({ getValue }) => getValue() ?? '—' },
+  { accessorKey: 'year',             header: 'Year',             group: 'Core', cell: ({ getValue }) => getValue() ?? '—' },
   { accessorFn: r => r.project_types?.name, id: 'project_type', header: 'Project Type', group: 'Core', cell: ({ getValue }) => getValue() ?? '—' },
-  { accessorKey: 'intervention',    header: 'Intervention',  group: 'Core',        cell: ({ getValue }) => getValue() ?? '—' },
-  { accessorKey: 'property_number', header: 'Property No.',  group: 'Core',        cell: ({ getValue }) => getValue() ?? '—' },
-  { accessorKey: 'amount',          header: 'Amount',        group: 'Core',        cell: ({ getValue }) => getValue() != null ? `₱${Number(getValue()).toLocaleString()}` : '—' },
-  { accessorKey: 'date_deployed',   header: 'Date Deployed', group: 'Core',        cell: ({ getValue }) => getValue() ?? '—' },
-  { accessorKey: 'entry_point',     header: 'Entry Point',   group: 'Core',        cell: ({ getValue }) => getValue() ?? '—' },
+  { accessorKey: 'project_category', header: 'Category',         group: 'Core', cell: ProjectCategoryCell },
+  { accessorKey: 'intervention',     header: 'Intervention',     group: 'Core', cell: ({ getValue }) => getValue() ?? '—' },
+  { accessorKey: 'property_number',  header: 'Property No.',     group: 'Core', cell: ({ getValue }) => getValue() ?? '—' },
+  { accessorKey: 'amount',           header: 'Amount',           group: 'Core', cell: ({ getValue }) => getValue() != null ? `₱${Number(getValue()).toLocaleString()}` : '—' },
+  { accessorKey: 'date_deployed',    header: 'Date Deployed',    group: 'Core', cell: ({ getValue }) => getValue() ?? '—' },
+  { accessorKey: 'entry_point',      header: 'Entry Point',      group: 'Core', cell: ({ getValue }) => getValue() ?? '—' },
 
   // BENEFICIARY
   { accessorFn: r => r.beneficiaries?.name,         id: 'beneficiary',  header: 'Beneficiary',  group: 'Beneficiary', cell: ({ getValue }) => getValue() ?? '—' },
@@ -27,25 +42,30 @@ export const ALL_COLUMNS = [
   { accessorKey: 'ips',             header: 'IPs',            group: 'Beneficiary', cell: ({ getValue }) => getValue() ?? '—' },
 
   // STATUS & IMPACT
-  { accessorKey: 'overall_status',      header: 'Overall Status',  group: 'Status & Impact', cell: StatusCell },
-  { accessorKey: 'operational_status',  header: 'Operational',     group: 'Status & Impact', cell: OperationalCell },
-  { accessorKey: 'interventions_count', header: 'Interventions',   group: 'Status & Impact', cell: ({ getValue }) => getValue() ?? '—' },
-  { accessorKey: 'people_trained',      header: 'People Trained',  group: 'Status & Impact', cell: ({ getValue }) => getValue() ?? '—' },
-  { accessorKey: 'impact_notes',        header: 'Impact Notes',    group: 'Status & Impact', cell: ({ getValue }) => getValue() ?? '—' },
+  { accessorKey: 'overall_status',      header: 'Overall Status', group: 'Status & Impact', cell: StatusCell },
+  { accessorKey: 'operational_status',  header: 'Operational',    group: 'Status & Impact', cell: OperationalCell },
+  { accessorKey: 'interventions_count', header: 'Interventions',  group: 'Status & Impact', cell: ({ getValue }) => getValue() ?? '—' },
+  { accessorKey: 'people_trained',      header: 'People Trained', group: 'Status & Impact', cell: ({ getValue }) => getValue() ?? '—' },
+  { accessorKey: 'impact_notes',        header: 'Impact Notes',   group: 'Status & Impact', cell: ({ getValue }) => getValue() ?? '—' },
 
   // DOCUMENTS
-  { accessorKey: 'gdrive_folder_link', header: 'GDrive Link', group: 'Documents',
+  {
+    accessorKey: 'gdrive_folder_link',
+    header: 'GDrive Link',
+    group: 'Documents',
     cell: ({ getValue }) => getValue()
       ? <a href={getValue()} target="_blank" rel="noreferrer" className="text-blue-500 underline text-xs">Open</a>
-      : '—'
+      : '—',
   },
 ]
 
-// Default visible column ids
+// ─── Visibility Defaults ──────────────────────────────────────────────────────
+
 export const DEFAULT_VISIBLE = {
-  // visible by default
+  // Visible by default
   year: true,
   project_type: true,
+  project_category: true,
   beneficiary: true,
   municipality: true,
   barangay: true,
@@ -53,7 +73,7 @@ export const DEFAULT_VISIBLE = {
   amount: true,
   overall_status: true,
   operational_status: true,
-  // everything else hidden by default
+  // Hidden by default
   intervention: false,
   date_deployed: false,
   entry_point: false,
@@ -71,13 +91,28 @@ export const DEFAULT_VISIBLE = {
   gdrive_folder_link: false,
 }
 
-// Only show filter dropdowns for columns that are visible AND filterable
+// ─── Filter Config ────────────────────────────────────────────────────────────
+
 export const FILTERABLE_COLUMN_IDS = [
-  'year', 'municipality', 'barangay', 'district', 'category',
-  'overall_status', 'operational_status', 'project_type', 'entry_point',
+  'year', 'project_category', 'municipality', 'barangay', 'district',
+  'category', 'overall_status', 'operational_status', 'project_type', 'entry_point',
 ]
 
+export const FILTER_LABELS = {
+  year: 'Year',
+  project_category: 'Project Category',
+  municipality: 'Municipality',
+  barangay: 'Barangay',
+  district: 'District',
+  category: 'Beneficiary Category',
+  overall_status: 'Overall Status',
+  operational_status: 'Operational',
+  project_type: 'Project Type',
+  entry_point: 'Entry Point',
+}
+
 export const STATIC_OPTIONS = {
-  overall_status: ['For Deployment','For Implementation','For Monitoring','For Transfer','Transfer Ongoing','Fully Transferred','For Pull Out','Done'],
-  operational_status: ['Operational','Non-operational','For Repair & Maintenance'],
+  project_category:    ['In-house', 'Fund Transfer'],
+  overall_status:      ['For Deployment', 'For Implementation', 'For Monitoring', 'For Transfer', 'Transfer Ongoing', 'Fully Transferred', 'For Pull Out', 'Done'],
+  operational_status:  ['Operational', 'Non-operational', 'For Repair & Maintenance'],
 }

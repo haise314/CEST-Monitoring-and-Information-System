@@ -12,31 +12,38 @@ import { ALL_COLUMNS, DEFAULT_VISIBLE, FILTERABLE_COLUMN_IDS } from './columns'
 import VisibilityPanel from './visibilityPanel'
 import FilterBar from './filterBar'
 import PaginationBar from './paginationBar'
-
-// ─── Main Component ───────────────────────────────────────────────────────────
+import AddModal from './addModal'
+import EditPanel from './editPanel'
 
 function Projects() {
-  const { projects, loading, error } = useProjects()
-  const [globalFilter, setGlobalFilter] = useState('')
-  const [sorting, setSorting] = useState([])
-  const [columnVisibility, setColumnVisibility] = useState(DEFAULT_VISIBLE)
-  const [showVisibilityPanel, setShowVisibilityPanel] = useState(false)
-  const [filters, setFilters] = useState(
+  const { projects, loading, error, addProject, updateProject, deleteProject } = useProjects()
+
+  // Table state
+  const [globalFilter, setGlobalFilter]           = useState('')
+  const [sorting, setSorting]                     = useState([])
+  const [columnVisibility, setColumnVisibility]   = useState(DEFAULT_VISIBLE)
+  const [filters, setFilters]                     = useState(
     Object.fromEntries(FILTERABLE_COLUMN_IDS.map(id => [id, '']))
   )
 
-  // Apply dropdown filters before TanStack
+  // UI state
+  const [showVisibilityPanel, setShowVisibilityPanel] = useState(false)
+  const [showAddModal, setShowAddModal]               = useState(false)
+  const [selectedProject, setSelectedProject]         = useState(null)
+
+  // Apply dropdown filters before passing to TanStack
   const filtered = useMemo(() =>
     projects.filter(p => {
-      if (filters.year          && String(p.year) !== String(filters.year)) return false
-      if (filters.municipality  && p.beneficiaries?.municipality !== filters.municipality) return false
-      if (filters.barangay      && p.beneficiaries?.barangay !== filters.barangay) return false
-      if (filters.district      && p.beneficiaries?.district !== filters.district) return false
-      if (filters.category      && p.beneficiaries?.category !== filters.category) return false
-      if (filters.overall_status     && p.overall_status !== filters.overall_status) return false
-      if (filters.operational_status && p.operational_status !== filters.operational_status) return false
-      if (filters.project_type  && p.project_types?.name !== filters.project_type) return false
-      if (filters.entry_point   && p.entry_point !== filters.entry_point) return false
+      if (filters.year               && String(p.year) !== String(filters.year))                   return false
+      if (filters.project_category   && p.project_category !== filters.project_category)           return false
+      if (filters.municipality       && p.beneficiaries?.municipality !== filters.municipality)    return false
+      if (filters.barangay           && p.beneficiaries?.barangay     !== filters.barangay)        return false
+      if (filters.district           && p.beneficiaries?.district     !== filters.district)        return false
+      if (filters.category           && p.beneficiaries?.category     !== filters.category)        return false
+      if (filters.overall_status     && p.overall_status              !== filters.overall_status)  return false
+      if (filters.operational_status && p.operational_status          !== filters.operational_status) return false
+      if (filters.project_type       && p.project_types?.name         !== filters.project_type)   return false
+      if (filters.entry_point        && p.entry_point                 !== filters.entry_point)     return false
       return true
     })
   , [projects, filters])
@@ -45,17 +52,16 @@ function Projects() {
     data: filtered,
     columns: ALL_COLUMNS,
     state: { globalFilter, sorting, columnVisibility },
-    onGlobalFilterChange: setGlobalFilter,
-    onSortingChange: setSorting,
+    onGlobalFilterChange:     setGlobalFilter,
+    onSortingChange:          setSorting,
     onColumnVisibilityChange: setColumnVisibility,
-    getCoreRowModel: getCoreRowModel(),
-    getFilteredRowModel: getFilteredRowModel(),
-    getSortedRowModel: getSortedRowModel(),
-    getPaginationRowModel: getPaginationRowModel(),
+    getCoreRowModel:          getCoreRowModel(),
+    getFilteredRowModel:      getFilteredRowModel(),
+    getSortedRowModel:        getSortedRowModel(),
+    getPaginationRowModel:    getPaginationRowModel(),
     initialState: { pagination: { pageSize: 25 } },
   })
 
-  // Visible column ids for FilterBar
   const visibleColumnIds = table.getVisibleLeafColumns().map(c => c.id)
 
   if (loading) return <div className="p-6 text-gray-500">Loading projects...</div>
@@ -63,6 +69,7 @@ function Projects() {
 
   return (
     <div>
+
       {/* ── Header ── */}
       <div className="flex items-center justify-between mb-3">
         <h1 className="text-xl font-bold text-gray-800">
@@ -72,7 +79,6 @@ function Projects() {
           </span>
         </h1>
         <div className="flex items-center gap-2">
-          {/* Search */}
           <input
             type="text"
             placeholder="Search..."
@@ -80,11 +86,10 @@ function Projects() {
             onChange={e => setGlobalFilter(e.target.value)}
             className="border border-gray-300 rounded px-3 py-1.5 text-sm w-52 focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
-          {/* Column visibility toggle */}
           <div className="relative">
             <button
               onClick={() => setShowVisibilityPanel(v => !v)}
-              className="border border-gray-300 rounded px-3 py-1.5 text-sm hover:bg-gray-50 flex items-center gap-1"
+              className="border border-gray-300 rounded px-3 py-1.5 text-sm hover:bg-gray-50"
             >
               ⊞ Columns
             </button>
@@ -95,6 +100,12 @@ function Projects() {
               />
             )}
           </div>
+          <button
+            onClick={() => setShowAddModal(true)}
+            className="bg-blue-600 text-white rounded px-3 py-1.5 text-sm font-medium hover:bg-blue-700"
+          >
+            + Add Project
+          </button>
         </div>
       </div>
 
@@ -119,8 +130,8 @@ function Projects() {
                     className="px-4 py-3 text-left font-medium cursor-pointer select-none hover:bg-gray-100 whitespace-nowrap"
                   >
                     {flexRender(header.column.columnDef.header, header.getContext())}
-                    {header.column.getIsSorted() === 'asc' ? ' ↑'
-                      : header.column.getIsSorted() === 'desc' ? ' ↓' : ''}
+                    {header.column.getIsSorted() === 'asc'  ? ' ↑'
+                     : header.column.getIsSorted() === 'desc' ? ' ↓' : ''}
                   </th>
                 ))}
               </tr>
@@ -135,7 +146,11 @@ function Projects() {
               </tr>
             ) : (
               table.getRowModel().rows.map(row => (
-                <tr key={row.id} className="hover:bg-gray-50 cursor-pointer">
+                <tr
+                  key={row.id}
+                  onClick={() => setSelectedProject(row.original)}
+                  className="hover:bg-gray-50 cursor-pointer"
+                >
                   {row.getVisibleCells().map(cell => (
                     <td key={cell.id} className="px-4 py-3 whitespace-nowrap">
                       {flexRender(cell.column.columnDef.cell, cell.getContext())}
@@ -150,6 +165,25 @@ function Projects() {
 
       {/* ── Pagination ── */}
       <PaginationBar table={table} />
+
+      {/* ── Add Modal ── */}
+      {showAddModal && (
+        <AddModal
+          onClose={() => setShowAddModal(false)}
+          onAdd={addProject}
+        />
+      )}
+
+      {/* ── Edit Panel ── */}
+      {selectedProject && (
+        <EditPanel
+          project={selectedProject}
+          onClose={() => setSelectedProject(null)}
+          onUpdate={updateProject}
+          onDelete={deleteProject}
+        />
+      )}
+
     </div>
   )
 }

@@ -18,10 +18,9 @@ export function useProjects() {
         .select(`
           *,
           project_types (id, name),
-          beneficiaries (id, name, category, municipality, barangay)
+          beneficiaries (id, name, category, district, municipality, barangay)
         `)
         .order('year', { ascending: false })
-        console.log("fetch passed")
 
       if (error) setError(error.message)
       else setProjects(data)
@@ -30,17 +29,42 @@ export function useProjects() {
     }
   }
 
-  async function updateProject(id, updates) {
+  async function addProject(data) {
     const { error } = await supabase
       .from('project_instances')
-      .update(updates)
-      .eq('id', id)
-      console.log("update passed")
-
+      .insert(data)
     if (error) return { error: error.message }
     await fetchProjects()
     return { error: null }
   }
 
-  return { projects, loading, error, refetch: fetchProjects, updateProject }
+  async function updateProject(id, updates) {
+    const { error } = await supabase
+      .from('project_instances')
+      .update(updates)
+      .eq('id', id)
+    if (error) return { error: error.message }
+    await fetchProjects()
+    return { error: null }
+  }
+
+  async function deleteProject(id) {
+    const { error } = await supabase
+      .from('project_instances')
+      .delete()
+      .eq('id', id)
+    if (error) return { error: error.message }
+    await fetchProjects()
+    return { error: null }
+  }
+
+  return {
+    projects,
+    loading,
+    error,
+    refetch: fetchProjects,
+    addProject,
+    updateProject,
+    deleteProject,
+  }
 }

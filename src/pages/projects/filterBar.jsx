@@ -1,12 +1,9 @@
 import { useMemo } from 'react'
-import { FILTERABLE_COLUMN_IDS, STATIC_OPTIONS } from './columns'
-
-// ─── Filter Bar ───────────────────────────────────────────────────────────────
+import { FILTERABLE_COLUMN_IDS, FILTER_LABELS, STATIC_OPTIONS } from './columns'
 
 export default function FilterBar({ projects, filters, setFilters, visibleColumnIds }) {
   const activeFilterableIds = FILTERABLE_COLUMN_IDS.filter(id => visibleColumnIds.includes(id))
 
-  // Dynamic options built from data
   const options = useMemo(() => {
     const municipality = [...new Set(projects.map(p => p.beneficiaries?.municipality).filter(Boolean))].sort()
     const barangay = [...new Set(
@@ -14,19 +11,23 @@ export default function FilterBar({ projects, filters, setFilters, visibleColumn
         .filter(p => !filters.municipality || p.beneficiaries?.municipality === filters.municipality)
         .map(p => p.beneficiaries?.barangay).filter(Boolean)
     )].sort()
-    const district = [...new Set(projects.map(p => p.beneficiaries?.district).filter(Boolean))].sort()
-    const category = [...new Set(projects.map(p => p.beneficiaries?.category).filter(Boolean))].sort()
-    const year = [...new Set(projects.map(p => p.year).filter(Boolean))].sort((a, b) => b - a)
+    const district    = [...new Set(projects.map(p => p.beneficiaries?.district).filter(Boolean))].sort()
+    const category    = [...new Set(projects.map(p => p.beneficiaries?.category).filter(Boolean))].sort()
+    const year        = [...new Set(projects.map(p => p.year).filter(Boolean))].sort((a, b) => b - a)
     const project_type = [...new Set(projects.map(p => p.project_types?.name).filter(Boolean))].sort()
     const entry_point = [...new Set(projects.map(p => p.entry_point).filter(Boolean))].sort()
-    return { municipality, barangay, district, category, year, project_type, entry_point, ...STATIC_OPTIONS }
-  }, [projects, filters.municipality])
 
-  const labels = {
-    year: 'Year', municipality: 'Municipality', barangay: 'Barangay',
-    district: 'District', category: 'Category', overall_status: 'Overall Status',
-    operational_status: 'Operational', project_type: 'Project Type', entry_point: 'Entry Point',
-  }
+    return {
+      municipality,
+      barangay,
+      district,
+      category,
+      year,
+      project_type,
+      entry_point,
+      ...STATIC_OPTIONS, // project_category, overall_status, operational_status
+    }
+  }, [projects, filters.municipality])
 
   function handleChange(key, value) {
     setFilters(prev => {
@@ -49,8 +50,10 @@ export default function FilterBar({ projects, filters, setFilters, visibleColumn
           onChange={e => handleChange(id, e.target.value)}
           className="border border-gray-300 rounded px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
         >
-          <option value="">All {labels[id]}</option>
-          {(options[id] ?? []).map(o => <option key={o} value={o}>{o}</option>)}
+          <option value="">All {FILTER_LABELS[id]}</option>
+          {(options[id] ?? []).map(o => (
+            <option key={o} value={o}>{o}</option>
+          ))}
         </select>
       ))}
       {hasActive && (
