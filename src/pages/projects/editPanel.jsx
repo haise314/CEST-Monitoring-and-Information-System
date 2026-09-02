@@ -1,6 +1,59 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { useFormData } from '../../hooks/useFormData'
 import { STATIC_OPTIONS } from './columns'
+import DocumentChecklist from './DocumentChecklist'
+
+const MIN_WIDTH = 420
+const MAX_WIDTH = 1100
+const DEFAULT_WIDTH = 512 // matches the old max-w-lg
+const STORAGE_KEY = 'editPanelWidth'
+
+function useResizablePanel() {
+  const [width, setWidth] = useState(() => {
+    const saved = Number(localStorage.getItem(STORAGE_KEY))
+    return saved >= MIN_WIDTH && saved <= MAX_WIDTH ? saved : DEFAULT_WIDTH
+  })
+  const dragging = useRef(false)
+
+  const startDrag = useCallback(e => {
+    dragging.current = true
+    document.body.style.cursor = 'col-resize'
+    document.body.style.userSelect = 'none'
+    e.preventDefault()
+  }, [])
+
+  useEffect(() => {
+    function handleMove(e) {
+      if (!dragging.current) return
+      // Panel is anchored to the right edge, so width = distance from
+      // the cursor to the right side of the viewport.
+      const next = window.innerWidth - e.clientX
+      setWidth(Math.min(MAX_WIDTH, Math.max(MIN_WIDTH, next)))
+    }
+    function handleUp() {
+      if (!dragging.current) return
+      dragging.current = false
+      document.body.style.cursor = ''
+      document.body.style.userSelect = ''
+    }
+    document.addEventListener('mousemove', handleMove)
+    document.addEventListener('mouseup', handleUp)
+    return () => {
+      document.removeEventListener('mousemove', handleMove)
+      document.removeEventListener('mouseup', handleUp)
+    }
+  }, [])
+
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEY, String(width))
+  }, [width])
+
+  function resetWidth() {
+    setWidth(DEFAULT_WIDTH)
+  }
+
+  return { width, startDrag, resetWidth }
+}
 
 function Section({ title, children }) {
   return (
@@ -27,16 +80,20 @@ const selectClass = 'w-full border border-gray-300 rounded px-3 py-1.5 text-sm f
 
 export default function EditPanel({ project, onClose, onUpdate, onDelete }) {
   const { projectTypes, loading } = useFormData()
-  const [form, setForm]             = useState({})
-  const [saving, setSaving]         = useState(false)
-  const [deleting, setDeleting]     = useState(false)
+  const [form, setForm]                   = useState({})
+  const [saving, setSaving]               = useState(false)
+  const [deleting, setDeleting]           = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
-  const [error, setError]           = useState(null)
+  const [showCategoryWarning, setShowCategoryWarning] = useState(false)
+  const [error, setError]                 = useState(null)
+  const { width, startDrag, resetWidth }  = useResizablePanel()
 
-  // Sync form whenever selected project changes
+  // Track the original category to detect changes
+  const originalCategory = useRef(null)
+
   useEffect(() => {
     if (!project) return
-    setForm({
+    const initial = {
       year:                project.year                ?? '',
       project_type_id:     project.project_type_id     ?? '',
       project_category:    project.project_category    ?? '',
@@ -51,9 +108,12 @@ export default function EditPanel({ project, onClose, onUpdate, onDelete }) {
       people_trained:      project.people_trained      ?? '',
       impact_notes:        project.impact_notes        ?? '',
       gdrive_folder_link:  project.gdrive_folder_link  ?? '',
-    })
+    }
+    setForm(initial)
+    originalCategory.current = project.project_category ?? ''
     setError(null)
     setConfirmDelete(false)
+    setShowCategoryWarning(false)
   }, [project])
 
   function handleChange(key, value) {
@@ -61,8 +121,19 @@ export default function EditPanel({ project, onClose, onUpdate, onDelete }) {
   }
 
   async function handleSave() {
+    // Category changed and project already has documents — warn first
+    if (
+      form.project_category !== originalCategory.current &&
+      originalCategory.current !== '' &&
+      !showCategoryWarning
+    ) {
+      setShowCategoryWarning(true)
+      return
+    }
+
     setSaving(true)
     setError(null)
+    setShowCategoryWarning(false)
 
     const payload = {
       year:                Number(form.year),
@@ -84,7 +155,10 @@ export default function EditPanel({ project, onClose, onUpdate, onDelete }) {
     const { error } = await onUpdate(project.id, payload)
     setSaving(false)
     if (error) setError(error)
-    else onClose()
+    else {
+      // Update the ref so re-opening the panel doesn't re-trigger the warning
+      originalCategory.current = form.project_category ?? ''
+    }
   }
 
   async function handleDelete() {
@@ -97,13 +171,30 @@ export default function EditPanel({ project, onClose, onUpdate, onDelete }) {
 
   if (!project) return null
 
+  // Merge saved project with current form category for the checklist
+  // so it reflects the saved state, not the unsaved form state
+  const savedProject = {
+    ...project,
+    project_category: project.project_category,
+  }
+
   return (
     <>
-      {/* Dim overlay */}
       <div className="fixed inset-0 z-40 bg-black/30" onClick={onClose} />
 
-      {/* Panel */}
-      <div className="fixed right-0 top-0 z-50 h-full w-full max-w-lg bg-white shadow-xl flex flex-col">
+      <div
+        className="fixed right-0 top-0 z-50 h-full w-full bg-white shadow-xl flex flex-col"
+        style={{ maxWidth: width }}
+      >
+        {/* Drag handle — full-height strip on the left edge */}
+        <div
+          onMouseDown={startDrag}
+          onDoubleClick={resetWidth}
+          title="Drag to resize · double-click to reset"
+          className="absolute left-0 top-0 h-full w-1.5 -translate-x-1/2 cursor-col-resize group z-10"
+        >
+          <div className="h-full w-full group-hover:bg-blue-400 transition-colors" />
+        </div>
 
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 flex-shrink-0">
@@ -206,7 +297,6 @@ export default function EditPanel({ project, onClose, onUpdate, onDelete }) {
                 </Field>
               </Section>
 
-              {/* Beneficiary is read-only — change via Beneficiaries page */}
               <Section title="Beneficiary">
                 <div className="bg-gray-50 rounded px-3 py-2.5 text-sm">
                   <div className="font-medium text-gray-700">
@@ -290,9 +380,50 @@ export default function EditPanel({ project, onClose, onUpdate, onDelete }) {
                 </Field>
               </Section>
 
+              {/* Document Checklist — uses saved project data, not form state */}
+              <Section title="Document Checklist">
+                {!project.project_category ? (
+                  <p className="text-xs text-gray-400">
+                    Save a Project Category first to generate the document checklist.
+                  </p>
+                ) : (
+                  <DocumentChecklist project={savedProject} />
+                )}
+              </Section>
+
+              {/* Error */}
               {error && (
                 <div className="text-red-500 text-sm bg-red-50 border border-red-200 rounded px-3 py-2 mb-4">
                   {error}
+                </div>
+              )}
+
+              {/* Category change warning */}
+              {showCategoryWarning && (
+                <div className="bg-yellow-50 border border-yellow-300 rounded p-3 mb-4">
+                  <p className="text-sm text-yellow-800 font-medium mb-1">
+                    Project category changed
+                  </p>
+                  <p className="text-xs text-yellow-700 mb-3">
+                    Changing from <strong>{originalCategory.current}</strong> to{' '}
+                    <strong>{form.project_category}</strong>. New required documents will be
+                    added to the checklist. Existing documents will not be removed — please
+                    review and mark any that no longer apply as N/A.
+                  </p>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={handleSave}
+                      className="bg-yellow-600 text-white rounded px-3 py-1.5 text-xs hover:bg-yellow-700"
+                    >
+                      Confirm & Save
+                    </button>
+                    <button
+                      onClick={() => setShowCategoryWarning(false)}
+                      className="border border-gray-300 rounded px-3 py-1.5 text-xs hover:bg-gray-50"
+                    >
+                      Cancel
+                    </button>
+                  </div>
                 </div>
               )}
 

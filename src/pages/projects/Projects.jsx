@@ -29,7 +29,10 @@ function Projects() {
   // UI state
   const [showVisibilityPanel, setShowVisibilityPanel] = useState(false)
   const [showAddModal, setShowAddModal]               = useState(false)
-  const [selectedProject, setSelectedProject]         = useState(null)
+  // const [selectedProject, setSelectedProject]         = useState(null)
+
+  const [selectedProjectId, setSelectedProjectId] = useState(null)
+  const selectedProject = projects.find(p => p.id === selectedProjectId) ?? null
 
   // Apply dropdown filters before passing to TanStack
   const filtered = useMemo(() =>
@@ -148,7 +151,7 @@ function Projects() {
               table.getRowModel().rows.map(row => (
                 <tr
                   key={row.id}
-                  onClick={() => setSelectedProject(row.original)}
+                  onClick={() => setSelectedProjectId(row.original.id)}
                   className="hover:bg-gray-50 cursor-pointer"
                 >
                   {row.getVisibleCells().map(cell => (
@@ -178,7 +181,7 @@ function Projects() {
       {selectedProject && (
         <EditPanel
           project={selectedProject}
-          onClose={() => setSelectedProject(null)}
+          onClose={() => setSelectedProjectId(null)}
           onUpdate={updateProject}
           onDelete={deleteProject}
         />
