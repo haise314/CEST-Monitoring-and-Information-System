@@ -1,7 +1,6 @@
 import { useState } from 'react'
 import { useDocuments } from '../../hooks/useDocuments'
-
-const PHASE_ORDER = ['Pre-Implementation', 'Semi-Annual', 'Annual', 'Transfer']
+import { PHASE_ORDER, computeProgress, progressBarColor } from '../../lib/documentProgress'
 
 // ─── Link Cell ────────────────────────────────────────────────────────────────
 // Click to add/edit a GDrive link. Shows "Open" button if link exists.
@@ -173,20 +172,10 @@ function DocumentRow({ doc, onUpdate }) {
 
 // ─── Phase Section ────────────────────────────────────────────────────────────
 
-function PhaseSection({ phase, docs, onUpdate }) {
+function PhaseSection({ phase, phaseProgress, onUpdate }) {
   const [open, setOpen] = useState(true)
-
-  const applicable = docs.filter(d => !d.is_not_applicable)
-  const complete    = applicable.filter(d => d.gdrive_link || d.has_hard_copy)
-  const pct         = applicable.length === 0
-    ? 0
-    : Math.round((complete.length / applicable.length) * 100)
-
-  const barColor = pct === 100
-    ? 'bg-green-500'
-    : pct >= 50
-    ? 'bg-blue-400'
-    : 'bg-yellow-400'
+  const { docs, applicableCount, completeCount, pct } = phaseProgress
+  const barColor = progressBarColor(pct)
 
   return (
     <div className="mb-2 border border-gray-200 rounded-lg overflow-hidden">
@@ -197,7 +186,7 @@ function PhaseSection({ phase, docs, onUpdate }) {
         <span className="text-xs font-semibold text-gray-700">{phase}</span>
         <div className="flex items-center gap-2">
           <span className="text-xs text-gray-400">
-            {complete.length}/{applicable.length}
+            {completeCount}/{applicableCount}
           </span>
           <div className="w-20 h-1.5 bg-gray-200 rounded-full overflow-hidden">
             <div
@@ -243,18 +232,7 @@ export default function DocumentChecklist({ project }) {
     if (error) setGenerateError(error)
   }
 
-  // Group documents by phase
-  const byPhase = PHASE_ORDER.reduce((acc, phase) => {
-    acc[phase] = documents.filter(d => d.document_types?.phase === phase)
-    return acc
-  }, {})
-
-  // Overall compliance
-  const allApplicable = documents.filter(d => !d.is_not_applicable)
-  const allComplete   = allApplicable.filter(d => d.gdrive_link || d.has_hard_copy)
-  const overallPct    = allApplicable.length === 0
-    ? 0
-    : Math.round((allComplete.length / allApplicable.length) * 100)
+  const { byPhase, overallPct, totalApplicable, totalComplete } = computeProgress(documents)
 
   if (loading) return (
     <div className="text-xs text-gray-400 py-3 text-center">Loading documents...</div>
@@ -294,7 +272,7 @@ export default function DocumentChecklist({ project }) {
       {/* Overall compliance bar */}
       <div className="flex items-center gap-3 mb-3 px-1">
         <span className="text-xs text-gray-500 whitespace-nowrap">
-          {allComplete.length}/{allApplicable.length} complete
+          {totalComplete}/{totalApplicable} complete
         </span>
         <div className="flex-1 h-2 bg-gray-200 rounded-full overflow-hidden">
           <div
@@ -316,13 +294,13 @@ export default function DocumentChecklist({ project }) {
 
       {/* Phase sections */}
       {PHASE_ORDER.map(phase => {
-        const docs = byPhase[phase]
-        if (!docs || docs.length === 0) return null
+        const phaseProgress = byPhase[phase]
+        if (!phaseProgress || phaseProgress.docs.length === 0) return null
         return (
           <PhaseSection
             key={phase}
             phase={phase}
-            docs={docs}
+            phaseProgress={phaseProgress}
             onUpdate={updateDocument}
           />
         )

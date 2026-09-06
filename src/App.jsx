@@ -4,6 +4,8 @@ import Dashboard from './pages/Dashboard'
 import Projects from './pages/projects/Projects'
 import Beneficiaries from './pages/Beneficiaries'
 import Contacts from './pages/Contacts'
+import Documents from './pages/documents/Documents'
+import Overview from './pages/overview/Overview'
 
 const Layout = () => (
   <>
@@ -18,8 +20,10 @@ const router = createBrowserRouter([
   {
     element: <Layout />,
     children: [
+      { path: '/overview', element: <Overview /> },
       { path: '/', element: <Dashboard /> },
       { path: '/projects', element: <Projects /> },
+      {path: '/documents', element: <Documents /> },
       { path: '/beneficiaries', element: <Beneficiaries /> },
       { path: '/contacts', element: <Contacts /> },
     ]

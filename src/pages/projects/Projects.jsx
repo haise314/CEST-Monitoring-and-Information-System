@@ -9,9 +9,9 @@ import {
 import { useState, useMemo } from 'react'
 import { useProjects } from '../../hooks/useProjects'
 import { ALL_COLUMNS, DEFAULT_VISIBLE, FILTERABLE_COLUMN_IDS } from './columns'
-import VisibilityPanel from './visibilityPanel'
 import FilterBar from './filterBar'
-import PaginationBar from './paginationBar'
+import VisibilityPanel from '../../components/common/VisibilityPanel'
+import PaginationBar from '../../components/common/PaginationBar'
 import AddModal from './addModal'
 import EditPanel from './editPanel'
 
