@@ -1,7 +1,9 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
+import { Link } from 'react-router'
 import { useFormData } from '../../hooks/useFormData'
 import { STATIC_OPTIONS } from './columns'
 import DocumentChecklist from './DocumentChecklist'
+import ProjectContacts from './ProjectContacts'
 
 const MIN_WIDTH = 420
 const MAX_WIDTH = 1100
@@ -307,9 +309,24 @@ export default function EditPanel({ project, onClose, onUpdate, onDelete }) {
                       .filter(Boolean).join(', ')}
                   </div>
                 </div>
+                {project.beneficiary_id && (
+                  <Link
+                    to={`/beneficiaries?edit=${project.beneficiary_id}`}
+                    className="text-xs text-blue-500 hover:text-blue-700 underline"
+                  >
+                    View / edit this beneficiary's info →
+                  </Link>
+                )}
                 <p className="text-xs text-gray-400">
-                  To change the beneficiary, use the Beneficiaries page.
+                  A project's beneficiary is fixed at creation and isn't reassigned here.
                 </p>
+              </Section>
+
+              {/* Contacts — linked from this beneficiary's existing contacts.
+                  Editing a contact's info elsewhere reflects here automatically,
+                  since this only stores a link (contact_id), never a copy. */}
+              <Section title="Contacts">
+                <ProjectContacts project={project} />
               </Section>
 
               <Section title="Status">

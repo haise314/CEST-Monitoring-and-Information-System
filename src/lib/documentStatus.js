@@ -30,9 +30,26 @@ export function statusRank(doc) {
 }
 
 export function isOverdue(doc) {
-  if (!doc || doc.is_not_applicable || !doc.expected_date || doc.submitted) return false
+  if (!doc || doc.is_not_applicable || !doc.expected_date) return false
+  // Anything already on file — hard copy, soft copy, or submitted — is no
+  // longer "overdue" even if the office hasn't ticked every box (e.g. a
+  // hard copy arrived on time but 'submitted' hasn't been marked yet).
+  if (doc.submitted || doc.has_hard_copy || doc.gdrive_link) return false
   const today = new Date(new Date().toDateString())
   return new Date(doc.expected_date) < today
+}
+
+export const UPCOMING_WINDOW_DAYS = 14
+
+// Due within `days` from today, not yet overdue, and not already complete.
+export function isUpcoming(doc, days = UPCOMING_WINDOW_DAYS) {
+  if (!doc || doc.is_not_applicable || !doc.expected_date) return false
+  if (doc.submitted || doc.has_hard_copy || doc.gdrive_link) return false
+  if (isOverdue(doc)) return false
+  const today = new Date(new Date().toDateString())
+  const expected = new Date(doc.expected_date)
+  const diffDays = (expected - today) / (1000 * 60 * 60 * 24)
+  return diffDays >= 0 && diffDays <= days
 }
 
 // ─── Filter conditions ────────────────────────────────────────────────────────
@@ -47,5 +64,6 @@ export const DOC_CONDITIONS = [
   { id: 'not_submitted', label: 'Not Submitted',     test: doc => Boolean(doc) && !doc.is_not_applicable && !doc.submitted },
   { id: 'submitted',     label: 'Submitted',         test: doc => Boolean(doc) && doc.submitted },
   { id: 'overdue',       label: 'Overdue',           test: doc => isOverdue(doc) },
+  { id: 'upcoming',      label: `Upcoming (next ${UPCOMING_WINDOW_DAYS} days)`, test: doc => isUpcoming(doc) },
   { id: 'na',            label: 'N/A',               test: doc => !doc || doc.is_not_applicable },
 ]

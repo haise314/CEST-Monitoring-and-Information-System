@@ -21,5 +21,26 @@ export function useFormData() {
     fetchAll()
   }, [])
 
-  return { projectTypes, beneficiaries, loading }
+  // Lets a form create a new project type on the fly (e.g. from the Add
+  // Project modal) instead of forcing the user to leave and come back.
+  // Returns the new row so the caller can immediately select it.
+  async function addProjectType(name) {
+    const trimmed = name.trim()
+    if (!trimmed) return { error: 'Name is required.', data: null }
+
+    const { data, error } = await supabase
+      .from('project_types')
+      .insert({ name: trimmed })
+      .select('id, name')
+      .single()
+
+    if (error) return { error: error.message, data: null }
+
+    setProjectTypes(prev =>
+      [...prev, data].sort((a, b) => a.name.localeCompare(b.name))
+    )
+    return { error: null, data }
+  }
+
+  return { projectTypes, beneficiaries, loading, addProjectType }
 }

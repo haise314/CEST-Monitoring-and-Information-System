@@ -15,12 +15,34 @@ const EMPTY_FORM = {
 }
 
 const inputClass = 'w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500'
+const NEW_TYPE_VALUE = '__new__'
 
 export default function AddModal({ onClose, onAdd }) {
-  const { projectTypes, beneficiaries, loading } = useFormData()
+  const { projectTypes, beneficiaries, loading, addProjectType } = useFormData()
   const [form, setForm]     = useState(EMPTY_FORM)
   const [saving, setSaving] = useState(false)
   const [error, setError]   = useState(null)
+
+  // Inline "add new project type" state — lives here rather than in
+  // useFormData since it's purely this form's UI, not shared data.
+  const [addingType, setAddingType]             = useState(false)
+  const [newTypeName, setNewTypeName]           = useState('')
+  const [addingTypeSaving, setAddingTypeSaving] = useState(false)
+  const [typeError, setTypeError]               = useState(null)
+
+  async function handleAddType() {
+    setAddingTypeSaving(true)
+    setTypeError(null)
+    const { data, error } = await addProjectType(newTypeName)
+    setAddingTypeSaving(false)
+    if (error) {
+      setTypeError(error)
+      return
+    }
+    handleChange('project_type_id', data.id)
+    setAddingType(false)
+    setNewTypeName('')
+  }
 
   function handleChange(key, value) {
     setForm(prev => ({ ...prev, [key]: value }))
@@ -83,16 +105,52 @@ export default function AddModal({ onClose, onAdd }) {
 
             <div>
               <label className="block text-sm text-gray-600 mb-1">Project Type</label>
-              <select
-                value={form.project_type_id}
-                onChange={e => handleChange('project_type_id', e.target.value)}
-                className={inputClass}
-              >
-                <option value="">Select project type...</option>
-                {projectTypes.map(t => (
-                  <option key={t.id} value={t.id}>{t.name}</option>
-                ))}
-              </select>
+              {addingType ? (
+                <div>
+                  <div className="flex gap-2">
+                    <input
+                      autoFocus
+                      type="text"
+                      value={newTypeName}
+                      onChange={e => setNewTypeName(e.target.value)}
+                      onKeyDown={e => e.key === 'Enter' && handleAddType()}
+                      placeholder="New project type name..."
+                      className={inputClass}
+                    />
+                    <button
+                      type="button"
+                      onClick={handleAddType}
+                      disabled={addingTypeSaving}
+                      className="px-3 rounded bg-blue-600 text-white text-sm font-medium hover:bg-blue-700 disabled:opacity-50 whitespace-nowrap"
+                    >
+                      {addingTypeSaving ? '...' : 'Add'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => { setAddingType(false); setNewTypeName(''); setTypeError(null) }}
+                      className="px-3 rounded border border-gray-300 text-sm hover:bg-gray-50"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                  {typeError && <p className="text-red-500 text-xs mt-1">{typeError}</p>}
+                </div>
+              ) : (
+                <select
+                  value={form.project_type_id}
+                  onChange={e => {
+                    if (e.target.value === NEW_TYPE_VALUE) setAddingType(true)
+                    else handleChange('project_type_id', e.target.value)
+                  }}
+                  className={inputClass}
+                >
+                  <option value="">Select project type...</option>
+                  {projectTypes.map(t => (
+                    <option key={t.id} value={t.id}>{t.name}</option>
+                  ))}
+                  <option value={NEW_TYPE_VALUE}>+ Add new project type...</option>
+                </select>
+              )}
             </div>
 
             <div>

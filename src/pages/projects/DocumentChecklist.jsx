@@ -1,6 +1,61 @@
 import { useState } from 'react'
 import { useDocuments } from '../../hooks/useDocuments'
 import { PHASE_ORDER, computeProgress, progressBarColor } from '../../lib/documentProgress'
+import { isOverdue } from '../../lib/documentStatus'
+
+// Format a 'YYYY-MM-DD' string as e.g. "Sep 15" without going through
+// Date/timezone conversion (which can shift the day depending on locale).
+function formatShortDate(dateStr) {
+  const [, m, d] = dateStr.split('-').map(Number)
+  const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
+  return `${months[m - 1]} ${d}`
+}
+
+// ─── Expected Date Cell ───────────────────────────────────────────────────────
+// Click to set/edit the expected date. Shows in red if overdue (per the same
+// isOverdue() logic DocBadge uses, so the two stay consistent).
+
+function ExpectedDateCell({ doc, onChange }) {
+  const [editing, setEditing] = useState(false)
+  const [input, setInput]     = useState(doc.expected_date ?? '')
+  const overdue = isOverdue(doc)
+
+  function handleBlur() {
+    setEditing(false)
+    const next = input || null
+    if (next !== (doc.expected_date ?? null)) onChange(next)
+  }
+
+  if (editing) {
+    return (
+      <input
+        autoFocus
+        type="date"
+        value={input}
+        onChange={e => setInput(e.target.value)}
+        onBlur={handleBlur}
+        className="border border-blue-400 rounded px-1.5 py-0.5 text-xs w-32 focus:outline-none"
+      />
+    )
+  }
+
+  return doc.expected_date ? (
+    <button
+      onClick={() => { setInput(doc.expected_date); setEditing(true) }}
+      title={overdue ? 'Overdue — click to change' : 'Expected date — click to change'}
+      className={`text-xs whitespace-nowrap ${overdue ? 'text-red-500 font-medium' : 'text-gray-400 hover:text-gray-600'}`}
+    >
+      {overdue ? '⚠ ' : ''}{formatShortDate(doc.expected_date)}
+    </button>
+  ) : (
+    <button
+      onClick={() => setEditing(true)}
+      className="text-gray-300 text-xs hover:text-blue-500 whitespace-nowrap"
+    >
+      + due date
+    </button>
+  )
+}
 
 // ─── Link Cell ────────────────────────────────────────────────────────────────
 // Click to add/edit a GDrive link. Shows "Open" button if link exists.
@@ -100,6 +155,14 @@ function DocumentRow({ doc, onUpdate }) {
 
         {!isNA && (
           <>
+            {/* Expected date */}
+            <div className="flex-shrink-0">
+              <ExpectedDateCell
+                doc={doc}
+                onChange={val => handleCheck('expected_date', val)}
+              />
+            </div>
+
             {/* GDrive link */}
             <div className="flex-shrink-0">
               <LinkCell
