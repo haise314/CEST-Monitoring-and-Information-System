@@ -278,7 +278,14 @@ function PhaseSection({ phase, phaseProgress, onUpdate }) {
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 
-export default function DocumentChecklist({ project }) {
+// onChanged: optional. Called after any successful document mutation
+// (generate or update). DocumentChecklist keeps its own useDocuments(project.id)
+// state in sync on its own — this callback exists purely so a *different*
+// hook instance holding the same underlying rows elsewhere (e.g. Documents.jsx's
+// useAllDocuments(), which is a separate cache) can be told to refetch. Without
+// this, editing a document here leaves that other page's badges/status stale
+// until a manual page refresh.
+export default function DocumentChecklist({ project, onChanged }) {
   const { documents, loading, error, generateDocuments, updateDocument } = useDocuments(project.id)
   const [generating, setGenerating]     = useState(false)
   const [generateError, setGenerateError] = useState(null)
@@ -293,6 +300,16 @@ export default function DocumentChecklist({ project }) {
     const { error } = await generateDocuments(project.project_category)
     setGenerating(false)
     if (error) setGenerateError(error)
+    else onChanged?.()
+  }
+
+  // Wrap updateDocument so every field edit (date, link, checkboxes, notes,
+  // N/A toggle) also notifies the parent — pass this to PhaseSection/DocumentRow
+  // instead of the raw hook function.
+  async function handleUpdate(id, updates) {
+    const result = await updateDocument(id, updates)
+    if (!result.error) onChanged?.()
+    return result
   }
 
   const { byPhase, overallPct, totalApplicable, totalComplete } = computeProgress(documents)
@@ -364,7 +381,7 @@ export default function DocumentChecklist({ project }) {
             key={phase}
             phase={phase}
             phaseProgress={phaseProgress}
-            onUpdate={updateDocument}
+            onUpdate={handleUpdate}
           />
         )
       })}

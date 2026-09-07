@@ -6,6 +6,7 @@ import Beneficiaries from './pages/beneficiaries/Beneficiaries'
 import Contacts from './pages/contacts/Contacts'
 import Documents from './pages/documents/Documents'
 import Overview from './pages/overview/Overview'
+import MapPage from './pages/map/Map'
 
 const Layout = () => (
   <>
@@ -26,6 +27,7 @@ const router = createBrowserRouter([
       { path: '/documents', element: <Documents /> },
       { path: '/beneficiaries', element: <Beneficiaries /> },
       { path: '/contacts', element: <Contacts /> },
+      { path: '/map', element: <MapPage /> }
     ]
   }
 ])

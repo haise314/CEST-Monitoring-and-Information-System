@@ -80,7 +80,7 @@ function Field({ label, children }) {
 const inputClass  = 'w-full border border-gray-300 rounded px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500'
 const selectClass = 'w-full border border-gray-300 rounded px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500'
 
-export default function EditPanel({ project, onClose, onUpdate, onDelete }) {
+export default function EditPanel({ project, onClose, onUpdate, onDelete, onDocumentsChanged }) {
   const { projectTypes, loading } = useFormData()
   const [form, setForm]                   = useState({})
   const [saving, setSaving]               = useState(false)
@@ -404,7 +404,7 @@ export default function EditPanel({ project, onClose, onUpdate, onDelete }) {
                     Save a Project Category first to generate the document checklist.
                   </p>
                 ) : (
-                  <DocumentChecklist project={savedProject} />
+                  <DocumentChecklist project={savedProject} onChanged={onDocumentsChanged} />
                 )}
               </Section>
 

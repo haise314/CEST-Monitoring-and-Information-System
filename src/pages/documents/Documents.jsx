@@ -54,7 +54,7 @@ function Badge({ value, colorMap }) {
 
 export default function Documents() {
   const { projects, loading: projectsLoading, updateProject, deleteProject } = useProjects()
-  const { documents, loading: docsLoading }                                  = useAllDocuments()
+  const { documents, loading: docsLoading, refetch: refetchDocuments }     = useAllDocuments()
   const { documentTypes, loading: typesLoading }                             = useDocumentTypes()
 
   const [globalFilter, setGlobalFilter]         = useState('')
@@ -373,6 +373,7 @@ export default function Documents() {
           onClose={() => setSelectedProjectId(null)}
           onUpdate={updateProject}
           onDelete={deleteProject}
+          onDocumentsChanged={refetchDocuments}
         />
       )}
     </div>
