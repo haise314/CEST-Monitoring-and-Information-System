@@ -3,6 +3,11 @@ import { MapContainer, TileLayer, Marker, Popup, useMapEvents } from 'react-leaf
 import 'leaflet/dist/leaflet.css'
 import '../../lib/Leafleticon'
 import { useBeneficiaryLocations } from '../../hooks/useBeneficiaryLocations'
+import { useProjects } from '../../hooks/useProjects'
+import { useAllDocuments } from '../../hooks/useAllDocuments'
+import { PHASE_ORDER } from '../../lib/documentProgress'
+import { DOC_CONDITIONS } from '../../lib/documentStatus'
+import MapFilterBar, { emptyMapFilters, emptyDocFilter } from './filterBar'
 
 // Rough center of Zambales province — used as the map's starting view.
 // Individual pins (once placed) are what actually matter; this is just
@@ -66,13 +71,94 @@ function BeneficiaryQueueItem({ b, isPinning, onStartPinning, onCancelPinning })
 }
 
 export default function MapPage() {
-  const { beneficiaries, loading, error, setLocation, clearLocation } = useBeneficiaryLocations()
+  const { beneficiaries: locations, loading: locLoading, error: locError, setLocation, clearLocation } = useBeneficiaryLocations()
+  const { projects, loading: projLoading }   = useProjects()
+  const { documents, loading: docLoading }   = useAllDocuments()
+
   const [pinningId, setPinningId]         = useState(null)
   const [search, setSearch]               = useState('')
   const [saveError, setSaveError]         = useState(null)
+  const [filters, setFilters]             = useState(emptyMapFilters())
+  const [docFilter, setDocFilter]         = useState(emptyDocFilter())
 
-  const pinned   = useMemo(() => beneficiaries.filter(b => b.latitude != null && b.longitude != null), [beneficiaries])
-  const unpinned = useMemo(() => beneficiaries.filter(b => b.latitude == null || b.longitude == null), [beneficiaries])
+  const loading = locLoading || projLoading || docLoading
+
+  // Merge beneficiaries with their projects and documents, in-memory, by
+  // beneficiary_id — deliberately not a new hook (see useBeneficiaryLocations'
+  // header comment: this keeps that hook independent of what useProjects/
+  // useAllDocuments select, at the cost of this one extra pass here).
+  const merged = useMemo(() => {
+    const projectsByBeneficiary = {}
+    const beneficiaryIdByProjectId = {}
+    for (const p of projects) {
+      const bId = p.beneficiary_id
+      if (!projectsByBeneficiary[bId]) projectsByBeneficiary[bId] = []
+      projectsByBeneficiary[bId].push(p)
+      beneficiaryIdByProjectId[p.id] = bId
+    }
+
+    const documentsByBeneficiary = {}
+    for (const d of documents) {
+      const projectId = d.project_instances?.id
+      const bId = beneficiaryIdByProjectId[projectId]
+      if (bId == null) continue
+      if (!documentsByBeneficiary[bId]) documentsByBeneficiary[bId] = []
+      documentsByBeneficiary[bId].push(d)
+    }
+
+    return locations.map(b => ({
+      ...b,
+      projects: projectsByBeneficiary[b.id] ?? [],
+      documents: documentsByBeneficiary[b.id] ?? [],
+    }))
+  }, [locations, projects, documents])
+
+  // Document types for the filter dropdown, grouped by phase — pulled from
+  // the documents already fetched rather than a separate document_types
+  // fetch, same "merge what we have" approach as above.
+  const documentTypesByPhase = useMemo(() => {
+    const map = {}
+    const seen = new Set()
+    for (const d of documents) {
+      const t = d.document_types
+      if (!t || !t.phase || seen.has(t.id)) continue
+      seen.add(t.id)
+      if (!map[t.phase]) map[t.phase] = []
+      map[t.phase].push(t)
+    }
+    Object.values(map).forEach(list => list.sort((a, b) => a.name.localeCompare(b.name)))
+    const ordered = {}
+    for (const phase of PHASE_ORDER) {
+      if (map[phase]) ordered[phase] = map[phase]
+    }
+    return ordered
+  }, [documents])
+
+  const filteredBeneficiaries = useMemo(() => {
+    const condition = docFilter.conditionId
+      ? DOC_CONDITIONS.find(c => c.id === docFilter.conditionId)
+      : null
+
+    return merged.filter(b => {
+      if (filters.municipality && b.municipality !== filters.municipality) return false
+      if (filters.barangay && b.barangay !== filters.barangay) return false
+      if (filters.project_category && !b.projects.some(p => p.project_category === filters.project_category)) return false
+      if (filters.overall_status && !b.projects.some(p => p.overall_status === filters.overall_status)) return false
+
+      if (docFilter.documentTypeId && condition) {
+        const matchingDocs = b.documents.filter(d => String(d.document_type_id) === String(docFilter.documentTypeId))
+        const matches = matchingDocs.length === 0
+          ? condition.test(undefined)
+          : matchingDocs.some(d => condition.test(d))
+        if (!matches) return false
+      }
+
+      return true
+    })
+  }, [merged, filters, docFilter])
+
+  const pinned   = useMemo(() => filteredBeneficiaries.filter(b => b.latitude != null && b.longitude != null), [filteredBeneficiaries])
+  const unpinned = useMemo(() => filteredBeneficiaries.filter(b => b.latitude == null || b.longitude == null), [filteredBeneficiaries])
 
   const filteredUnpinned = useMemo(() => {
     const q = search.trim().toLowerCase()
@@ -95,10 +181,10 @@ export default function MapPage() {
     if (error) setSaveError(error)
   }
 
-  const pinningBeneficiary = beneficiaries.find(b => b.id === pinningId)
+  const pinningBeneficiary = merged.find(b => b.id === pinningId)
 
-  if (loading) return <div className="p-6 text-gray-500">Loading map...</div>
-  if (error)   return <div className="p-6 text-red-500">Error: {error}</div>
+  if (loading)  return <div className="p-6 text-gray-500">Loading map...</div>
+  if (locError) return <div className="p-6 text-red-500">Error: {locError}</div>
 
   return (
     <div>
@@ -106,10 +192,19 @@ export default function MapPage() {
         <h1 className="text-xl font-bold text-gray-800">
           Map
           <span className="ml-2 text-sm font-normal text-gray-400">
-            {pinned.length} pinned · {unpinned.length} unpinned
+            {filteredBeneficiaries.length} of {merged.length} beneficiaries · {pinned.length} pinned · {unpinned.length} unpinned
           </span>
         </h1>
       </div>
+
+      <MapFilterBar
+        beneficiaries={merged}
+        filters={filters}
+        setFilters={setFilters}
+        docFilter={docFilter}
+        setDocFilter={setDocFilter}
+        documentTypesByPhase={documentTypesByPhase}
+      />
 
       {pinningBeneficiary && (
         <div className="mb-3 bg-blue-50 border border-blue-200 rounded px-3 py-2 text-sm text-blue-800 flex items-center justify-between">
