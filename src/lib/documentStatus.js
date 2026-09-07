@@ -29,12 +29,22 @@ export function statusRank(doc) {
   return RANK_ORDER.indexOf(getDocStatus(doc))
 }
 
+// A document is no longer actionable (not overdue, not upcoming) if any of
+// these are true: submitted, hard copy on file, soft copy on file, or the
+// file exists at the beneficiary and is claimable. Claimable = file exists,
+// just not yet physically at this office — counts as accomplished.
+function isAccomplished(doc) {
+  return Boolean(
+    doc.submitted ||
+    doc.has_hard_copy ||
+    doc.gdrive_link ||
+    doc.hard_copy_claimable
+  )
+}
+
 export function isOverdue(doc) {
   if (!doc || doc.is_not_applicable || !doc.expected_date) return false
-  // Anything already on file — hard copy, soft copy, or submitted — is no
-  // longer "overdue" even if the office hasn't ticked every box (e.g. a
-  // hard copy arrived on time but 'submitted' hasn't been marked yet).
-  if (doc.submitted || doc.has_hard_copy || doc.gdrive_link) return false
+  if (isAccomplished(doc)) return false
   const today = new Date(new Date().toDateString())
   return new Date(doc.expected_date) < today
 }
@@ -44,7 +54,7 @@ export const UPCOMING_WINDOW_DAYS = 14
 // Due within `days` from today, not yet overdue, and not already complete.
 export function isUpcoming(doc, days = UPCOMING_WINDOW_DAYS) {
   if (!doc || doc.is_not_applicable || !doc.expected_date) return false
-  if (doc.submitted || doc.has_hard_copy || doc.gdrive_link) return false
+  if (isAccomplished(doc)) return false
   if (isOverdue(doc)) return false
   const today = new Date(new Date().toDateString())
   const expected = new Date(doc.expected_date)

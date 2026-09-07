@@ -6,7 +6,8 @@ import {
   getPaginationRowModel,
   flexRender,
 } from '@tanstack/react-table'
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
+import { useSearchParams } from 'react-router'
 import { useProjects } from '../../hooks/useProjects'
 import { ALL_COLUMNS, DEFAULT_VISIBLE, FILTERABLE_COLUMN_IDS } from './columns'
 import FilterBar from './filterBar'
@@ -29,10 +30,23 @@ function Projects() {
   // UI state
   const [showVisibilityPanel, setShowVisibilityPanel] = useState(false)
   const [showAddModal, setShowAddModal]               = useState(false)
-  // const [selectedProject, setSelectedProject]         = useState(null)
 
   const [selectedProjectId, setSelectedProjectId] = useState(null)
   const selectedProject = projects.find(p => p.id === selectedProjectId) ?? null
+
+  // Deep-link support: /projects?edit={id} (e.g. from Dashboard) auto-opens
+  // that project's edit panel on load, then clears the param — same pattern
+  // as Beneficiaries.jsx. Runs once projects have loaded so the id can
+  // actually be found.
+  const [searchParams, setSearchParams] = useSearchParams()
+
+  useEffect(() => {
+    const editId = searchParams.get('edit')
+    if (!editId || loading) return
+    const found = projects.find(p => p.id === Number(editId))
+    if (found) setSelectedProjectId(found.id)
+    setSearchParams({}, { replace: true })
+  }, [searchParams, projects, loading, setSearchParams])
 
   // Apply dropdown filters before passing to TanStack
   const filtered = useMemo(() =>

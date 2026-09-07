@@ -1,16 +1,21 @@
 export const PHASE_ORDER = ['Pre-Implementation', 'Semi-Annual', 'Annual', 'Transfer']
 
-// A document counts as "complete" if it has a soft copy (gdrive_link)
-// or a hard copy on file. N/A documents are excluded from both the
-// numerator and denominator. Kept here so DocumentChecklist and the
-// Overview page can't drift on what "complete" means.
+// A document counts as "complete" if anything meaningful is on file:
+// soft copy, hard copy, hard copy claimable (file exists at beneficiary),
+// or submitted. N/A documents are excluded from both numerator and denominator.
+// Matches the isAccomplished() logic in documentStatus.js — keep in sync.
 function isComplete(doc) {
-  return Boolean(doc.gdrive_link || doc.has_hard_copy)
+  return Boolean(
+    doc.gdrive_link ||
+    doc.has_hard_copy ||
+    doc.hard_copy_claimable ||
+    doc.submitted
+  )
 }
 
 // documents: flat array of document rows, each with a joined
 // document_types (needs at least { phase }), is_not_applicable,
-// gdrive_link, has_hard_copy.
+// gdrive_link, has_hard_copy, hard_copy_claimable, submitted.
 export function computeProgress(documents = []) {
   const byPhase = PHASE_ORDER.reduce((acc, phase) => {
     const docs = documents.filter(d => d.document_types?.phase === phase)
