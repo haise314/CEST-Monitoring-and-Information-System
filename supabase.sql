@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict S5y9heci93vnsVQH8R5KOzZsoT8ZPlXt8wsq7gQ5bqa6iCfL8Epyabdtlk68knv
+\restrict EOsJ2hSqCwlMecyg7ah6p2SomovZAYDvjbn82UkNOblE7ZDZvyFIQCxZvMfQ9E4
 
 -- Dumped from database version 17.6
 -- Dumped by pg_dump version 17.11 (Ubuntu 17.11-1.pgdg24.04+2)
@@ -3314,7 +3314,9 @@ CREATE TABLE public.beneficiaries (
     category public.beneficiary_category NOT NULL,
     district character varying(100),
     municipality character varying(100),
-    barangay character varying(100)
+    barangay character varying(100),
+    latitude numeric(9,6),
+    longitude numeric(9,6)
 );
 
 
@@ -3445,6 +3447,105 @@ CREATE SEQUENCE public.documents_id_seq
 --
 
 ALTER SEQUENCE public.documents_id_seq OWNED BY public.documents.id;
+
+
+--
+-- Name: itineraries; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.itineraries (
+    id integer NOT NULL,
+    name character varying(255) NOT NULL,
+    visit_date date,
+    notes text,
+    created_at timestamp with time zone DEFAULT now() NOT NULL
+);
+
+
+--
+-- Name: itineraries_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.itineraries_id_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: itineraries_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.itineraries_id_seq OWNED BY public.itineraries.id;
+
+
+--
+-- Name: itinerary_stops; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.itinerary_stops (
+    id integer NOT NULL,
+    itinerary_id integer NOT NULL,
+    beneficiary_id integer NOT NULL,
+    stop_order integer NOT NULL,
+    notes text,
+    created_at timestamp with time zone DEFAULT now() NOT NULL
+);
+
+
+--
+-- Name: itinerary_stops_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.itinerary_stops_id_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: itinerary_stops_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.itinerary_stops_id_seq OWNED BY public.itinerary_stops.id;
+
+
+--
+-- Name: project_contacts; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.project_contacts (
+    id integer NOT NULL,
+    project_id integer NOT NULL,
+    contact_id integer NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL
+);
+
+
+--
+-- Name: project_contacts_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.project_contacts_id_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: project_contacts_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.project_contacts_id_seq OWNED BY public.project_contacts.id;
 
 
 --
@@ -3812,6 +3913,27 @@ ALTER TABLE ONLY public.documents ALTER COLUMN id SET DEFAULT nextval('public.do
 
 
 --
+-- Name: itineraries id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.itineraries ALTER COLUMN id SET DEFAULT nextval('public.itineraries_id_seq'::regclass);
+
+
+--
+-- Name: itinerary_stops id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.itinerary_stops ALTER COLUMN id SET DEFAULT nextval('public.itinerary_stops_id_seq'::regclass);
+
+
+--
+-- Name: project_contacts id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.project_contacts ALTER COLUMN id SET DEFAULT nextval('public.project_contacts_id_seq'::regclass);
+
+
+--
 -- Name: project_instances id; Type: DEFAULT; Schema: public; Owner: -
 --
 
@@ -4097,19 +4219,19 @@ COPY auth.webauthn_credentials (id, user_id, credential_id, public_key, attestat
 -- Data for Name: beneficiaries; Type: TABLE DATA; Schema: public; Owner: -
 --
 
-COPY public.beneficiaries (id, name, category, district, municipality, barangay) FROM stdin;
-1	LGU Iba	LGU	1st District	Iba	Poblacion
-2	ZNHS	LGU	\N	\N	\N
-13	Brgy. Amungan Farmers Assoc.	LGU	2nd District	Iba	Amungan
-14	Masinloc Fisherfolk Coop	Cooperative	2nd District	Masinloc	Baloganon
-15	Candelaria MNHS	Academe	2nd District	Candelaria	Babancal
-16	San Narciso LGU	LGU	1st District	San Narciso	Alusiis
-17	Subic Bay Livelihood Assoc.	NGO	1st District	Subic	Aningway Sacatihan
-18	Castillejos Womens Group	Cooperative	1st District	Castillejos	Balaybay
-19	Botolan Agrarian Reform Coop	Cooperative	2nd District	Botolan	Bancal
-20	Santa Cruz SDO	SDO	2nd District	Santa Cruz	Babuyan
-21	Palauig Fisherfolk Assoc.	LGU	2nd District	Palauig	Alwa
-22	San Antonio Youth Org	NGO	1st District	San Antonio	Angeles
+COPY public.beneficiaries (id, name, category, district, municipality, barangay, latitude, longitude) FROM stdin;
+2	ZNHS	LGU	\N	\N	\N	\N	\N
+19	Botolan Agrarian Reform Coop	Cooperative	2nd District	Botolan	Bancal	\N	\N
+18	Castillejos Womens Group	Cooperative	1st District	Castillejos	Balaybay	\N	\N
+1	LGU Iba	LGU	1st District	Iba	Poblacion	15.313053	119.995047
+13	Brgy. Amungan Farmers Assoc.	LGU	2nd District	Iba	Amungan	\N	\N
+14	Masinloc Fisherfolk Coop	Cooperative	2nd District	Masinloc	Baloganon	\N	\N
+15	Candelaria MNHS	Academe	2nd District	Candelaria	Babancal	\N	\N
+16	San Narciso LGU	LGU	1st District	San Narciso	Alusiis	\N	\N
+17	Subic Bay Livelihood Assoc.	NGO	1st District	Subic	Aningway Sacatihan	\N	\N
+20	Santa Cruz SDO	SDO	2nd District	Santa Cruz	Babuyan	\N	\N
+21	Palauig Fisherfolk Assoc.	LGU	2nd District	Palauig	Alwa	\N	\N
+22	San Antonio Youth Org	NGO	1st District	San Antonio	Angeles	\N	\N
 \.
 
 
@@ -4118,6 +4240,8 @@ COPY public.beneficiaries (id, name, category, district, municipality, barangay)
 --
 
 COPY public.beneficiary_contacts (id, beneficiary_id, name, role, contact_number, messenger_link) FROM stdin;
+1	13	Mr. Amungan	PMC	090909090909	alsdfjsdfsdfj.google.com
+2	13	Mrs. Amungan	Support	09120391231	lsdjfsdldfs.yahoo.com
 \.
 
 
@@ -4196,7 +4320,15 @@ COPY public.documents (id, project_id, document_type_id, custom_label, expected_
 25	1	52	\N	\N	f	\N	\N	f	f	\N	f
 26	1	53	\N	\N	f	\N	\N	f	f	\N	f
 27	1	54	\N	\N	f	\N	\N	f	f	\N	f
+78	10	44	\N	\N	f	\N	\N	t	f	\N	f
+86	10	60	\N	\N	f	\N	\N	t	f	\N	f
+87	17	18	\N	\N	f	\N	\N	f	f	\N	f
+88	17	19	\N	\N	f	\N	\N	f	f	\N	f
+89	17	20	\N	\N	f	\N	\N	f	f	\N	f
+90	17	21	\N	\N	f	\N	\N	f	f	\N	f
+91	17	22	\N	\N	f	\N	\N	f	f	\N	f
 23	1	50	\N	\N	f	\N	\N	f	f	\N	f
+92	17	23	\N	\N	f	\N	\N	f	f	\N	t
 17	1	44	\N	\N	f	\N	\N	f	f	\N	f
 30	16	20	\N	\N	f	\N	\N	f	f	\N	f
 31	16	21	\N	\N	f	\N	\N	f	f	\N	f
@@ -4220,17 +4352,94 @@ COPY public.documents (id, project_id, document_type_id, custom_label, expected_
 50	16	50	\N	\N	f	\N	\N	f	f	\N	f
 51	16	51	\N	\N	f	\N	\N	f	f	\N	f
 52	16	52	\N	\N	f	\N	\N	f	f	\N	f
-53	16	53	\N	\N	f	\N	\N	f	f	\N	f
 54	16	54	\N	\N	f	\N	\N	f	f	\N	f
+93	17	24	\N	\N	f	\N	\N	f	f	\N	f
+94	17	25	\N	\N	f	\N	\N	f	f	\N	f
+95	17	26	\N	\N	f	\N	\N	f	f	\N	f
+96	17	27	\N	\N	f	\N	\N	f	f	\N	t
 32	16	22	\N	\N	f	\N	\N	f	f	\N	f
+97	17	28	\N	\N	f	\N	\N	f	f	\N	t
+98	17	31	\N	\N	f	\N	\N	f	f	\N	f
 29	16	19	\N	\N	f	\N	notes	f	f	\N	f
+99	17	32	\N	\N	f	\N	\N	f	f	\N	t
+100	17	33	\N	\N	f	\N	\N	f	f	\N	f
+101	17	36	\N	\N	f	\N	\N	f	f	\N	f
 28	16	18	\N	\N	t	\N	added notes	t	t	\N	f
+102	17	37	\N	\N	f	\N	\N	f	f	\N	t
+103	17	44	\N	\N	f	\N	\N	f	f	\N	f
+104	17	45	\N	\N	f	\N	\N	f	f	\N	f
+105	17	46	\N	\N	f	\N	\N	f	f	\N	f
+106	17	47	\N	\N	f	\N	\N	f	f	\N	f
+107	17	48	\N	\N	f	\N	\N	f	f	\N	f
+108	17	49	\N	\N	f	\N	\N	f	f	\N	f
+109	17	50	\N	\N	f	\N	\N	f	f	\N	f
+110	17	51	\N	\N	f	\N	\N	f	f	\N	f
+111	17	52	\N	\N	f	\N	\N	f	f	\N	f
+112	17	53	\N	\N	f	\N	\N	f	f	\N	f
+113	17	54	\N	\N	f	\N	\N	f	f	\N	f
 15	1	36	\N	\N	f	\N	\N	f	t	\N	f
 1	1	18	\N	\N	t	\N	xd	t	t	https://github.com/haise314?tab=overview&from=2026-09-01&to=2026-09-02	f
 2	1	19	\N	\N	t	\N	\N	t	t	\N	f
 3	1	20	\N	\N	t	\N	\N	t	t	\N	f
 4	1	21	\N	\N	t	\N	\N	t	t	\N	f
 5	1	22	\N	\N	t	\N	\N	t	t	\N	f
+53	16	53	\N	\N	f	\N	\N	f	f	\N	t
+55	10	18	\N	\N	f	\N	\N	f	f	\N	f
+56	10	19	\N	\N	f	\N	\N	f	f	\N	f
+57	10	20	\N	\N	f	\N	\N	f	f	\N	f
+58	10	21	\N	\N	f	\N	\N	f	f	\N	f
+59	10	22	\N	\N	f	\N	\N	f	f	\N	f
+60	10	23	\N	\N	f	\N	\N	f	f	\N	t
+61	10	24	\N	\N	f	\N	\N	f	f	\N	f
+62	10	25	\N	\N	f	\N	\N	f	f	\N	f
+63	10	26	\N	\N	f	\N	\N	f	f	\N	f
+64	10	29	\N	\N	f	\N	\N	f	f	\N	f
+65	10	30	\N	\N	f	\N	\N	f	f	\N	f
+66	10	31	\N	\N	f	\N	\N	f	f	\N	f
+67	10	32	\N	\N	f	\N	\N	f	f	\N	t
+68	10	34	\N	\N	f	\N	\N	f	f	\N	f
+69	10	35	\N	\N	f	\N	\N	f	f	\N	f
+70	10	36	\N	\N	f	\N	\N	f	f	\N	f
+71	10	37	\N	\N	f	\N	\N	f	f	\N	t
+72	10	38	\N	\N	f	\N	\N	f	f	\N	f
+73	10	39	\N	\N	f	\N	\N	f	f	\N	f
+74	10	40	\N	\N	f	\N	\N	f	f	\N	f
+75	10	41	\N	\N	f	\N	\N	f	f	\N	f
+76	10	42	\N	\N	f	\N	\N	f	f	\N	f
+77	10	43	\N	\N	f	\N	\N	f	f	\N	f
+79	10	45	\N	\N	f	\N	\N	f	f	\N	f
+80	10	46	\N	\N	f	\N	\N	f	f	\N	f
+81	10	55	\N	\N	f	\N	\N	f	f	\N	f
+82	10	56	\N	\N	f	\N	\N	f	f	\N	f
+83	10	57	\N	\N	f	\N	\N	f	f	\N	f
+84	10	58	\N	\N	f	\N	\N	f	f	\N	f
+85	10	59	\N	\N	f	\N	\N	f	f	\N	f
+\.
+
+
+--
+-- Data for Name: itineraries; Type: TABLE DATA; Schema: public; Owner: -
+--
+
+COPY public.itineraries (id, name, visit_date, notes, created_at) FROM stdin;
+\.
+
+
+--
+-- Data for Name: itinerary_stops; Type: TABLE DATA; Schema: public; Owner: -
+--
+
+COPY public.itinerary_stops (id, itinerary_id, beneficiary_id, stop_order, notes, created_at) FROM stdin;
+\.
+
+
+--
+-- Data for Name: project_contacts; Type: TABLE DATA; Schema: public; Owner: -
+--
+
+COPY public.project_contacts (id, project_id, contact_id, created_at) FROM stdin;
+1	4	1	2026-09-07 01:59:01.855186+00
+2	4	2	2026-09-07 01:59:44.59202+00
 \.
 
 
@@ -4241,14 +4450,15 @@ COPY public.documents (id, project_id, document_type_id, custom_label, expected_
 COPY public.project_instances (id, year, project_type_id, beneficiary_id, property_number, amount, date_deployed, entry_point, intervention, members_male, members_female, senior_citizen, pwds, fourps, ips, operational_status, interventions_count, people_trained, impact_notes, overall_status, gdrive_folder_link, created_at, updated_at, project_category) FROM stdin;
 4	2024	1	13	PAR-2024-001	285000.00	\N	LGU	\N	0	0	0	0	0	0	Operational	3	24	\N	For Monitoring	\N	2026-08-03 06:51:37.317824+00	2026-08-03 06:51:37.317824+00	\N
 8	2023	1	17	PAR-2023-002	195000.00	\N	NGO	\N	0	0	0	0	0	0	Operational	4	20	\N	For Transfer	\N	2026-08-03 06:51:37.317824+00	2026-08-03 06:51:37.317824+00	\N
-13	2022	1	22	PAR-2022-003	290000.00	\N	NGO	\N	0	0	0	0	0	0	Operational	5	32	\N	Done	\N	2026-08-03 06:51:37.317824+00	2026-08-03 06:51:37.317824+00	\N
 5	2024	1	14	PAR-2024-002	320000.00	\N	Cooperative	\N	0	0	0	0	0	0	Operational	2	18	\N	For Monitoring	\N	2026-08-03 06:51:37.317824+00	2026-08-03 06:51:37.317824+00	Fund Transfer
 6	2024	1	15	PAR-2024-003	150000.00	\N	SDO	\N	0	0	0	0	0	0	\N	0	0	\N	For Deployment	\N	2026-08-03 06:51:37.317824+00	2026-08-03 06:51:37.317824+00	Fund Transfer
 7	2023	1	16	PAR-2023-001	420000.00	\N	LGU	\N	0	0	0	0	0	0	Operational	6	35	\N	Done	\N	2026-08-03 06:51:37.317824+00	2026-08-03 06:51:37.317824+00	\N
 16	2026	4	16	13123123123123	9000.00	2026-09-24	sdfsdfsdf	This is an intervention	0	0	0	0	0	0	\N	3	0	\N	For Implementation	\N	2026-09-02 06:15:10.562287+00	2026-09-02 06:15:10.562287+00	In-house
-1	2026	1	1	PTC-IBA-2026-001	150000.00	\N	And made a weapon	Intervention Details 1 edited	0	0	0	0	0	0	\N	0	0	\N	For Deployment	http://localhost:5173/projects	2026-05-28 08:52:33.360746+00	2026-05-28 08:52:33.360746+00	In-house
+13	2022	1	22	PAR-2022-003	290000.00	\N	NGO	\N	0	0	0	0	0	0	Operational	5	32	\N	Done	\N	2026-08-03 06:51:37.317824+00	2026-08-03 06:51:37.317824+00	\N
 10	2023	1	19	PAR-2023-004	380000.00	\N	Cooperative	\N	0	0	0	0	0	0	For Repair & Maintenance	2	15	\N	For Monitoring	\N	2026-08-03 06:51:37.317824+00	2026-08-03 06:51:37.317824+00	Fund Transfer
 9	2023	1	18	PAR-2023-003	260000.00	\N	LGU	final check, let's see	0	0	0	0	0	0	Operational	4	28	Accomplishment	Done	\N	2026-08-03 06:51:37.317824+00	2026-08-03 06:51:37.317824+00	\N
+1	2026	4	1	PTC-IBA-2026-001	150000.00	\N	And made a weapon	Intervention Details 1 edited	0	0	0	0	0	0	\N	0	0	\N	For Deployment	http://localhost:5173/projects	2026-05-28 08:52:33.360746+00	2026-05-28 08:52:33.360746+00	In-house
+17	2026	6	13	\N	\N	\N	\N	\N	0	0	0	0	0	0	\N	0	0	\N	For Deployment	\N	2026-09-07 02:41:23.555908+00	2026-09-07 02:41:23.555908+00	In-house
 \.
 
 
@@ -4261,6 +4471,7 @@ COPY public.project_types (id, name) FROM stdin;
 2	Water Pump
 3	Solar Dryer
 4	Vermi Composting
+6	Unxdd
 \.
 
 
@@ -4464,6 +4675,9 @@ COPY storage.migrations (id, name, hash, executed_at) FROM stdin;
 62	object-versioning-core	0b855f00ff3be0bfca91efee02a9858912491a9a	2026-08-24 08:15:31.459674
 63	fix-search-name-relative-to-prefix	c7485e417624f795ce8bb2da21927f48e088904d	2026-08-24 08:16:09.787076
 64	fix-search-by-timestamp-sqli	0af424ecd388a39bb1645184b222185a12149675	2026-08-24 08:16:09.81332
+65	objects-key-version-index	603c1c55658e982d35839001e2c2b59a50703904	2026-09-08 01:09:16.764829
+66	objects-current-version-index	191466c93aa2c46a00e36505577c5fcab8d7cb4b	2026-09-08 01:09:16.77358
+67	objects-null-version-index	15bfe8c35b66642b6c78ba60060fa8793bd2207a	2026-09-08 01:09:16.784468
 \.
 
 
@@ -4518,14 +4732,14 @@ SELECT pg_catalog.setval('auth.refresh_tokens_id_seq', 1, false);
 -- Name: beneficiaries_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
 --
 
-SELECT pg_catalog.setval('public.beneficiaries_id_seq', 22, true);
+SELECT pg_catalog.setval('public.beneficiaries_id_seq', 463, true);
 
 
 --
 -- Name: beneficiary_contacts_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
 --
 
-SELECT pg_catalog.setval('public.beneficiary_contacts_id_seq', 1, false);
+SELECT pg_catalog.setval('public.beneficiary_contacts_id_seq', 452, true);
 
 
 --
@@ -4539,21 +4753,42 @@ SELECT pg_catalog.setval('public.document_types_id_seq', 60, true);
 -- Name: documents_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
 --
 
-SELECT pg_catalog.setval('public.documents_id_seq', 54, true);
+SELECT pg_catalog.setval('public.documents_id_seq', 113, true);
+
+
+--
+-- Name: itineraries_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
+--
+
+SELECT pg_catalog.setval('public.itineraries_id_seq', 1, false);
+
+
+--
+-- Name: itinerary_stops_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
+--
+
+SELECT pg_catalog.setval('public.itinerary_stops_id_seq', 1, false);
+
+
+--
+-- Name: project_contacts_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
+--
+
+SELECT pg_catalog.setval('public.project_contacts_id_seq', 2, true);
 
 
 --
 -- Name: project_instances_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
 --
 
-SELECT pg_catalog.setval('public.project_instances_id_seq', 16, true);
+SELECT pg_catalog.setval('public.project_instances_id_seq', 21, true);
 
 
 --
 -- Name: project_types_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
 --
 
-SELECT pg_catalog.setval('public.project_types_id_seq', 5, true);
+SELECT pg_catalog.setval('public.project_types_id_seq', 187, true);
 
 
 --
@@ -4872,6 +5107,46 @@ ALTER TABLE ONLY public.document_types
 
 ALTER TABLE ONLY public.documents
     ADD CONSTRAINT documents_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: itineraries itineraries_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.itineraries
+    ADD CONSTRAINT itineraries_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: itinerary_stops itinerary_stops_itinerary_id_beneficiary_id_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.itinerary_stops
+    ADD CONSTRAINT itinerary_stops_itinerary_id_beneficiary_id_key UNIQUE (itinerary_id, beneficiary_id);
+
+
+--
+-- Name: itinerary_stops itinerary_stops_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.itinerary_stops
+    ADD CONSTRAINT itinerary_stops_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: project_contacts project_contacts_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.project_contacts
+    ADD CONSTRAINT project_contacts_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: project_contacts project_contacts_project_id_contact_id_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.project_contacts
+    ADD CONSTRAINT project_contacts_project_id_contact_id_key UNIQUE (project_id, contact_id);
 
 
 --
@@ -5494,10 +5769,31 @@ CREATE INDEX idx_objects_bucket_id_name_lower ON storage.objects USING btree (bu
 
 
 --
+-- Name: idx_objects_current_version; Type: INDEX; Schema: storage; Owner: -
+--
+
+CREATE UNIQUE INDEX idx_objects_current_version ON storage.objects USING btree (bucket_id, name COLLATE "C") WHERE (archived_at IS NULL);
+
+
+--
+-- Name: idx_objects_null_version; Type: INDEX; Schema: storage; Owner: -
+--
+
+CREATE UNIQUE INDEX idx_objects_null_version ON storage.objects USING btree (bucket_id, name COLLATE "C") WHERE (NOT is_versioned);
+
+
+--
 -- Name: name_prefix_search; Type: INDEX; Schema: storage; Owner: -
 --
 
 CREATE INDEX name_prefix_search ON storage.objects USING btree (name text_pattern_ops);
+
+
+--
+-- Name: objects_bucket_id_name_version_key; Type: INDEX; Schema: storage; Owner: -
+--
+
+CREATE UNIQUE INDEX objects_bucket_id_name_version_key ON storage.objects USING btree (bucket_id, name COLLATE "C", version) NULLS NOT DISTINCT;
 
 
 --
@@ -5708,6 +6004,38 @@ ALTER TABLE ONLY public.documents
 
 ALTER TABLE ONLY public.documents
     ADD CONSTRAINT documents_project_id_fkey FOREIGN KEY (project_id) REFERENCES public.project_instances(id) ON DELETE CASCADE;
+
+
+--
+-- Name: itinerary_stops itinerary_stops_beneficiary_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.itinerary_stops
+    ADD CONSTRAINT itinerary_stops_beneficiary_id_fkey FOREIGN KEY (beneficiary_id) REFERENCES public.beneficiaries(id) ON DELETE CASCADE;
+
+
+--
+-- Name: itinerary_stops itinerary_stops_itinerary_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.itinerary_stops
+    ADD CONSTRAINT itinerary_stops_itinerary_id_fkey FOREIGN KEY (itinerary_id) REFERENCES public.itineraries(id) ON DELETE CASCADE;
+
+
+--
+-- Name: project_contacts project_contacts_contact_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.project_contacts
+    ADD CONSTRAINT project_contacts_contact_id_fkey FOREIGN KEY (contact_id) REFERENCES public.beneficiary_contacts(id) ON DELETE CASCADE;
+
+
+--
+-- Name: project_contacts project_contacts_project_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.project_contacts
+    ADD CONSTRAINT project_contacts_project_id_fkey FOREIGN KEY (project_id) REFERENCES public.project_instances(id) ON DELETE CASCADE;
 
 
 --
@@ -5997,6 +6325,27 @@ CREATE POLICY "allow all" ON public.documents USING (true) WITH CHECK (true);
 
 
 --
+-- Name: itineraries allow all; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "allow all" ON public.itineraries USING (true) WITH CHECK (true);
+
+
+--
+-- Name: itinerary_stops allow all; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "allow all" ON public.itinerary_stops USING (true) WITH CHECK (true);
+
+
+--
+-- Name: project_contacts allow all; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "allow all" ON public.project_contacts USING (true) WITH CHECK (true);
+
+
+--
 -- Name: project_instances allow all; Type: POLICY; Schema: public; Owner: -
 --
 
@@ -6040,6 +6389,24 @@ ALTER TABLE public.document_types ENABLE ROW LEVEL SECURITY;
 --
 
 ALTER TABLE public.documents ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: itineraries; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.itineraries ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: itinerary_stops; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.itinerary_stops ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: project_contacts; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.project_contacts ENABLE ROW LEVEL SECURITY;
 
 --
 -- Name: project_instances; Type: ROW SECURITY; Schema: public; Owner: -
@@ -6176,5 +6543,5 @@ CREATE EVENT TRIGGER pgrst_drop_watch ON sql_drop
 -- PostgreSQL database dump complete
 --
 
-\unrestrict S5y9heci93vnsVQH8R5KOzZsoT8ZPlXt8wsq7gQ5bqa6iCfL8Epyabdtlk68knv
+\unrestrict EOsJ2hSqCwlMecyg7ah6p2SomovZAYDvjbn82UkNOblE7ZDZvyFIQCxZvMfQ9E4
 

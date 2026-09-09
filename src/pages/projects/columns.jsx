@@ -1,5 +1,21 @@
 import StatusCell, { OperationalCell } from './statusCell'
 
+// Strips currency symbols, commas, and stray spaces before parsing —
+// so typing "285,000" or "₱285,000" works the same as "285000". Returns
+// null for empty/invalid input rather than NaN, so it's safe to send
+// straight to Supabase's numeric(12,2) column. This is almost certainly
+// the fix for "Amount is not saving": a plain <input type="number">
+// silently rejects commas, so typing an amount the natural way (with
+// thousands separators — the same way the table displays it back) could
+// leave the field empty with no error shown, saving as null.
+export function parseAmount(raw) {
+  if (raw == null || raw === '') return null
+  const cleaned = String(raw).replace(/[₱$,\s]/g, '')
+  if (cleaned === '') return null
+  const num = Number(cleaned)
+  return Number.isNaN(num) ? null : num
+}
+
 // ─── Project Category Cell ────────────────────────────────────────────────────
 
 function ProjectCategoryCell({ getValue }) {
@@ -20,6 +36,7 @@ function ProjectCategoryCell({ getValue }) {
 export const ALL_COLUMNS = [
   // CORE
   { accessorKey: 'year',             header: 'Year',             group: 'Core', cell: ({ getValue }) => getValue() ?? '—' },
+  { accessorKey: 'title',            header: 'Title',            group: 'Core', cell: ({ getValue }) => getValue() ?? '—' },
   { accessorFn: r => r.project_types?.name, id: 'project_type', header: 'Project Type', group: 'Core', cell: ({ getValue }) => getValue() ?? '—' },
   { accessorKey: 'project_category', header: 'Category',         group: 'Core', cell: ProjectCategoryCell },
   { accessorKey: 'intervention',     header: 'Intervention',     group: 'Core', cell: ({ getValue }) => getValue() ?? '—' },
@@ -64,6 +81,7 @@ export const ALL_COLUMNS = [
 export const DEFAULT_VISIBLE = {
   // Visible by default
   year: true,
+  title: true,
   project_type: true,
   project_category: true,
   beneficiary: true,

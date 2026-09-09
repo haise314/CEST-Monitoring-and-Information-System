@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { Link } from 'react-router'
 import { useFormData } from '../../hooks/useFormData'
-import { STATIC_OPTIONS } from './columns'
+import { STATIC_OPTIONS, parseAmount } from './columns'
 import DocumentChecklist from './DocumentChecklist'
 import ProjectContacts from './ProjectContacts'
 
@@ -81,7 +81,7 @@ const inputClass  = 'w-full border border-gray-300 rounded px-3 py-1.5 text-sm f
 const selectClass = 'w-full border border-gray-300 rounded px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500'
 
 export default function EditPanel({ project, onClose, onUpdate, onDelete, onDocumentsChanged }) {
-  const { projectTypes, loading } = useFormData()
+  const { projectTypes, entryPoints, loading } = useFormData()
   const [form, setForm]                   = useState({})
   const [saving, setSaving]               = useState(false)
   const [deleting, setDeleting]           = useState(false)
@@ -90,6 +90,10 @@ export default function EditPanel({ project, onClose, onUpdate, onDelete, onDocu
   const [error, setError]                 = useState(null)
   const { width, startDrag, resetWidth }  = useResizablePanel()
 
+  // Inline "add new entry point" — same pattern as addModal.jsx.
+  const [addingEntryPoint, setAddingEntryPoint]     = useState(false)
+  const [newEntryPointValue, setNewEntryPointValue] = useState('')
+
   // Track the original category to detect changes
   const originalCategory = useRef(null)
 
@@ -97,6 +101,7 @@ export default function EditPanel({ project, onClose, onUpdate, onDelete, onDocu
     if (!project) return
     const initial = {
       year:                project.year                ?? '',
+      title:               project.title               ?? '',
       project_type_id:     project.project_type_id     ?? '',
       project_category:    project.project_category    ?? '',
       property_number:     project.property_number     ?? '',
@@ -122,6 +127,21 @@ export default function EditPanel({ project, onClose, onUpdate, onDelete, onDocu
     setForm(prev => ({ ...prev, [key]: value }))
   }
 
+  function handleAddEntryPoint() {
+    const trimmed = newEntryPointValue.trim()
+    if (!trimmed) return
+    handleChange('entry_point', trimmed)
+    setAddingEntryPoint(false)
+    setNewEntryPointValue('')
+  }
+
+  // Same reasoning as addModal.jsx: guarantee the current value is always
+  // a selectable option, even if it's a value just typed via "+ Add new"
+  // that isn't (yet) in the fetched distinct list.
+  const entryPointOptions = form.entry_point && !entryPoints.includes(form.entry_point)
+    ? [...entryPoints, form.entry_point].sort()
+    : entryPoints
+
   async function handleSave() {
     // Category changed and project already has documents — warn first
     if (
@@ -139,10 +159,11 @@ export default function EditPanel({ project, onClose, onUpdate, onDelete, onDocu
 
     const payload = {
       year:                Number(form.year),
+      title:               form.title                     || null,
       project_type_id:     form.project_type_id !== ''     ? Number(form.project_type_id)     : null,
       project_category:    form.project_category           || null,
       property_number:     form.property_number            || null,
-      amount:              form.amount !== ''              ? Number(form.amount)              : null,
+      amount:              parseAmount(form.amount),
       date_deployed:       form.date_deployed              || null,
       entry_point:         form.entry_point                || null,
       intervention:        form.intervention               || null,
@@ -239,6 +260,16 @@ export default function EditPanel({ project, onClose, onUpdate, onDelete, onDocu
                   </Field>
                 </div>
 
+                <Field label="Title">
+                  <input
+                    type="text"
+                    value={form.title}
+                    onChange={e => handleChange('title', e.target.value)}
+                    placeholder="e.g. Portasol Unit for Barangay X Farmers Association"
+                    className={inputClass}
+                  />
+                </Field>
+
                 <Field label="Project Category">
                   <select
                     value={form.project_category}
@@ -264,9 +295,11 @@ export default function EditPanel({ project, onClose, onUpdate, onDelete, onDocu
                 <div className="grid grid-cols-2 gap-3">
                   <Field label="Amount (₱)">
                     <input
-                      type="number"
+                      type="text"
+                      inputMode="decimal"
                       value={form.amount}
                       onChange={e => handleChange('amount', e.target.value)}
+                      placeholder="e.g. 285,000"
                       className={inputClass}
                     />
                   </Field>
@@ -281,12 +314,50 @@ export default function EditPanel({ project, onClose, onUpdate, onDelete, onDocu
                 </div>
 
                 <Field label="Entry Point">
-                  <input
-                    type="text"
-                    value={form.entry_point}
-                    onChange={e => handleChange('entry_point', e.target.value)}
-                    className={inputClass}
-                  />
+                  {addingEntryPoint ? (
+                    <div>
+                      <div className="flex gap-2">
+                        <input
+                          autoFocus
+                          type="text"
+                          value={newEntryPointValue}
+                          onChange={e => setNewEntryPointValue(e.target.value)}
+                          onKeyDown={e => e.key === 'Enter' && handleAddEntryPoint()}
+                          placeholder="New entry point..."
+                          className={inputClass}
+                        />
+                        <button
+                          type="button"
+                          onClick={handleAddEntryPoint}
+                          className="px-3 rounded bg-blue-600 text-white text-sm font-medium hover:bg-blue-700 whitespace-nowrap"
+                        >
+                          Add
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => { setAddingEntryPoint(false); setNewEntryPointValue('') }}
+                          className="px-3 rounded border border-gray-300 text-sm hover:bg-gray-50"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <select
+                      value={form.entry_point}
+                      onChange={e => {
+                        if (e.target.value === '__new_entry__') setAddingEntryPoint(true)
+                        else handleChange('entry_point', e.target.value)
+                      }}
+                      className={selectClass}
+                    >
+                      <option value="">—</option>
+                      {entryPointOptions.map(ep => (
+                        <option key={ep} value={ep}>{ep}</option>
+                      ))}
+                      <option value="__new_entry__">+ Add new entry point...</option>
+                    </select>
+                  )}
                 </Field>
 
                 <Field label="Intervention">

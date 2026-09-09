@@ -10,7 +10,6 @@ export default function Contacts() {
   const [search, setSearch]         = useState('')
   const [showModal, setShowModal]   = useState(false)
   const [editingContact, setEditingContact] = useState(null) // null = add mode
-  const [confirmDeleteId, setConfirmDeleteId] = useState(null)
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase()
@@ -37,9 +36,12 @@ export default function Contacts() {
     return addContact(payload)
   }
 
+  // Passed into the modal's Danger Zone — closes the modal on success,
+  // same pattern as editPanel.jsx's project delete.
   async function handleDelete(id) {
-    await deleteContact(id)
-    setConfirmDeleteId(null)
+    const result = await deleteContact(id)
+    if (!result.error) setShowModal(false)
+    return result
   }
 
   if (loading) return <div className="p-6 text-gray-500">Loading contacts...</div>
@@ -72,7 +74,7 @@ export default function Contacts() {
         </div>
       </div>
 
-      {/* Table */}
+      {/* Table — click any row to open its edit modal (delete lives inside) */}
       <div className="overflow-x-auto rounded-lg border border-gray-200">
         <table className="min-w-full text-sm">
           <thead className="bg-gray-50 text-gray-600 uppercase text-xs">
@@ -83,19 +85,22 @@ export default function Contacts() {
               <th className="px-4 py-3 text-left font-medium">Municipality</th>
               <th className="px-4 py-3 text-left font-medium">Contact No.</th>
               <th className="px-4 py-3 text-left font-medium">Messenger</th>
-              <th className="px-4 py-3 text-right font-medium">Actions</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100 bg-white">
             {filtered.length === 0 ? (
               <tr>
-                <td colSpan={7} className="px-4 py-8 text-center text-gray-400">
+                <td colSpan={6} className="px-4 py-8 text-center text-gray-400">
                   No contacts found
                 </td>
               </tr>
             ) : (
               filtered.map(c => (
-                <tr key={c.id} className="hover:bg-gray-50">
+                <tr
+                  key={c.id}
+                  onClick={() => openEdit(c)}
+                  className="hover:bg-gray-50 cursor-pointer"
+                >
                   <td className="px-4 py-3 whitespace-nowrap font-medium text-gray-700">{c.name}</td>
                   <td className="px-4 py-3 whitespace-nowrap text-gray-500">{c.role ?? '—'}</td>
                   <td className="px-4 py-3 whitespace-nowrap">{c.beneficiaries?.name ?? '—'}</td>
@@ -103,43 +108,16 @@ export default function Contacts() {
                   <td className="px-4 py-3 whitespace-nowrap text-gray-500">{c.contact_number ?? '—'}</td>
                   <td className="px-4 py-3 whitespace-nowrap">
                     {c.messenger_link ? (
-                      <a href={c.messenger_link} target="_blank" rel="noreferrer" className="text-blue-500 underline text-xs">
+                      <a
+                        href={c.messenger_link}
+                        target="_blank"
+                        rel="noreferrer"
+                        onClick={e => e.stopPropagation()}
+                        className="text-blue-500 underline text-xs"
+                      >
                         Open
                       </a>
                     ) : '—'}
-                  </td>
-                  <td className="px-4 py-3 whitespace-nowrap text-right">
-                    {confirmDeleteId === c.id ? (
-                      <span className="inline-flex items-center gap-2">
-                        <button
-                          onClick={() => handleDelete(c.id)}
-                          className="text-xs text-red-600 hover:text-red-800 font-medium"
-                        >
-                          Confirm
-                        </button>
-                        <button
-                          onClick={() => setConfirmDeleteId(null)}
-                          className="text-xs text-gray-400 hover:text-gray-600"
-                        >
-                          Cancel
-                        </button>
-                      </span>
-                    ) : (
-                      <span className="inline-flex items-center gap-3">
-                        <button
-                          onClick={() => openEdit(c)}
-                          className="text-xs text-blue-500 hover:text-blue-700"
-                        >
-                          Edit
-                        </button>
-                        <button
-                          onClick={() => setConfirmDeleteId(c.id)}
-                          className="text-xs text-red-400 hover:text-red-600"
-                        >
-                          Delete
-                        </button>
-                      </span>
-                    )}
                   </td>
                 </tr>
               ))
@@ -155,6 +133,7 @@ export default function Contacts() {
           beneficiaries={beneficiaries}
           onClose={() => setShowModal(false)}
           onSave={handleSave}
+          onDelete={editingContact ? handleDelete : undefined}
         />
       )}
     </div>

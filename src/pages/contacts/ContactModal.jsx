@@ -11,10 +11,12 @@ const EMPTY_FORM = {
 const inputClass = 'w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500'
 
 // Used for both Add (contact = null) and Edit (contact = existing row)
-export default function ContactModal({ contact, beneficiaries, onClose, onSave }) {
+export default function ContactModal({ contact, beneficiaries, onClose, onSave, onDelete }) {
   const [form, setForm]     = useState(EMPTY_FORM)
   const [saving, setSaving] = useState(false)
   const [error, setError]   = useState(null)
+  const [deleting, setDeleting]           = useState(false)
+  const [confirmDelete, setConfirmDelete] = useState(false)
 
   useEffect(() => {
     if (contact) {
@@ -54,6 +56,14 @@ export default function ContactModal({ contact, beneficiaries, onClose, onSave }
     setSaving(false)
     if (error) setError(error)
     else onClose()
+  }
+
+  async function handleDelete() {
+    setDeleting(true)
+    const { error } = await onDelete(contact.id)
+    setDeleting(false)
+    if (error) setError(error)
+    // On success, Contacts.jsx's handleDelete already closes the modal
   }
 
   return (
@@ -129,6 +139,41 @@ export default function ContactModal({ contact, beneficiaries, onClose, onSave }
           {error && (
             <div className="text-red-500 text-sm bg-red-50 border border-red-200 rounded px-3 py-2">
               {error}
+            </div>
+          )}
+
+          {/* Danger Zone — only when editing, same pattern as editPanel.jsx */}
+          {contact && onDelete && (
+            <div className="pt-2 border-t border-gray-100">
+              {!confirmDelete ? (
+                <button
+                  onClick={() => setConfirmDelete(true)}
+                  className="text-xs text-red-500 hover:text-red-700 underline"
+                >
+                  Delete this contact
+                </button>
+              ) : (
+                <div className="bg-red-50 border border-red-200 rounded p-2.5 mt-1">
+                  <p className="text-xs text-red-700 mb-2 font-medium">
+                    Are you sure? This cannot be undone.
+                  </p>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={handleDelete}
+                      disabled={deleting}
+                      className="bg-red-600 text-white rounded px-2.5 py-1 text-xs hover:bg-red-700 disabled:opacity-50"
+                    >
+                      {deleting ? 'Deleting...' : 'Yes, Delete'}
+                    </button>
+                    <button
+                      onClick={() => setConfirmDelete(false)}
+                      className="border border-gray-300 rounded px-2.5 py-1 text-xs hover:bg-gray-50"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 

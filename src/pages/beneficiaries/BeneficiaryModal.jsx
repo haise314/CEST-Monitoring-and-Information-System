@@ -13,10 +13,12 @@ const EMPTY_FORM = {
 const inputClass = 'w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500'
 
 // Used for both Add (beneficiary = null) and Edit (beneficiary = existing row)
-export default function BeneficiaryModal({ beneficiary, onClose, onSave }) {
+export default function BeneficiaryModal({ beneficiary, linkedProjectCount = 0, onClose, onSave, onDelete }) {
   const [form, setForm]     = useState(EMPTY_FORM)
   const [saving, setSaving] = useState(false)
   const [error, setError]   = useState(null)
+  const [deleting, setDeleting]           = useState(false)
+  const [confirmDelete, setConfirmDelete] = useState(false)
 
   useEffect(() => {
     if (beneficiary) {
@@ -57,6 +59,14 @@ export default function BeneficiaryModal({ beneficiary, onClose, onSave }) {
     setSaving(false)
     if (error) setError(error)
     else onClose()
+  }
+
+  async function handleDelete() {
+    setDeleting(true)
+    const { error } = await onDelete(beneficiary.id)
+    setDeleting(false)
+    if (error) setError(error)
+    // On success, Beneficiaries.jsx's handleDelete already closes the modal
   }
 
   return (
@@ -128,6 +138,49 @@ export default function BeneficiaryModal({ beneficiary, onClose, onSave }) {
           {error && (
             <div className="text-red-500 text-sm bg-red-50 border border-red-200 rounded px-3 py-2">
               {error}
+            </div>
+          )}
+
+          {/* Danger Zone — only when editing. Delete-guard preserved from
+              the old row-level version: disabled with an explanation if
+              this beneficiary still has linked projects, since deleting
+              would otherwise hit the DB's NO ACTION foreign key and
+              surface a raw Postgres error. */}
+          {beneficiary && onDelete && (
+            <div className="pt-2 border-t border-gray-100">
+              {linkedProjectCount > 0 ? (
+                <p className="text-xs text-gray-400">
+                  Cannot delete — used by {linkedProjectCount} project{linkedProjectCount === 1 ? '' : 's'}.
+                </p>
+              ) : !confirmDelete ? (
+                <button
+                  onClick={() => setConfirmDelete(true)}
+                  className="text-xs text-red-500 hover:text-red-700 underline"
+                >
+                  Delete this beneficiary
+                </button>
+              ) : (
+                <div className="bg-red-50 border border-red-200 rounded p-2.5 mt-1">
+                  <p className="text-xs text-red-700 mb-2 font-medium">
+                    Are you sure? This cannot be undone.
+                  </p>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={handleDelete}
+                      disabled={deleting}
+                      className="bg-red-600 text-white rounded px-2.5 py-1 text-xs hover:bg-red-700 disabled:opacity-50"
+                    >
+                      {deleting ? 'Deleting...' : 'Yes, Delete'}
+                    </button>
+                    <button
+                      onClick={() => setConfirmDelete(false)}
+                      className="border border-gray-300 rounded px-2.5 py-1 text-xs hover:bg-gray-50"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 

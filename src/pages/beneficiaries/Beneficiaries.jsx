@@ -14,8 +14,6 @@ export default function Beneficiaries() {
   const [search, setSearch]                   = useState('')
   const [showModal, setShowModal]             = useState(false)
   const [editingBeneficiary, setEditingBeneficiary] = useState(null) // null = add mode
-  const [confirmDeleteId, setConfirmDeleteId] = useState(null)
-  const [deleteError, setDeleteError]         = useState(null)
 
   // Deep-link support: /beneficiaries?edit=123 opens that beneficiary's
   // edit modal directly. Used by the "View / edit beneficiary" link in
@@ -59,14 +57,16 @@ export default function Beneficiaries() {
     return addBeneficiary(payload)
   }
 
+  // Passed into the modal's Danger Zone. The modal itself disables the
+  // delete action when linkedProjectCount > 0 (see BeneficiaryModal), but
+  // this defensive re-check stays here too in case that count changes
+  // underneath us (e.g. another tab adds a project mid-session) — same
+  // belt-and-suspenders reasoning as before, just surfaced inside the
+  // modal now instead of inline in the row.
   async function handleDelete(id) {
-    const { error } = await deleteBeneficiary(id)
-    setConfirmDeleteId(null)
-    // Belt-and-suspenders: the button is already disabled when a beneficiary
-    // has projects, but if that ever changes underneath us (e.g. another
-    // tab adds a project mid-session), surface the real FK error instead
-    // of failing silently.
-    if (error) setDeleteError({ id, message: error })
+    const result = await deleteBeneficiary(id)
+    if (!result.error) setShowModal(false)
+    return result
   }
 
   if (loading) return <div className="p-6 text-gray-500">Loading beneficiaries...</div>
@@ -99,7 +99,7 @@ export default function Beneficiaries() {
         </div>
       </div>
 
-      {/* Table */}
+      {/* Table — click any row to open its edit modal (delete lives inside) */}
       <div className="overflow-x-auto rounded-lg border border-gray-200">
         <table className="min-w-full text-sm">
           <thead className="bg-gray-50 text-gray-600 uppercase text-xs">
@@ -110,13 +110,12 @@ export default function Beneficiaries() {
               <th className="px-4 py-3 text-left font-medium">Municipality</th>
               <th className="px-4 py-3 text-left font-medium">Barangay</th>
               <th className="px-4 py-3 text-left font-medium">Projects</th>
-              <th className="px-4 py-3 text-right font-medium">Actions</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100 bg-white">
             {filtered.length === 0 ? (
               <tr>
-                <td colSpan={7} className="px-4 py-8 text-center text-gray-400">
+                <td colSpan={6} className="px-4 py-8 text-center text-gray-400">
                   No beneficiaries found
                 </td>
               </tr>
@@ -124,51 +123,17 @@ export default function Beneficiaries() {
               filtered.map(b => {
                 const count = projectCount(b)
                 return (
-                  <tr key={b.id} className="hover:bg-gray-50">
+                  <tr
+                    key={b.id}
+                    onClick={() => openEdit(b)}
+                    className="hover:bg-gray-50 cursor-pointer"
+                  >
                     <td className="px-4 py-3 whitespace-nowrap font-medium text-gray-700">{b.name}</td>
                     <td className="px-4 py-3 whitespace-nowrap text-gray-500">{b.category}</td>
                     <td className="px-4 py-3 whitespace-nowrap text-gray-500">{b.district ?? '—'}</td>
                     <td className="px-4 py-3 whitespace-nowrap text-gray-500">{b.municipality ?? '—'}</td>
                     <td className="px-4 py-3 whitespace-nowrap text-gray-500">{b.barangay ?? '—'}</td>
                     <td className="px-4 py-3 whitespace-nowrap text-gray-500">{count}</td>
-                    <td className="px-4 py-3 whitespace-nowrap text-right">
-                      {confirmDeleteId === b.id ? (
-                        <span className="inline-flex items-center gap-2">
-                          <button
-                            onClick={() => handleDelete(b.id)}
-                            className="text-xs text-red-600 hover:text-red-800 font-medium"
-                          >
-                            Confirm
-                          </button>
-                          <button
-                            onClick={() => setConfirmDeleteId(null)}
-                            className="text-xs text-gray-400 hover:text-gray-600"
-                          >
-                            Cancel
-                          </button>
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center gap-3">
-                          <button
-                            onClick={() => openEdit(b)}
-                            className="text-xs text-blue-500 hover:text-blue-700"
-                          >
-                            Edit
-                          </button>
-                          <button
-                            onClick={() => count === 0 && setConfirmDeleteId(b.id)}
-                            disabled={count > 0}
-                            title={count > 0 ? `Cannot delete — used by ${count} project${count === 1 ? '' : 's'}` : undefined}
-                            className="text-xs text-red-400 hover:text-red-600 disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:text-red-400"
-                          >
-                            Delete
-                          </button>
-                        </span>
-                      )}
-                      {deleteError?.id === b.id && (
-                        <div className="text-xs text-red-500 mt-1 text-left">{deleteError.message}</div>
-                      )}
-                    </td>
                   </tr>
                 )
               })
@@ -181,8 +146,10 @@ export default function Beneficiaries() {
       {showModal && (
         <BeneficiaryModal
           beneficiary={editingBeneficiary}
+          linkedProjectCount={editingBeneficiary ? projectCount(editingBeneficiary) : 0}
           onClose={() => setShowModal(false)}
           onSave={handleSave}
+          onDelete={editingBeneficiary ? handleDelete : undefined}
         />
       )}
     </div>
