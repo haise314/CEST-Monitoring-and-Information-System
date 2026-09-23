@@ -10,7 +10,6 @@ function Navbar() {
       <Link to="/beneficiaries">Beneficiaries</Link>
       <Link to="/contacts">Contacts</Link>
       <Link to="/map">Map</Link>
-      <Link to="/itinerary">Itinerary</Link>
     </nav>
   )
 }

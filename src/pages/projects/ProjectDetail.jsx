@@ -6,6 +6,7 @@ import { useFormData } from '../../hooks/useFormData'
 import { STATIC_OPTIONS, parseAmount } from './columns'
 import DocumentChecklist from './DocumentChecklist'
 import ProjectContacts from './ProjectContacts'
+import RemarksSection from './RemarksSection'
 
 // Not in columns.jsx's STATIC_OPTIONS (that file only covers project-level
 // enums) — sourced from the beneficiary_category enum in the live DB dump.
@@ -203,7 +204,7 @@ export default function ProjectDetail() {
   const savedProject = { ...project, project_category: project.project_category }
 
   return (
-    <div className="max-w-3xl mx-auto pb-12">
+    <div className="max-w-6xl mx-auto pb-12">
 
       {/* Header */}
       <div className="mb-6">
@@ -216,6 +217,12 @@ export default function ProjectDetail() {
         </h1>
       </div>
 
+      {/* Main two-column layout: primary editable details on the left
+          (wider — this is meant to be the "close look" at the project),
+          lighter-weight status/impact/links/contacts info as a right rail.
+          Stacks to a single column below the lg breakpoint. */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-6">
+      <div className="lg:col-span-2 space-y-6">
       <Section title="Project Info">
         <div className="grid grid-cols-2 gap-3">
           <Field label="Year">
@@ -422,11 +429,11 @@ export default function ProjectDetail() {
           </p>
         </div>
       </Section>
+      </div>
 
-      <Section title="Contacts">
-        <ProjectContacts project={project} />
-      </Section>
-
+      {/* Right rail — lighter-weight status/impact/links/contacts info,
+          stacks below the left column under lg. */}
+      <div className="lg:col-span-1 space-y-6">
       <Section title="Status">
         <Field label="Overall Status">
           <select
@@ -495,6 +502,12 @@ export default function ProjectDetail() {
         </Field>
       </Section>
 
+      <Section title="Contacts">
+        <ProjectContacts project={project} />
+      </Section>
+      </div>
+      </div>
+
       <Section title="Document Checklist">
         {!project.project_category ? (
           <p className="text-xs text-gray-400">
@@ -503,6 +516,10 @@ export default function ProjectDetail() {
         ) : (
           <DocumentChecklist project={savedProject} />
         )}
+      </Section>
+
+      <Section title="Remarks">
+        <RemarksSection projectId={project.id} />
       </Section>
 
       {error && (

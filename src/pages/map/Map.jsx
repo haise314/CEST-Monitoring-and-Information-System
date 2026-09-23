@@ -1,13 +1,15 @@
 import { useState, useMemo } from 'react'
+import { Link, useSearchParams } from 'react-router'
 import { MapContainer, TileLayer, Marker, Popup, useMapEvents } from 'react-leaflet'
+import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import '../../lib/Leafleticon'
-import { useBeneficiaryLocations } from '../../hooks/useBeneficiaryLocations'
-import { useProjects } from '../../hooks/useProjects'
-import { useAllDocuments } from '../../hooks/useAllDocuments'
-import { PHASE_ORDER } from '../../lib/documentProgress'
-import { DOC_CONDITIONS } from '../../lib/documentStatus'
+import { useMergedBeneficiaries } from '../../hooks/useMergedBeneficiaries'
+import { useItineraries } from '../../hooks/useItineraries'
+import { filterBeneficiaries } from '../../lib/beneficiaryFilters'
 import MapFilterBar, { emptyMapFilters, emptyDocFilter } from './filterBar'
+import CandidatePool from '../itinerary/CandidatePool'
+import StopList from '../itinerary/StopList'
 
 // Rough center of Zambales province — used as the map's starting view.
 // Individual pins (once placed) are what actually matter; this is just
@@ -23,6 +25,59 @@ const CATEGORY_COLORS = {
   NGO:         '#ec4899', // pink
   Cooperative: '#10b981', // green
   Others:      '#6b7280', // gray
+}
+
+// Matches filterBar.jsx's STATIC_OPTIONS.overall_status exactly. First pass
+// at a categorical palette — easy to retune later, nothing depends on the
+// specific hues.
+const STATUS_COLORS = {
+  'For Deployment':     '#f59e0b', // amber
+  'For Implementation': '#3b82f6', // blue
+  'For Monitoring':     '#06b6d4', // cyan
+  'For Transfer':       '#8b5cf6', // violet
+  'Transfer Ongoing':   '#a855f7', // purple
+  'Fully Transferred':  '#14b8a6', // teal
+  'For Pull Out':       '#ef4444', // red
+  Done:                 '#22c55e', // green
+}
+// A beneficiary has one .category, but can have several .projects each with
+// their own .overall_status — so "color by status" has two cases a plain
+// per-category lookup doesn't: no projects yet, or projects that disagree.
+const STATUS_COLOR_NONE  = '#9ca3af' // gray — no projects / no status set
+const STATUS_COLOR_MIXED = '#111827' // near-black — projects with different statuses
+
+function getBeneficiaryColor(b, colorBy) {
+  if (colorBy === 'status') {
+    const statuses = [...new Set(b.projects.map(p => p.overall_status).filter(Boolean))]
+    if (statuses.length === 0) return STATUS_COLOR_NONE
+    if (statuses.length === 1) return STATUS_COLORS[statuses[0]] ?? STATUS_COLOR_NONE
+    return STATUS_COLOR_MIXED
+  }
+  return CATEGORY_COLORS[b.category] ?? CATEGORY_COLORS.Others
+}
+
+// Small colored-dot marker via a Leaflet divIcon — no image assets needed,
+// and it can represent "dimmed" (filtered out, but still shown) as a
+// distinct gray/faded state rather than just hiding the pin.
+function createDotIcon(color, dimmed) {
+  const size = dimmed ? 14 : 20
+  const fill = dimmed ? '#d1d5db' : color
+  return L.divIcon({
+    className: '',
+    html: `<span style="display:block;width:${size}px;height:${size}px;border-radius:50%;background:${fill};opacity:${dimmed ? 0.6 : 1};border:2px solid white;box-shadow:0 1px 3px rgba(0,0,0,0.35);"></span>`,
+    iconSize: [size, size],
+    iconAnchor: [size / 2, size / 2],
+    popupAnchor: [0, -size / 2],
+  })
+}
+
+const LEGEND_ENTRIES = {
+  category: Object.entries(CATEGORY_COLORS),
+  status: [
+    ...Object.entries(STATUS_COLORS),
+    ['No status yet', STATUS_COLOR_NONE],
+    ['Mixed statuses', STATUS_COLOR_MIXED],
+  ],
 }
 
 // Handles the "click the map to place the selected beneficiary's pin" flow.
@@ -48,7 +103,7 @@ function BeneficiaryQueueItem({ b, isPinning, onStartPinning, onCancelPinning })
         <div className="font-medium text-gray-700 truncate">{b.name}</div>
         <div className="text-xs text-gray-400 truncate">
           {[b.barangay, b.municipality].filter(Boolean).join(', ') || '—'}
-          {b.projectCount > 0 && ` · ${b.projectCount} project${b.projectCount === 1 ? '' : 's'}`}
+          {b.projects.length > 0 && ` · ${b.projects.length} project${b.projects.length === 1 ? '' : 's'}`}
         </div>
       </div>
       {isPinning ? (
@@ -71,102 +126,63 @@ function BeneficiaryQueueItem({ b, isPinning, onStartPinning, onCancelPinning })
 }
 
 export default function MapPage() {
-  const { beneficiaries: locations, loading: locLoading, error: locError, setLocation, clearLocation } = useBeneficiaryLocations()
-  const { projects, loading: projLoading }   = useProjects()
-  const { documents, loading: docLoading }   = useAllDocuments()
+  const [searchParams] = useSearchParams()
 
-  const [pinningId, setPinningId]         = useState(null)
-  const [search, setSearch]               = useState('')
-  const [saveError, setSaveError]         = useState(null)
-  const [filters, setFilters]             = useState(emptyMapFilters())
-  const [docFilter, setDocFilter]         = useState(emptyDocFilter())
+  // `/itinerary` redirects here with ?mode=plan — see App.jsx. Only read
+  // once on mount; switching tabs afterward is plain in-page state, not
+  // reflected back into the URL.
+  const [mode, setMode] = useState(searchParams.get('mode') === 'plan' ? 'plan' : 'overview')
 
-  const loading = locLoading || projLoading || docLoading
+  // Single shared data source for both tabs — was two separate fetches
+  // (Map.jsx's own inline merge + Itinerary.jsx's useMergedBeneficiaries)
+  // before this merge.
+  const { merged, documentTypesByPhase, loading: dataLoading, error, setLocation, clearLocation } = useMergedBeneficiaries()
+  const { data: itineraries, loading: itinLoading, addItinerary, updateItinerary, deleteItinerary, saveStops } = useItineraries()
 
-  // Merge beneficiaries with their projects and documents, in-memory, by
-  // beneficiary_id — deliberately not a new hook (see useBeneficiaryLocations'
-  // header comment: this keeps that hook independent of what useProjects/
-  // useAllDocuments select, at the cost of this one extra pass here).
-  const merged = useMemo(() => {
-    const projectsByBeneficiary = {}
-    const beneficiaryIdByProjectId = {}
-    for (const p of projects) {
-      const bId = p.beneficiary_id
-      if (!projectsByBeneficiary[bId]) projectsByBeneficiary[bId] = []
-      projectsByBeneficiary[bId].push(p)
-      beneficiaryIdByProjectId[p.id] = bId
-    }
+  // ── Overview mode state ──
+  const [pinningId, setPinningId] = useState(null)
+  const [search, setSearch]       = useState('')
+  const [saveError, setSaveError] = useState(null)
+  const [filters, setFilters]     = useState(emptyMapFilters())
+  const [docFilter, setDocFilter] = useState(emptyDocFilter())
+  const [colorBy, setColorBy]     = useState('category')
 
-    const documentsByBeneficiary = {}
-    for (const d of documents) {
-      const projectId = d.project_instances?.id
-      const bId = beneficiaryIdByProjectId[projectId]
-      if (bId == null) continue
-      if (!documentsByBeneficiary[bId]) documentsByBeneficiary[bId] = []
-      documentsByBeneficiary[bId].push(d)
-    }
+  // ── Plan Visit mode state (unchanged from the old Itinerary.jsx) ──
+  const [selectedId, setSelectedId]       = useState('new')
+  const [itinName, setItinName]           = useState('')
+  const [visitDate, setVisitDate]         = useState('')
+  const [stopIds, setStopIds]             = useState([])
+  const [itinFilters, setItinFilters]     = useState(emptyMapFilters())
+  const [itinDocFilter, setItinDocFilter] = useState(emptyDocFilter())
+  const [itinSaving, setItinSaving]       = useState(false)
+  const [itinSaveMsg, setItinSaveMsg]     = useState(null)
 
-    return locations.map(b => ({
-      ...b,
-      projects: projectsByBeneficiary[b.id] ?? [],
-      documents: documentsByBeneficiary[b.id] ?? [],
-    }))
-  }, [locations, projects, documents])
+  // ── Overview: filtering (now "dim", not "hide") ──
+  // The unpinned "needs pinning" queue is a task list, not a spatial
+  // overview — it still hides non-matches like before. The map itself
+  // shows every pinned beneficiary always; matches vs. non-matches are a
+  // visual (color/opacity) distinction instead.
+  const filteredForQueue = useMemo(
+    () => filterBeneficiaries(merged, filters, docFilter),
+    [merged, filters, docFilter]
+  )
+  const matchedIds = useMemo(() => new Set(filteredForQueue.map(b => b.id)), [filteredForQueue])
+  const hasActiveOverviewFilter =
+    Object.values(filters).some(v => v !== '') || (docFilter.documentTypeId !== '' && docFilter.conditionId !== '')
 
-  // Document types for the filter dropdown, grouped by phase — pulled from
-  // the documents already fetched rather than a separate document_types
-  // fetch, same "merge what we have" approach as above.
-  const documentTypesByPhase = useMemo(() => {
-    const map = {}
-    const seen = new Set()
-    for (const d of documents) {
-      const t = d.document_types
-      if (!t || !t.phase || seen.has(t.id)) continue
-      seen.add(t.id)
-      if (!map[t.phase]) map[t.phase] = []
-      map[t.phase].push(t)
-    }
-    Object.values(map).forEach(list => list.sort((a, b) => a.name.localeCompare(b.name)))
-    const ordered = {}
-    for (const phase of PHASE_ORDER) {
-      if (map[phase]) ordered[phase] = map[phase]
-    }
-    return ordered
-  }, [documents])
-
-  const filteredBeneficiaries = useMemo(() => {
-    const condition = docFilter.conditionId
-      ? DOC_CONDITIONS.find(c => c.id === docFilter.conditionId)
-      : null
-
-    return merged.filter(b => {
-      if (filters.municipality && b.municipality !== filters.municipality) return false
-      if (filters.barangay && b.barangay !== filters.barangay) return false
-      if (filters.project_category && !b.projects.some(p => p.project_category === filters.project_category)) return false
-      if (filters.overall_status && !b.projects.some(p => p.overall_status === filters.overall_status)) return false
-
-      if (docFilter.documentTypeId && condition) {
-        const matchingDocs = b.documents.filter(d => String(d.document_type_id) === String(docFilter.documentTypeId))
-        const matches = matchingDocs.length === 0
-          ? condition.test(undefined)
-          : matchingDocs.some(d => condition.test(d))
-        if (!matches) return false
-      }
-
-      return true
-    })
-  }, [merged, filters, docFilter])
-
-  const pinned   = useMemo(() => filteredBeneficiaries.filter(b => b.latitude != null && b.longitude != null), [filteredBeneficiaries])
-  const unpinned = useMemo(() => filteredBeneficiaries.filter(b => b.latitude == null || b.longitude == null), [filteredBeneficiaries])
-
+  const allPinned   = useMemo(() => merged.filter(b => b.latitude != null && b.longitude != null), [merged])
+  const allUnpinned = useMemo(() => merged.filter(b => b.latitude == null || b.longitude == null), [merged])
+  const unpinnedQueue = useMemo(
+    () => filteredForQueue.filter(b => b.latitude == null || b.longitude == null),
+    [filteredForQueue]
+  )
   const filteredUnpinned = useMemo(() => {
     const q = search.trim().toLowerCase()
-    if (!q) return unpinned
-    return unpinned.filter(b =>
+    if (!q) return unpinnedQueue
+    return unpinnedQueue.filter(b =>
       [b.name, b.municipality, b.barangay].filter(Boolean).some(f => f.toLowerCase().includes(q))
     )
-  }, [unpinned, search])
+  }, [unpinnedQueue, search])
 
   async function handlePlace(beneficiaryId, lat, lng) {
     setSaveError(null)
@@ -183,128 +199,350 @@ export default function MapPage() {
 
   const pinningBeneficiary = merged.find(b => b.id === pinningId)
 
-  if (loading)  return <div className="p-6 text-gray-500">Loading map...</div>
-  if (locError) return <div className="p-6 text-red-500">Error: {locError}</div>
+  // ── Plan Visit: same logic as the old Itinerary.jsx, verbatim ──
+  const selectedItinerary = selectedId === 'new' ? null : itineraries.find(it => it.id === selectedId)
+
+  useState // (no-op placeholder removed below; kept hooks order stable)
+
+  const filteredForPlan = useMemo(
+    () => filterBeneficiaries(merged, itinFilters, itinDocFilter),
+    [merged, itinFilters, itinDocFilter]
+  )
+  const stops = useMemo(
+    () => stopIds.map(id => merged.find(b => b.id === id)).filter(Boolean),
+    [stopIds, merged]
+  )
+  const anchor = stops.length > 0 ? stops[stops.length - 1] : null
+
+  function loadItinerary(id) {
+    setSelectedId(id)
+    if (id === 'new') {
+      setItinName('')
+      setVisitDate('')
+      setStopIds([])
+    } else {
+      const it = itineraries.find(i => i.id === id)
+      if (!it) return
+      setItinName(it.name)
+      setVisitDate(it.visit_date ?? '')
+      setStopIds(it.itinerary_stops.map(s => s.beneficiary_id))
+    }
+    setItinSaveMsg(null)
+  }
+
+  function addStop(b) {
+    setStopIds(prev => (prev.includes(b.id) ? prev : [...prev, b.id]))
+  }
+  function removeStop(id) {
+    setStopIds(prev => prev.filter(x => x !== id))
+  }
+  function reorderStops(nextStopObjs) {
+    setStopIds(nextStopObjs.map(b => b.id))
+  }
+
+  async function handleItinSave() {
+    if (!itinName.trim()) {
+      setItinSaveMsg({ error: 'Name is required.' })
+      return
+    }
+    setItinSaving(true)
+    setItinSaveMsg(null)
+
+    let itineraryId = selectedItinerary?.id
+    if (!itineraryId) {
+      const { data, error } = await addItinerary({ name: itinName.trim(), visit_date: visitDate || null })
+      if (error) {
+        setItinSaving(false)
+        setItinSaveMsg({ error })
+        return
+      }
+      itineraryId = data.id
+    } else if (itinName !== selectedItinerary.name || visitDate !== (selectedItinerary.visit_date ?? '')) {
+      await updateItinerary(itineraryId, { name: itinName.trim(), visit_date: visitDate || null })
+    }
+
+    const { error } = await saveStops(itineraryId, stopIds)
+    setItinSaving(false)
+    if (error) {
+      setItinSaveMsg({ error })
+    } else {
+      setItinSaveMsg({ ok: true })
+      setSelectedId(itineraryId)
+    }
+  }
+
+  async function handleItinDelete() {
+    if (!selectedItinerary) return
+    if (!confirm(`Delete itinerary "${selectedItinerary.name}"? This cannot be undone.`)) return
+    await deleteItinerary(selectedItinerary.id)
+    loadItinerary('new')
+  }
+
+  if (dataLoading) return <div className="p-6 text-gray-500">Loading map...</div>
+  if (error)        return <div className="p-6 text-red-500">Error: {error}</div>
 
   return (
     <div>
       <div className="flex items-center justify-between mb-3">
-        <h1 className="text-xl font-bold text-gray-800">
-          Map
-          <span className="ml-2 text-sm font-normal text-gray-400">
-            {filteredBeneficiaries.length} of {merged.length} beneficiaries · {pinned.length} pinned · {unpinned.length} unpinned
-          </span>
-        </h1>
-      </div>
-
-      <MapFilterBar
-        beneficiaries={merged}
-        filters={filters}
-        setFilters={setFilters}
-        docFilter={docFilter}
-        setDocFilter={setDocFilter}
-        documentTypesByPhase={documentTypesByPhase}
-      />
-
-      {pinningBeneficiary && (
-        <div className="mb-3 bg-blue-50 border border-blue-200 rounded px-3 py-2 text-sm text-blue-800 flex items-center justify-between">
-          <span>
-            📍 Click the map to place a pin for <strong>{pinningBeneficiary.name}</strong>
-          </span>
+        <h1 className="text-xl font-bold text-gray-800">Map</h1>
+        <div className="flex border border-gray-300 rounded overflow-hidden text-sm">
           <button
-            onClick={() => setPinningId(null)}
-            className="text-xs text-blue-600 hover:text-blue-800 underline ml-3"
+            onClick={() => setMode('overview')}
+            className={`px-3 py-1.5 ${mode === 'overview' ? 'bg-blue-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'}`}
           >
-            Cancel
+            Overview
+          </button>
+          <button
+            onClick={() => setMode('plan')}
+            className={`px-3 py-1.5 border-l border-gray-300 ${mode === 'plan' ? 'bg-blue-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'}`}
+          >
+            Plan Visit
           </button>
         </div>
-      )}
-
-      {saveError && (
-        <div className="mb-3 bg-red-50 border border-red-200 rounded px-3 py-2 text-sm text-red-600">
-          {saveError}
-        </div>
-      )}
-
-      <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-4">
-        {/* Map */}
-        <div className="rounded-lg overflow-hidden border border-gray-200" style={{ height: '70vh' }}>
-          <MapContainer
-            center={ZAMBALES_CENTER}
-            zoom={DEFAULT_ZOOM}
-            style={{ height: '100%', width: '100%', cursor: pinningId ? 'crosshair' : '' }}
-          >
-            <TileLayer
-              attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-              url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-            />
-            <PlacementListener pinningId={pinningId} onPlace={handlePlace} />
-
-            {pinned.map(b => (
-              <Marker key={b.id} position={[b.latitude, b.longitude]}>
-                <Popup>
-                  <div className="text-sm">
-                    <div className="font-semibold text-gray-800">{b.name}</div>
-                    <div className="text-xs text-gray-500 mb-1">
-                      {[b.barangay, b.municipality].filter(Boolean).join(', ') || '—'}
-                    </div>
-                    <div className="text-xs text-gray-400 mb-2">
-                      {b.category} · {b.projectCount} project{b.projectCount === 1 ? '' : 's'}
-                    </div>
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => setPinningId(b.id)}
-                        className="text-xs text-blue-500 hover:text-blue-700 underline"
-                      >
-                        Reposition
-                      </button>
-                      <button
-                        onClick={() => handleClear(b.id)}
-                        className="text-xs text-red-500 hover:text-red-700 underline"
-                      >
-                        Remove pin
-                      </button>
-                    </div>
-                  </div>
-                </Popup>
-              </Marker>
-            ))}
-          </MapContainer>
-        </div>
-
-        {/* Sidebar: unpinned queue */}
-        <div className="flex flex-col" style={{ height: '70vh' }}>
-          <div className="mb-2">
-            <input
-              type="text"
-              placeholder="Search unpinned beneficiaries..."
-              value={search}
-              onChange={e => setSearch(e.target.value)}
-              className="w-full border border-gray-300 rounded px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-          </div>
-          <div className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">
-            Needs Pinning ({filteredUnpinned.length})
-          </div>
-          <div className="flex-1 overflow-y-auto space-y-1.5 pr-1">
-            {filteredUnpinned.length === 0 ? (
-              <p className="text-xs text-gray-400 py-4 text-center">
-                {unpinned.length === 0 ? 'All beneficiaries are pinned.' : 'No matches.'}
-              </p>
-            ) : (
-              filteredUnpinned.map(b => (
-                <BeneficiaryQueueItem
-                  key={b.id}
-                  b={b}
-                  isPinning={pinningId === b.id}
-                  onStartPinning={setPinningId}
-                  onCancelPinning={() => setPinningId(null)}
-                />
-              ))
-            )}
-          </div>
-        </div>
       </div>
+
+      {mode === 'overview' ? (
+        <>
+          <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
+            <span className="text-sm text-gray-400">
+              {merged.length} beneficiaries · {allPinned.length} pinned · {allUnpinned.length} unpinned
+              {hasActiveOverviewFilter && ` · ${matchedIds.size} match filters`}
+            </span>
+            <div className="flex items-center gap-2 text-sm">
+              <span className="text-gray-500">Color by</span>
+              <select
+                value={colorBy}
+                onChange={e => setColorBy(e.target.value)}
+                className="border border-gray-300 rounded px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="category">Category</option>
+                <option value="status">Status</option>
+              </select>
+            </div>
+          </div>
+
+          <MapFilterBar
+            beneficiaries={merged}
+            filters={filters}
+            setFilters={setFilters}
+            docFilter={docFilter}
+            setDocFilter={setDocFilter}
+            documentTypesByPhase={documentTypesByPhase}
+          />
+
+          {pinningBeneficiary && (
+            <div className="mb-3 bg-blue-50 border border-blue-200 rounded px-3 py-2 text-sm text-blue-800 flex items-center justify-between">
+              <span>
+                📍 Click the map to place a pin for <strong>{pinningBeneficiary.name}</strong>
+              </span>
+              <button
+                onClick={() => setPinningId(null)}
+                className="text-xs text-blue-600 hover:text-blue-800 underline ml-3"
+              >
+                Cancel
+              </button>
+            </div>
+          )}
+
+          {saveError && (
+            <div className="mb-3 bg-red-50 border border-red-200 rounded px-3 py-2 text-sm text-red-600">
+              {saveError}
+            </div>
+          )}
+
+          <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-4">
+            {/* Map */}
+            <div>
+              <div className="rounded-lg overflow-hidden border border-gray-200" style={{ height: '70vh' }}>
+                <MapContainer
+                  center={ZAMBALES_CENTER}
+                  zoom={DEFAULT_ZOOM}
+                  style={{ height: '100%', width: '100%', cursor: pinningId ? 'crosshair' : '' }}
+                >
+                  <TileLayer
+                    attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+                    url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                  />
+                  <PlacementListener pinningId={pinningId} onPlace={handlePlace} />
+
+                  {allPinned.map(b => {
+                    const isMatch = !hasActiveOverviewFilter || matchedIds.has(b.id)
+                    const icon = createDotIcon(getBeneficiaryColor(b, colorBy), !isMatch)
+                    return (
+                      <Marker key={b.id} position={[b.latitude, b.longitude]} icon={icon}>
+                        <Popup>
+                          <div className="text-sm" style={{ maxWidth: 220 }}>
+                            <div className="font-semibold text-gray-800">{b.name}</div>
+                            <div className="text-xs text-gray-500 mb-1">
+                              {[b.barangay, b.municipality].filter(Boolean).join(', ') || '—'}
+                            </div>
+                            <div className="text-xs text-gray-400 mb-2">{b.category}</div>
+
+                            {b.projects.length === 0 ? (
+                              <p className="text-xs text-gray-400 italic mb-2">No projects yet.</p>
+                            ) : (
+                              <ul className="text-xs space-y-1 mb-2" style={{ maxHeight: 128, overflowY: 'auto' }}>
+                                {b.projects.map(p => (
+                                  <li key={p.id}>
+                                    <Link to={`/projects/${p.id}`} className="text-blue-500 hover:text-blue-700 underline">
+                                      {p.title || `${p.year} project`}
+                                    </Link>
+                                    <span className="text-gray-400">
+                                      {' '}· {p.year}{p.overall_status ? ` · ${p.overall_status}` : ''}
+                                    </span>
+                                  </li>
+                                ))}
+                              </ul>
+                            )}
+
+                            <div className="flex gap-2">
+                              <button
+                                onClick={() => setPinningId(b.id)}
+                                className="text-xs text-blue-500 hover:text-blue-700 underline"
+                              >
+                                Reposition
+                              </button>
+                              <button
+                                onClick={() => handleClear(b.id)}
+                                className="text-xs text-red-500 hover:text-red-700 underline"
+                              >
+                                Remove pin
+                              </button>
+                            </div>
+                          </div>
+                        </Popup>
+                      </Marker>
+                    )
+                  })}
+                </MapContainer>
+              </div>
+
+              {/* Legend for the active color-by dimension */}
+              <div className="flex flex-wrap gap-x-3 gap-y-1 mt-2 px-1">
+                {LEGEND_ENTRIES[colorBy].map(([label, color]) => (
+                  <div key={label} className="flex items-center gap-1.5 text-xs text-gray-500">
+                    <span
+                      className="inline-block rounded-full flex-shrink-0"
+                      style={{ width: 10, height: 10, background: color }}
+                    />
+                    {label}
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Sidebar: unpinned queue */}
+            <div className="flex flex-col" style={{ height: '70vh' }}>
+              <div className="mb-2">
+                <input
+                  type="text"
+                  placeholder="Search unpinned beneficiaries..."
+                  value={search}
+                  onChange={e => setSearch(e.target.value)}
+                  className="w-full border border-gray-300 rounded px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+              <div className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">
+                Needs Pinning ({filteredUnpinned.length})
+              </div>
+              <div className="flex-1 overflow-y-auto space-y-1.5 pr-1">
+                {filteredUnpinned.length === 0 ? (
+                  <p className="text-xs text-gray-400 py-4 text-center">
+                    {unpinnedQueue.length === 0 ? 'All matching beneficiaries are pinned.' : 'No matches.'}
+                  </p>
+                ) : (
+                  filteredUnpinned.map(b => (
+                    <BeneficiaryQueueItem
+                      key={b.id}
+                      b={b}
+                      isPinning={pinningId === b.id}
+                      onStartPinning={setPinningId}
+                      onCancelPinning={() => setPinningId(null)}
+                    />
+                  ))
+                )}
+              </div>
+            </div>
+          </div>
+        </>
+      ) : (
+        <>
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-sm text-gray-400">
+              {itinLoading ? 'Loading itineraries...' : `${itineraries.length} saved`}
+            </span>
+            <select
+              value={selectedId}
+              onChange={e => loadItinerary(e.target.value === 'new' ? 'new' : Number(e.target.value))}
+              className="border border-gray-300 rounded px-2 py-1.5 text-sm"
+            >
+              <option value="new">+ New itinerary</option>
+              {itineraries.map(it => (
+                <option key={it.id} value={it.id}>
+                  {it.name}{it.visit_date ? ` — ${it.visit_date}` : ''} ({it.itinerary_stops.length} stops)
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="flex flex-wrap gap-2 items-end mb-3 bg-gray-50 border border-gray-200 rounded px-3 py-2">
+            <div>
+              <label className="block text-xs text-gray-500 mb-0.5">Name</label>
+              <input
+                type="text"
+                value={itinName}
+                onChange={e => setItinName(e.target.value)}
+                placeholder="e.g. Iba + Botolan compliance sweep"
+                className="border border-gray-300 rounded px-2 py-1.5 text-sm w-64"
+              />
+            </div>
+            <div>
+              <label className="block text-xs text-gray-500 mb-0.5">Visit date</label>
+              <input
+                type="date"
+                value={visitDate}
+                onChange={e => setVisitDate(e.target.value)}
+                className="border border-gray-300 rounded px-2 py-1.5 text-sm"
+              />
+            </div>
+            <button
+              onClick={handleItinSave}
+              disabled={itinSaving}
+              className="bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white text-sm px-3 py-1.5 rounded"
+            >
+              {itinSaving ? 'Saving...' : selectedItinerary ? 'Save changes' : 'Create & save'}
+            </button>
+            {selectedItinerary && (
+              <button onClick={handleItinDelete} className="text-xs text-red-500 hover:text-red-700 underline">
+                Delete this itinerary
+              </button>
+            )}
+            {itinSaveMsg?.error && <span className="text-xs text-red-500">{itinSaveMsg.error}</span>}
+            {itinSaveMsg?.ok && <span className="text-xs text-green-600">Saved.</span>}
+          </div>
+
+          <MapFilterBar
+            beneficiaries={merged}
+            filters={itinFilters}
+            setFilters={setItinFilters}
+            docFilter={itinDocFilter}
+            setDocFilter={setItinDocFilter}
+            documentTypesByPhase={documentTypesByPhase}
+          />
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4" style={{ height: '65vh' }}>
+            <CandidatePool
+              all={filteredForPlan}
+              excludeIds={new Set(stopIds)}
+              anchor={anchor}
+              onAdd={addStop}
+            />
+            <div className="overflow-y-auto">
+              <StopList stops={stops} onReorder={reorderStops} onRemove={removeStop} />
+            </div>
+          </div>
+        </>
+      )}
     </div>
   )
 }

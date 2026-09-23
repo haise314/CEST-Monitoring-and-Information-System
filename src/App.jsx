@@ -1,4 +1,4 @@
-import { createBrowserRouter, RouterProvider, Outlet } from 'react-router'
+import { createBrowserRouter, RouterProvider, Outlet, Navigate } from 'react-router'
 import Navbar from './components/Navbar'
 import Dashboard from './pages/dashboard/Dashboard'
 import Projects from './pages/projects/Projects'
@@ -31,7 +31,9 @@ const router = createBrowserRouter([
       { path: '/beneficiaries', element: <Beneficiaries /> },
       { path: '/contacts', element: <Contacts /> },
       { path: '/map', element: <MapPage /> },
-      { path: '/itinerary', element: <Itinerary /> }
+      // Itinerary is now a tab inside /map (Plan Visit mode) rather than its
+      // own page. This redirect keeps old bookmarks/links to /itinerary alive.
+      { path: '/itinerary', element: <Navigate to="/map?mode=plan" replace /> }
     ]
   }
 ])
