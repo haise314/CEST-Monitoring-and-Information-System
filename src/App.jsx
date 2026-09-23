@@ -1,5 +1,7 @@
-import { createBrowserRouter, RouterProvider, Outlet, Navigate } from 'react-router'
+import { createBrowserRouter, RouterProvider, Outlet, Navigate, useLocation } from 'react-router'
+import { AuthProvider, useAuth } from './lib/AuthContext'
 import Navbar from './components/Navbar'
+import Login from './pages/auth/Login'
 import Dashboard from './pages/dashboard/Dashboard'
 import Projects from './pages/projects/Projects'
 import ProjectDetail from './pages/projects/ProjectDetail'
@@ -10,16 +12,33 @@ import Overview from './pages/overview/Overview'
 import MapPage from './pages/map/Map'
 import Itinerary from './pages/itinerary/Itinerary'
 
+// Gate for everything under the main Layout. Shows a brief loading state
+// while Supabase checks for an existing session, then either renders the
+// app or bounces to /login (remembering where the user was headed).
+function RequireAuth({ children }) {
+  const { session, loading } = useAuth()
+  const location = useLocation()
+
+  if (loading) {
+    return <div className="p-6 text-sm text-gray-400">Loading...</div>
+  }
+  if (!session) {
+    return <Navigate to="/login" state={{ from: location }} replace />
+  }
+  return children
+}
+
 const Layout = () => (
-  <>
+  <RequireAuth>
     <Navbar />
     <main className="p-6">
       <Outlet />
     </main>
-  </>
+  </RequireAuth>
 )
 
 const router = createBrowserRouter([
+  { path: '/login', element: <Login /> },
   {
     element: <Layout />,
     children: [
@@ -39,7 +58,11 @@ const router = createBrowserRouter([
 ])
 
 function App() {
-  return <RouterProvider router={router} />
+  return (
+    <AuthProvider>
+      <RouterProvider router={router} />
+    </AuthProvider>
+  )
 }
 
 export default App

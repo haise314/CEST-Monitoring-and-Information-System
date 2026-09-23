@@ -530,7 +530,7 @@ export default function MapPage() {
             documentTypesByPhase={documentTypesByPhase}
           />
 
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4" style={{ height: '65vh' }}>
+          <div className="grid grid-cols-1 lg:grid-ls-2 gap-4" style={{ height: '65vh' }}>
             <CandidatePool
               all={filteredForPlan}
               excludeIds={new Set(stopIds)}
