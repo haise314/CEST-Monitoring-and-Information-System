@@ -9,10 +9,12 @@ import {
 import { useState, useMemo, useEffect } from 'react'
 import { useSearchParams } from 'react-router'
 import { useProjects } from '../../hooks/useProjects'
+import { useColumnSizing } from '../../hooks/useColumnSizing'
 import { ALL_COLUMNS, DEFAULT_VISIBLE, FILTERABLE_COLUMN_IDS } from './columns'
 import FilterBar from './filterBar'
 import VisibilityPanel from '../../components/common/VisibilityPanel'
 import PaginationBar from '../../components/common/PaginationBar'
+import ResizableTh from '../../components/common/ResizableTh'
 import AddModal from './addModal'
 import EditPanel from './editPanel'
 
@@ -23,6 +25,7 @@ function Projects() {
   const [globalFilter, setGlobalFilter]           = useState('')
   const [sorting, setSorting]                     = useState([])
   const [columnVisibility, setColumnVisibility]   = useState(DEFAULT_VISIBLE)
+  const [columnSizing, setColumnSizing]           = useColumnSizing('projectsColumnSizing')
   const [filters, setFilters]                     = useState(
     Object.fromEntries(FILTERABLE_COLUMN_IDS.map(id => [id, '']))
   )
@@ -68,10 +71,12 @@ function Projects() {
   const table = useReactTable({
     data: filtered,
     columns: ALL_COLUMNS,
-    state: { globalFilter, sorting, columnVisibility },
+    state: { globalFilter, sorting, columnVisibility, columnSizing },
     onGlobalFilterChange:     setGlobalFilter,
     onSortingChange:          setSorting,
     onColumnVisibilityChange: setColumnVisibility,
+    onColumnSizingChange:     setColumnSizing,
+    columnResizeMode:         'onChange',
     getCoreRowModel:          getCoreRowModel(),
     getFilteredRowModel:      getFilteredRowModel(),
     getSortedRowModel:        getSortedRowModel(),
@@ -103,6 +108,13 @@ function Projects() {
             onChange={e => setGlobalFilter(e.target.value)}
             className="border border-gray-300 rounded px-3 py-1.5 text-sm w-52 focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
+          <button
+            onClick={() => setColumnSizing({})}
+            title="Reset column widths to default"
+            className="border border-gray-300 rounded px-3 py-1.5 text-sm hover:bg-gray-50"
+          >
+            ↺ Widths
+          </button>
           <div className="relative">
             <button
               onClick={() => setShowVisibilityPanel(v => !v)}
@@ -136,20 +148,15 @@ function Projects() {
 
       {/* ── Table ── */}
       <div className="overflow-x-auto rounded-lg border border-gray-200">
-        <table className="min-w-full text-sm">
+        <table
+          className="text-sm"
+          style={{ width: table.getTotalSize(), tableLayout: 'fixed' }}
+        >
           <thead className="bg-gray-50 text-gray-600 uppercase text-xs">
             {table.getHeaderGroups().map(headerGroup => (
               <tr key={headerGroup.id}>
                 {headerGroup.headers.map(header => (
-                  <th
-                    key={header.id}
-                    onClick={header.column.getToggleSortingHandler()}
-                    className="px-4 py-3 text-left font-medium cursor-pointer select-none hover:bg-gray-100 whitespace-nowrap"
-                  >
-                    {flexRender(header.column.columnDef.header, header.getContext())}
-                    {header.column.getIsSorted() === 'asc'  ? ' ↑'
-                     : header.column.getIsSorted() === 'desc' ? ' ↓' : ''}
-                  </th>
+                  <ResizableTh key={header.id} header={header} />
                 ))}
               </tr>
             ))}
@@ -169,7 +176,11 @@ function Projects() {
                   className="hover:bg-gray-50 cursor-pointer"
                 >
                   {row.getVisibleCells().map(cell => (
-                    <td key={cell.id} className="px-4 py-3 whitespace-nowrap">
+                    <td
+                      key={cell.id}
+                      style={{ width: cell.column.getSize() }}
+                      className="px-4 py-3 truncate"
+                    >
                       {flexRender(cell.column.columnDef.cell, cell.getContext())}
                     </td>
                   ))}

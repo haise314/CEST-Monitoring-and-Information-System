@@ -1,6 +1,10 @@
 import { useState, useMemo } from 'react'
+import { useReactTable, getCoreRowModel, getSortedRowModel, flexRender } from '@tanstack/react-table'
 import { useContacts } from '../../hooks/useContacts'
 import { useFormData } from '../../hooks/useFormData'
+import { useColumnSizing } from '../../hooks/useColumnSizing'
+import ResizableTh from '../../components/common/ResizableTh'
+import { ALL_COLUMNS } from './columns'
 import ContactModal from './ContactModal'
 
 export default function Contacts() {
@@ -8,6 +12,8 @@ export default function Contacts() {
   const { beneficiaries } = useFormData() // already fetches beneficiaries for dropdowns elsewhere
 
   const [search, setSearch]         = useState('')
+  const [sorting, setSorting]       = useState([])
+  const [columnSizing, setColumnSizing] = useColumnSizing('contactsColumnSizing')
   const [showModal, setShowModal]   = useState(false)
   const [editingContact, setEditingContact] = useState(null) // null = add mode
 
@@ -20,6 +26,17 @@ export default function Contacts() {
         .some(field => field.toLowerCase().includes(q))
     )
   }, [contacts, search])
+
+  const table = useReactTable({
+    data: filtered,
+    columns: ALL_COLUMNS,
+    state: { sorting, columnSizing },
+    onSortingChange:      setSorting,
+    onColumnSizingChange: setColumnSizing,
+    columnResizeMode:     'onChange',
+    getCoreRowModel:      getCoreRowModel(),
+    getSortedRowModel:    getSortedRowModel(),
+  })
 
   function openAdd() {
     setEditingContact(null)
@@ -66,6 +83,13 @@ export default function Contacts() {
             className="border border-gray-300 rounded px-3 py-1.5 text-sm w-72 focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
           <button
+            onClick={() => setColumnSizing({})}
+            title="Reset column widths to default"
+            className="border border-gray-300 rounded px-3 py-1.5 text-sm hover:bg-gray-50"
+          >
+            ↺ Widths
+          </button>
+          <button
             onClick={openAdd}
             className="bg-blue-600 text-white rounded px-3 py-1.5 text-sm font-medium hover:bg-blue-700"
           >
@@ -76,49 +100,39 @@ export default function Contacts() {
 
       {/* Table — click any row to open its edit modal (delete lives inside) */}
       <div className="overflow-x-auto rounded-lg border border-gray-200">
-        <table className="min-w-full text-sm">
+        <table className="text-sm" style={{ width: table.getTotalSize(), tableLayout: 'fixed' }}>
           <thead className="bg-gray-50 text-gray-600 uppercase text-xs">
-            <tr>
-              <th className="px-4 py-3 text-left font-medium">Name</th>
-              <th className="px-4 py-3 text-left font-medium">Role</th>
-              <th className="px-4 py-3 text-left font-medium">Beneficiary</th>
-              <th className="px-4 py-3 text-left font-medium">Municipality</th>
-              <th className="px-4 py-3 text-left font-medium">Contact No.</th>
-              <th className="px-4 py-3 text-left font-medium">Messenger</th>
-            </tr>
+            {table.getHeaderGroups().map(headerGroup => (
+              <tr key={headerGroup.id}>
+                {headerGroup.headers.map(header => (
+                  <ResizableTh key={header.id} header={header} />
+                ))}
+              </tr>
+            ))}
           </thead>
           <tbody className="divide-y divide-gray-100 bg-white">
-            {filtered.length === 0 ? (
+            {table.getRowModel().rows.length === 0 ? (
               <tr>
-                <td colSpan={6} className="px-4 py-8 text-center text-gray-400">
+                <td colSpan={ALL_COLUMNS.length} className="px-4 py-8 text-center text-gray-400">
                   No contacts found
                 </td>
               </tr>
             ) : (
-              filtered.map(c => (
+              table.getRowModel().rows.map(row => (
                 <tr
-                  key={c.id}
-                  onClick={() => openEdit(c)}
+                  key={row.id}
+                  onClick={() => openEdit(row.original)}
                   className="hover:bg-gray-50 cursor-pointer"
                 >
-                  <td className="px-4 py-3 whitespace-nowrap font-medium text-gray-700">{c.name}</td>
-                  <td className="px-4 py-3 whitespace-nowrap text-gray-500">{c.role ?? '—'}</td>
-                  <td className="px-4 py-3 whitespace-nowrap">{c.beneficiaries?.name ?? '—'}</td>
-                  <td className="px-4 py-3 whitespace-nowrap text-gray-500">{c.beneficiaries?.municipality ?? '—'}</td>
-                  <td className="px-4 py-3 whitespace-nowrap text-gray-500">{c.contact_number ?? '—'}</td>
-                  <td className="px-4 py-3 whitespace-nowrap">
-                    {c.messenger_link ? (
-                      <a
-                        href={c.messenger_link}
-                        target="_blank"
-                        rel="noreferrer"
-                        onClick={e => e.stopPropagation()}
-                        className="text-blue-500 underline text-xs"
-                      >
-                        Open
-                      </a>
-                    ) : '—'}
-                  </td>
+                  {row.getVisibleCells().map(cell => (
+                    <td
+                      key={cell.id}
+                      style={{ width: cell.column.getSize() }}
+                      className="px-4 py-3 truncate"
+                    >
+                      {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                    </td>
+                  ))}
                 </tr>
               ))
             )}

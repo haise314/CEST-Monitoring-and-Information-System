@@ -261,8 +261,8 @@ export default function EditPanel({ project, onClose, onUpdate, onDelete, onDocu
                 </div>
 
                 <Field label="Title">
-                  <input
-                    type="text"
+                  <textarea
+                    rows={2}
                     value={form.title}
                     onChange={e => handleChange('title', e.target.value)}
                     placeholder="e.g. Portasol Unit for Barangay X Farmers Association"

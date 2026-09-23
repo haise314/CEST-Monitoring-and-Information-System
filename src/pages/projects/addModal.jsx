@@ -308,8 +308,8 @@ export default function AddModal({ onClose, onAdd }) {
 
             <div>
               <label className="block text-sm text-gray-600 mb-1">Title</label>
-              <input
-                type="text"
+              <textarea
+                rows={2}
                 value={form.title}
                 onChange={e => handleChange('title', e.target.value)}
                 placeholder="e.g. Portasol Unit for Barangay X Farmers Association"

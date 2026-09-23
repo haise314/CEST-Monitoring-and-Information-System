@@ -1,7 +1,7 @@
-import { useState, useMemo } from 'react'
+import { useMemo } from 'react'
+import { useNavigate } from 'react-router'
 import { useProjects } from '../../hooks/useProjects'
 import { useAllDocuments } from '../../hooks/useAllDocuments'
-import EditPanel from '../projects/editPanel'
 import { PHASE_ORDER, computeProgress, progressBarColor } from '../../lib/documentProgress'
 
 const PHASE_SHORT = {
@@ -18,7 +18,7 @@ const CATEGORY_COLORS = {
 
 // ─── Phase Pill ───────────────────────────────────────────────────────────────
 // One small bar per phase — same color scale as DocumentChecklist so a project
-// card and its detail panel never disagree about what "green" means.
+// card and its detail page never disagree about what "green" means.
 
 function PhasePill({ phase, phaseProgress }) {
   const { applicableCount, pct } = phaseProgress
@@ -117,13 +117,16 @@ function YearSection({ year, projects, docsByProject, onSelect }) {
 // ─── Main Page ─────────────────────────────────────────────────────────────────
 
 export default function Overview() {
-  const { projects, loading: projectsLoading, updateProject, deleteProject } = useProjects()
+  const navigate = useNavigate()
+  const { projects, loading: projectsLoading } = useProjects()
   const { documents, loading: docsLoading } = useAllDocuments()
-  const [selectedProjectId, setSelectedProjectId] = useState(null)
 
-  // selectedProjectId pattern — always derive from the live list so the
-  // detail panel never shows a stale snapshot after a refetch.
-  const selectedProject = projects.find(p => p.id === selectedProjectId) ?? null
+  // Overview is a browsing/status view — clicking a card now always opens
+  // the full /projects/:id page rather than the EditPanel overlay. Projects.jsx
+  // still uses EditPanel for quick edits.
+  function handleSelect(projectId) {
+    navigate(`/projects/${projectId}`)
+  }
 
   const docsByProject = useMemo(() => {
     const map = {}
@@ -166,18 +169,9 @@ export default function Overview() {
           year={year}
           projects={projectsByYear[year]}
           docsByProject={docsByProject}
-          onSelect={setSelectedProjectId}
+          onSelect={handleSelect}
         />
       ))}
-
-      {selectedProject && (
-        <EditPanel
-          project={selectedProject}
-          onClose={() => setSelectedProjectId(null)}
-          onUpdate={updateProject}
-          onDelete={deleteProject}
-        />
-      )}
     </div>
   )
 }

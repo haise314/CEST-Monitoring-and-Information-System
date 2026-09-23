@@ -1,3 +1,4 @@
+import { Link } from 'react-router'
 import StatusCell, { OperationalCell } from './statusCell'
 
 // Strips currency symbols, commas, and stray spaces before parsing —
@@ -31,45 +32,67 @@ function ProjectCategoryCell({ getValue }) {
   )
 }
 
+// ─── Detail Link Cell ─────────────────────────────────────────────────────────
+// Opens the full /projects/:id page. stopPropagation so it doesn't also
+// trigger the row's onClick (which opens the EditPanel quick-edit overlay).
+
+function DetailLinkCell({ row }) {
+  return (
+    <Link
+      to={`/projects/${row.original.id}`}
+      onClick={e => e.stopPropagation()}
+      title="Open full page"
+      className="text-blue-400 hover:text-blue-600"
+    >
+      ↗
+    </Link>
+  )
+}
+
 // ─── Column Definitions ───────────────────────────────────────────────────────
 
 export const ALL_COLUMNS = [
+  // ACTIONS
+  { id: 'detail_link', header: '', group: 'Core', size: 36, minSize: 36, enableSorting: false, cell: DetailLinkCell },
+
   // CORE
-  { accessorKey: 'year',             header: 'Year',             group: 'Core', cell: ({ getValue }) => getValue() ?? '—' },
-  { accessorKey: 'title',            header: 'Title',            group: 'Core', cell: ({ getValue }) => getValue() ?? '—' },
-  { accessorFn: r => r.project_types?.name, id: 'project_type', header: 'Project Type', group: 'Core', cell: ({ getValue }) => getValue() ?? '—' },
-  { accessorKey: 'project_category', header: 'Category',         group: 'Core', cell: ProjectCategoryCell },
-  { accessorKey: 'intervention',     header: 'Intervention',     group: 'Core', cell: ({ getValue }) => getValue() ?? '—' },
-  { accessorKey: 'property_number',  header: 'Property No.',     group: 'Core', cell: ({ getValue }) => getValue() ?? '—' },
-  { accessorKey: 'amount',           header: 'Amount',           group: 'Core', cell: ({ getValue }) => getValue() != null ? `₱${Number(getValue()).toLocaleString()}` : '—' },
-  { accessorKey: 'date_deployed',    header: 'Date Deployed',    group: 'Core', cell: ({ getValue }) => getValue() ?? '—' },
-  { accessorKey: 'entry_point',      header: 'Entry Point',      group: 'Core', cell: ({ getValue }) => getValue() ?? '—' },
+  { accessorKey: 'year',             header: 'Year',             group: 'Core', size: 80,  minSize: 60,  cell: ({ getValue }) => getValue() ?? '—' },
+  { accessorKey: 'title',            header: 'Title',            group: 'Core', size: 280, minSize: 120, cell: ({ getValue }) => getValue() ?? '—' },
+  { accessorFn: r => r.project_types?.name, id: 'project_type', header: 'Project Type', group: 'Core', size: 150, minSize: 100, cell: ({ getValue }) => getValue() ?? '—' },
+  { accessorKey: 'project_category', header: 'Category',         group: 'Core', size: 130, minSize: 100, cell: ProjectCategoryCell },
+  { accessorKey: 'intervention',     header: 'Intervention',     group: 'Core', size: 220, minSize: 120, cell: ({ getValue }) => getValue() ?? '—' },
+  { accessorKey: 'property_number',  header: 'Property No.',     group: 'Core', size: 140, minSize: 100, cell: ({ getValue }) => getValue() ?? '—' },
+  { accessorKey: 'amount',           header: 'Amount',           group: 'Core', size: 130, minSize: 100, cell: ({ getValue }) => getValue() != null ? `₱${Number(getValue()).toLocaleString()}` : '—' },
+  { accessorKey: 'date_deployed',    header: 'Date Deployed',    group: 'Core', size: 130, minSize: 100, cell: ({ getValue }) => getValue() ?? '—' },
+  { accessorKey: 'entry_point',      header: 'Entry Point',      group: 'Core', size: 150, minSize: 100, cell: ({ getValue }) => getValue() ?? '—' },
 
   // BENEFICIARY
-  { accessorFn: r => r.beneficiaries?.name,         id: 'beneficiary',  header: 'Beneficiary',  group: 'Beneficiary', cell: ({ getValue }) => getValue() ?? '—' },
-  { accessorFn: r => r.beneficiaries?.category,     id: 'category',     header: 'Category',     group: 'Beneficiary', cell: ({ getValue }) => getValue() ?? '—' },
-  { accessorFn: r => r.beneficiaries?.district,     id: 'district',     header: 'District',     group: 'Beneficiary', cell: ({ getValue }) => getValue() ?? '—' },
-  { accessorFn: r => r.beneficiaries?.municipality, id: 'municipality', header: 'Municipality', group: 'Beneficiary', cell: ({ getValue }) => getValue() ?? '—' },
-  { accessorFn: r => r.beneficiaries?.barangay,     id: 'barangay',     header: 'Barangay',     group: 'Beneficiary', cell: ({ getValue }) => getValue() ?? '—' },
-  { accessorKey: 'members_male',    header: 'Male Members',   group: 'Beneficiary', cell: ({ getValue }) => getValue() ?? '—' },
-  { accessorKey: 'members_female',  header: 'Female Members', group: 'Beneficiary', cell: ({ getValue }) => getValue() ?? '—' },
-  { accessorKey: 'senior_citizen',  header: 'Senior Citizen', group: 'Beneficiary', cell: ({ getValue }) => getValue() ?? '—' },
-  { accessorKey: 'pwds',            header: 'PWDs',           group: 'Beneficiary', cell: ({ getValue }) => getValue() ?? '—' },
-  { accessorKey: 'fourps',          header: '4Ps',            group: 'Beneficiary', cell: ({ getValue }) => getValue() ?? '—' },
-  { accessorKey: 'ips',             header: 'IPs',            group: 'Beneficiary', cell: ({ getValue }) => getValue() ?? '—' },
+  { accessorFn: r => r.beneficiaries?.name,         id: 'beneficiary',  header: 'Beneficiary',  group: 'Beneficiary', size: 200, minSize: 120, cell: ({ getValue }) => getValue() ?? '—' },
+  { accessorFn: r => r.beneficiaries?.category,     id: 'category',     header: 'Category',     group: 'Beneficiary', size: 120, minSize: 90,  cell: ({ getValue }) => getValue() ?? '—' },
+  { accessorFn: r => r.beneficiaries?.district,     id: 'district',     header: 'District',     group: 'Beneficiary', size: 130, minSize: 90,  cell: ({ getValue }) => getValue() ?? '—' },
+  { accessorFn: r => r.beneficiaries?.municipality, id: 'municipality', header: 'Municipality', group: 'Beneficiary', size: 150, minSize: 100, cell: ({ getValue }) => getValue() ?? '—' },
+  { accessorFn: r => r.beneficiaries?.barangay,     id: 'barangay',     header: 'Barangay',     group: 'Beneficiary', size: 150, minSize: 100, cell: ({ getValue }) => getValue() ?? '—' },
+  { accessorKey: 'members_male',    header: 'Male Members',   group: 'Beneficiary', size: 110, minSize: 90, cell: ({ getValue }) => getValue() ?? '—' },
+  { accessorKey: 'members_female',  header: 'Female Members', group: 'Beneficiary', size: 120, minSize: 90, cell: ({ getValue }) => getValue() ?? '—' },
+  { accessorKey: 'senior_citizen',  header: 'Senior Citizen', group: 'Beneficiary', size: 120, minSize: 90, cell: ({ getValue }) => getValue() ?? '—' },
+  { accessorKey: 'pwds',            header: 'PWDs',           group: 'Beneficiary', size: 90,  minSize: 70, cell: ({ getValue }) => getValue() ?? '—' },
+  { accessorKey: 'fourps',          header: '4Ps',            group: 'Beneficiary', size: 90,  minSize: 70, cell: ({ getValue }) => getValue() ?? '—' },
+  { accessorKey: 'ips',             header: 'IPs',            group: 'Beneficiary', size: 90,  minSize: 70, cell: ({ getValue }) => getValue() ?? '—' },
 
   // STATUS & IMPACT
-  { accessorKey: 'overall_status',      header: 'Overall Status', group: 'Status & Impact', cell: StatusCell },
-  { accessorKey: 'operational_status',  header: 'Operational',    group: 'Status & Impact', cell: OperationalCell },
-  { accessorKey: 'interventions_count', header: 'Interventions',  group: 'Status & Impact', cell: ({ getValue }) => getValue() ?? '—' },
-  { accessorKey: 'people_trained',      header: 'People Trained', group: 'Status & Impact', cell: ({ getValue }) => getValue() ?? '—' },
-  { accessorKey: 'impact_notes',        header: 'Impact Notes',   group: 'Status & Impact', cell: ({ getValue }) => getValue() ?? '—' },
+  { accessorKey: 'overall_status',      header: 'Overall Status', group: 'Status & Impact', size: 160, minSize: 120, cell: StatusCell },
+  { accessorKey: 'operational_status',  header: 'Operational',    group: 'Status & Impact', size: 150, minSize: 110, cell: OperationalCell },
+  { accessorKey: 'interventions_count', header: 'Interventions',  group: 'Status & Impact', size: 110, minSize: 90,  cell: ({ getValue }) => getValue() ?? '—' },
+  { accessorKey: 'people_trained',      header: 'People Trained', group: 'Status & Impact', size: 120, minSize: 90,  cell: ({ getValue }) => getValue() ?? '—' },
+  { accessorKey: 'impact_notes',        header: 'Impact Notes',   group: 'Status & Impact', size: 250, minSize: 120, cell: ({ getValue }) => getValue() ?? '—' },
 
   // DOCUMENTS
   {
     accessorKey: 'gdrive_folder_link',
     header: 'GDrive Link',
     group: 'Documents',
+    size: 110,
+    minSize: 90,
     cell: ({ getValue }) => getValue()
       ? <a href={getValue()} target="_blank" rel="noreferrer" className="text-blue-500 underline text-xs">Open</a>
       : '—',
@@ -79,6 +102,11 @@ export const ALL_COLUMNS = [
 // ─── Visibility Defaults ──────────────────────────────────────────────────────
 
 export const DEFAULT_VISIBLE = {
+  // Always visible, not user-toggleable via VisibilityPanel unless it
+  // already treats unlisted-but-present keys as visible-by-default — if
+  // VisibilityPanel iterates ALL_COLUMNS and defaults missing keys to true,
+  // this entry is optional; included here explicitly to be safe.
+  detail_link: true,
   // Visible by default
   year: true,
   title: true,

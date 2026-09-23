@@ -2,6 +2,7 @@ import { createBrowserRouter, RouterProvider, Outlet } from 'react-router'
 import Navbar from './components/Navbar'
 import Dashboard from './pages/dashboard/Dashboard'
 import Projects from './pages/projects/Projects'
+import ProjectDetail from './pages/projects/ProjectDetail'
 import Beneficiaries from './pages/beneficiaries/Beneficiaries'
 import Contacts from './pages/contacts/Contacts'
 import Documents from './pages/documents/Documents'
@@ -25,6 +26,7 @@ const router = createBrowserRouter([
       { path: '/overview', element: <Overview /> },
       { path: '/', element: <Dashboard /> },
       { path: '/projects', element: <Projects /> },
+      { path: '/projects/:id', element: <ProjectDetail /> },
       { path: '/documents', element: <Documents /> },
       { path: '/beneficiaries', element: <Beneficiaries /> },
       { path: '/contacts', element: <Contacts /> },

@@ -1,6 +1,10 @@
 import { useState, useMemo, useEffect } from 'react'
+import { useReactTable, getCoreRowModel, getSortedRowModel, flexRender } from '@tanstack/react-table'
 import { useSearchParams } from 'react-router'
 import { useBeneficiaries, projectCount } from '../../hooks/useBeneficiaries'
+import { useColumnSizing } from '../../hooks/useColumnSizing'
+import ResizableTh from '../../components/common/ResizableTh'
+import { ALL_COLUMNS } from './columns'
 import BeneficiaryModal from './BeneficiaryModal'
 
 export default function Beneficiaries() {
@@ -12,6 +16,8 @@ export default function Beneficiaries() {
   const [searchParams, setSearchParams] = useSearchParams()
 
   const [search, setSearch]                   = useState('')
+  const [sorting, setSorting]                 = useState([])
+  const [columnSizing, setColumnSizing]       = useColumnSizing('beneficiariesColumnSizing')
   const [showModal, setShowModal]             = useState(false)
   const [editingBeneficiary, setEditingBeneficiary] = useState(null) // null = add mode
 
@@ -42,6 +48,17 @@ export default function Beneficiaries() {
     )
   }, [beneficiaries, search])
 
+  const table = useReactTable({
+    data: filtered,
+    columns: ALL_COLUMNS,
+    state: { sorting, columnSizing },
+    onSortingChange:      setSorting,
+    onColumnSizingChange: setColumnSizing,
+    columnResizeMode:     'onChange',
+    getCoreRowModel:      getCoreRowModel(),
+    getSortedRowModel:    getSortedRowModel(),
+  })
+
   function openAdd() {
     setEditingBeneficiary(null)
     setShowModal(true)
@@ -60,9 +77,7 @@ export default function Beneficiaries() {
   // Passed into the modal's Danger Zone. The modal itself disables the
   // delete action when linkedProjectCount > 0 (see BeneficiaryModal), but
   // this defensive re-check stays here too in case that count changes
-  // underneath us (e.g. another tab adds a project mid-session) — same
-  // belt-and-suspenders reasoning as before, just surfaced inside the
-  // modal now instead of inline in the row.
+  // underneath us (e.g. another tab adds a project mid-session).
   async function handleDelete(id) {
     const result = await deleteBeneficiary(id)
     if (!result.error) setShowModal(false)
@@ -91,6 +106,13 @@ export default function Beneficiaries() {
             className="border border-gray-300 rounded px-3 py-1.5 text-sm w-72 focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
           <button
+            onClick={() => setColumnSizing({})}
+            title="Reset column widths to default"
+            className="border border-gray-300 rounded px-3 py-1.5 text-sm hover:bg-gray-50"
+          >
+            ↺ Widths
+          </button>
+          <button
             onClick={openAdd}
             className="bg-blue-600 text-white rounded px-3 py-1.5 text-sm font-medium hover:bg-blue-700"
           >
@@ -101,42 +123,41 @@ export default function Beneficiaries() {
 
       {/* Table — click any row to open its edit modal (delete lives inside) */}
       <div className="overflow-x-auto rounded-lg border border-gray-200">
-        <table className="min-w-full text-sm">
+        <table className="text-sm" style={{ width: table.getTotalSize(), tableLayout: 'fixed' }}>
           <thead className="bg-gray-50 text-gray-600 uppercase text-xs">
-            <tr>
-              <th className="px-4 py-3 text-left font-medium">Name</th>
-              <th className="px-4 py-3 text-left font-medium">Category</th>
-              <th className="px-4 py-3 text-left font-medium">District</th>
-              <th className="px-4 py-3 text-left font-medium">Municipality</th>
-              <th className="px-4 py-3 text-left font-medium">Barangay</th>
-              <th className="px-4 py-3 text-left font-medium">Projects</th>
-            </tr>
+            {table.getHeaderGroups().map(headerGroup => (
+              <tr key={headerGroup.id}>
+                {headerGroup.headers.map(header => (
+                  <ResizableTh key={header.id} header={header} />
+                ))}
+              </tr>
+            ))}
           </thead>
           <tbody className="divide-y divide-gray-100 bg-white">
-            {filtered.length === 0 ? (
+            {table.getRowModel().rows.length === 0 ? (
               <tr>
-                <td colSpan={6} className="px-4 py-8 text-center text-gray-400">
+                <td colSpan={ALL_COLUMNS.length} className="px-4 py-8 text-center text-gray-400">
                   No beneficiaries found
                 </td>
               </tr>
             ) : (
-              filtered.map(b => {
-                const count = projectCount(b)
-                return (
-                  <tr
-                    key={b.id}
-                    onClick={() => openEdit(b)}
-                    className="hover:bg-gray-50 cursor-pointer"
-                  >
-                    <td className="px-4 py-3 whitespace-nowrap font-medium text-gray-700">{b.name}</td>
-                    <td className="px-4 py-3 whitespace-nowrap text-gray-500">{b.category}</td>
-                    <td className="px-4 py-3 whitespace-nowrap text-gray-500">{b.district ?? '—'}</td>
-                    <td className="px-4 py-3 whitespace-nowrap text-gray-500">{b.municipality ?? '—'}</td>
-                    <td className="px-4 py-3 whitespace-nowrap text-gray-500">{b.barangay ?? '—'}</td>
-                    <td className="px-4 py-3 whitespace-nowrap text-gray-500">{count}</td>
-                  </tr>
-                )
-              })
+              table.getRowModel().rows.map(row => (
+                <tr
+                  key={row.id}
+                  onClick={() => openEdit(row.original)}
+                  className="hover:bg-gray-50 cursor-pointer"
+                >
+                  {row.getVisibleCells().map(cell => (
+                    <td
+                      key={cell.id}
+                      style={{ width: cell.column.getSize() }}
+                      className="px-4 py-3 truncate"
+                    >
+                      {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                    </td>
+                  ))}
+                </tr>
+              ))
             )}
           </tbody>
         </table>
