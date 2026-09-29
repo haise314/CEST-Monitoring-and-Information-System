@@ -1,6 +1,7 @@
-import { createBrowserRouter, RouterProvider, Outlet, Navigate, useLocation } from 'react-router'
+import { createBrowserRouter, RouterProvider, Navigate, useLocation } from 'react-router'
 import { AuthProvider, useAuth } from './lib/AuthContext'
-import Navbar from './components/Navbar'
+import { ThemeProvider } from './lib/ThemeContext'
+import AppLayout from './components/layout/AppLayout'
 import Login from './pages/auth/Login'
 import Dashboard from './pages/dashboard/Dashboard'
 import Projects from './pages/projects/Projects'
@@ -28,12 +29,10 @@ function RequireAuth({ children }) {
   return children
 }
 
+// Sidebar + top bar shell (components/layout/) — it renders the <Outlet />.
 const Layout = () => (
   <RequireAuth>
-    <Navbar />
-    <main className="p-6">
-      <Outlet />
-    </main>
+    <AppLayout />
   </RequireAuth>
 )
 
@@ -59,9 +58,11 @@ const router = createBrowserRouter([
 
 function App() {
   return (
-    <AuthProvider>
-      <RouterProvider router={router} />
-    </AuthProvider>
+    <ThemeProvider>
+      <AuthProvider>
+        <RouterProvider router={router} />
+      </AuthProvider>
+    </ThemeProvider>
   )
 }
 

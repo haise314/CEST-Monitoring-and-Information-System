@@ -1,0 +1,141 @@
+/* ─────────────────────────────────────────────────────────────────────────
+   Theme layer — light/dark.
+
+   How dark mode works here: every page already uses Tailwind's gray/blue/
+   etc. utilities, which compile to CSS variables (--color-gray-200, ...).
+   Instead of adding `dark:` variants to ~40 files, the .dark class remaps
+   those variables. Surfaces/borders/text flip; saturated fills (the 400-600
+   range: buttons, progress bars, pins) are left alone so `bg-blue-600
+   text-white` still reads as a button.
+
+   Import once, right after Tailwind in your main stylesheet:
+     @import "tailwindcss";
+     @import "./theme.css";
+   ───────────────────────────────────────────────────────────────────────── */
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+:root {
+  --app-bg: #f5f6f8;
+  --surface: #ffffff;
+  color-scheme: light;
+}
+
+body {
+  background: var(--app-bg);
+  color: var(--color-gray-800);
+}
+
+.dark {
+  color-scheme: dark; /* native inputs, selects, scrollbars go dark */
+  --app-bg: #0e1116;
+  --surface: #161a22;
+
+  --color-gray-50:  #1b202a;
+  --color-gray-100: #222836;
+  --color-gray-200: #2d3442;
+  --color-gray-300: #3b4354;
+  --color-gray-400: #8a92a3;
+  --color-gray-500: #9aa2b2;
+  --color-gray-600: #b0b7c4;
+  --color-gray-700: #c8cdd8;
+  --color-gray-800: #e3e6ec;
+  --color-gray-900: #f2f4f7;
+
+  --color-blue-50: rgb(59 130 246 / 0.1);
+  --color-blue-100: rgb(59 130 246 / 0.16);
+  --color-blue-200: rgb(59 130 246 / 0.26);
+  --color-blue-300: rgb(59 130 246 / 0.4);
+  --color-blue-700: #a7c7fb;
+  --color-blue-800: #c0d7fc;
+  --color-blue-900: #d8e6fd;
+  --color-red-50: rgb(239 68 68 / 0.1);
+  --color-red-100: rgb(239 68 68 / 0.16);
+  --color-red-200: rgb(239 68 68 / 0.26);
+  --color-red-300: rgb(239 68 68 / 0.4);
+  --color-red-700: #f8abab;
+  --color-red-800: #fac3c3;
+  --color-red-900: #fcdada;
+  --color-green-50: rgb(34 197 94 / 0.1);
+  --color-green-100: rgb(34 197 94 / 0.16);
+  --color-green-200: rgb(34 197 94 / 0.26);
+  --color-green-300: rgb(34 197 94 / 0.4);
+  --color-green-700: #9ce5b7;
+  --color-green-800: #b8eccb;
+  --color-green-900: #d3f3df;
+  --color-yellow-50: rgb(234 179 8 / 0.1);
+  --color-yellow-100: rgb(234 179 8 / 0.16);
+  --color-yellow-200: rgb(234 179 8 / 0.26);
+  --color-yellow-300: rgb(234 179 8 / 0.4);
+  --color-yellow-700: #f6dd90;
+  --color-yellow-800: #f8e7b0;
+  --color-yellow-900: #fbf0ce;
+  --color-amber-50: rgb(245 158 11 / 0.1);
+  --color-amber-100: rgb(245 158 11 / 0.16);
+  --color-amber-200: rgb(245 158 11 / 0.26);
+  --color-amber-300: rgb(245 158 11 / 0.4);
+  --color-amber-700: #fad391;
+  --color-amber-800: #fce0b1;
+  --color-amber-900: #fdecce;
+  --color-orange-50: rgb(249 115 22 / 0.1);
+  --color-orange-100: rgb(249 115 22 / 0.16);
+  --color-orange-200: rgb(249 115 22 / 0.26);
+  --color-orange-300: rgb(249 115 22 / 0.4);
+  --color-orange-700: #fcc096;
+  --color-orange-800: #fdd2b4;
+  --color-orange-900: #fee3d0;
+  --color-purple-50: rgb(168 85 247 / 0.1);
+  --color-purple-100: rgb(168 85 247 / 0.16);
+  --color-purple-200: rgb(168 85 247 / 0.26);
+  --color-purple-300: rgb(168 85 247 / 0.4);
+  --color-purple-700: #d8b2fb;
+  --color-purple-800: #e3c9fc;
+  --color-purple-900: #eeddfd;
+  --color-indigo-50: rgb(99 102 241 / 0.1);
+  --color-indigo-100: rgb(99 102 241 / 0.16);
+  --color-indigo-200: rgb(99 102 241 / 0.26);
+  --color-indigo-300: rgb(99 102 241 / 0.4);
+  --color-indigo-700: #b9baf9;
+  --color-indigo-800: #cdcefb;
+  --color-indigo-900: #e0e0fc;
+  --color-teal-50: rgb(20 184 166 / 0.1);
+  --color-teal-100: rgb(20 184 166 / 0.16);
+  --color-teal-200: rgb(20 184 166 / 0.26);
+  --color-teal-300: rgb(20 184 166 / 0.4);
+  --color-teal-700: #95dfd7;
+  --color-teal-800: #b4e8e3;
+  --color-teal-900: #d0f1ed;
+  --color-violet-50: rgb(139 92 246 / 0.1);
+  --color-violet-100: rgb(139 92 246 / 0.16);
+  --color-violet-200: rgb(139 92 246 / 0.26);
+  --color-violet-300: rgb(139 92 246 / 0.4);
+  --color-violet-700: #cbb6fb;
+  --color-violet-800: #dacbfc;
+  --color-violet-900: #e8defd;
+  --color-pink-50: rgb(236 72 153 / 0.1);
+  --color-pink-100: rgb(236 72 153 / 0.16);
+  --color-pink-200: rgb(236 72 153 / 0.26);
+  --color-pink-300: rgb(236 72 153 / 0.4);
+  --color-pink-700: #f6add1;
+  --color-pink-800: #f9c4de;
+  --color-pink-900: #fbdaeb;
+  --color-cyan-50: rgb(6 182 212 / 0.1);
+  --color-cyan-100: rgb(6 182 212 / 0.16);
+  --color-cyan-200: rgb(6 182 212 / 0.26);
+  --color-cyan-300: rgb(6 182 212 / 0.4);
+  --color-cyan-700: #8fdeec;
+  --color-cyan-800: #afe8f1;
+  --color-cyan-900: #cdf0f6;
+}
+
+/* --color-white can't be remapped (text-white must stay white on buttons),
+   so white *backgrounds* are overridden directly. */
+.dark .bg-white { background-color: var(--surface); }
+
+/* Leaflet: keep the map's stacking contained so the sticky top bar and
+   modals always sit above it, and darken the OSM tiles in dark mode. */
+.leaflet-container { isolation: isolate; }
+.dark .leaflet-tile-pane { filter: invert(1) hue-rotate(180deg) brightness(0.95) contrast(0.9); }
+.dark .leaflet-popup-content-wrapper,
+.dark .leaflet-popup-tip { background: var(--surface); color: var(--color-gray-800); }
+.dark .leaflet-container a.leaflet-popup-close-button { color: var(--color-gray-400); }

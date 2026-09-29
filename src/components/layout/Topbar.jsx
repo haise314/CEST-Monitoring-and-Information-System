@@ -1,0 +1,102 @@
+import { useState, useEffect, useRef } from 'react'
+import { Link, useLocation } from 'react-router'
+import { useAuth } from '../../lib/AuthContext'
+import { useTheme } from '../../lib/ThemeContext'
+import { getBreadcrumb } from './navConfig'
+import { MenuIcon, SunIcon, MoonIcon, LogoutIcon } from './icons'
+
+function Breadcrumb() {
+  const { pathname } = useLocation()
+  const trail = getBreadcrumb(pathname)
+  return (
+    <div className="flex items-center gap-1.5 text-sm min-w-0">
+      {trail.map((part, i) => {
+        const last = i === trail.length - 1
+        const cls = last ? 'font-semibold text-gray-800' : 'text-gray-400'
+        return (
+          <span key={i} className="flex items-center gap-1.5 min-w-0">
+            {i > 0 && <span className="text-gray-300">/</span>}
+            {part.to && !last
+              ? <Link to={part.to} className={`${cls} hover:text-gray-700 truncate`}>{part.label}</Link>
+              : <span className={`${cls} truncate`}>{part.label}</span>}
+          </span>
+        )
+      })}
+    </div>
+  )
+}
+
+function ThemeToggle() {
+  const { theme, toggleTheme } = useTheme()
+  const dark = theme === 'dark'
+  return (
+    <button
+      onClick={toggleTheme}
+      title={dark ? 'Switch to light mode' : 'Switch to dark mode'}
+      aria-label={dark ? 'Switch to light mode' : 'Switch to dark mode'}
+      className="w-9 h-9 rounded-lg flex items-center justify-center text-gray-500 hover:bg-gray-100 hover:text-gray-800"
+    >
+      {dark ? <SunIcon /> : <MoonIcon />}
+    </button>
+  )
+}
+
+function UserMenu() {
+  const { user, signOut } = useAuth()
+  const [open, setOpen] = useState(false)
+  const ref = useRef(null)
+
+  useEffect(() => {
+    if (!open) return
+    function onDown(e) { if (ref.current && !ref.current.contains(e.target)) setOpen(false) }
+    document.addEventListener('mousedown', onDown)
+    return () => document.removeEventListener('mousedown', onDown)
+  }, [open])
+
+  const email = user?.email ?? ''
+  const initial = (email[0] ?? '?').toUpperCase()
+
+  return (
+    <div ref={ref} className="relative">
+      <button
+        onClick={() => setOpen(v => !v)}
+        aria-label="Account menu"
+        className="w-9 h-9 rounded-full bg-blue-600 text-white text-sm font-semibold flex items-center justify-center hover:bg-blue-700"
+      >
+        {initial}
+      </button>
+      {open && (
+        <div className="absolute right-0 top-11 w-64 bg-white border border-gray-200 rounded-xl shadow-lg overflow-hidden z-50">
+          <div className="px-4 py-3 border-b border-gray-100">
+            <div className="text-xs text-gray-400">Signed in as</div>
+            <div className="text-sm text-gray-800 truncate">{email}</div>
+          </div>
+          <button
+            onClick={signOut}
+            className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-gray-600 hover:bg-gray-50 hover:text-gray-900"
+          >
+            <LogoutIcon className="w-4 h-4" /> Sign out
+          </button>
+        </div>
+      )}
+    </div>
+  )
+}
+
+export default function Topbar({ onOpenMobile }) {
+  return (
+    <header className="sticky top-0 z-30 h-14 bg-white border-b border-gray-200 flex items-center gap-3 px-4 sm:px-6">
+      <button
+        onClick={onOpenMobile}
+        aria-label="Open menu"
+        className="lg:hidden w-9 h-9 -ml-2 rounded-lg flex items-center justify-center text-gray-500 hover:bg-gray-100"
+      >
+        <MenuIcon />
+      </button>
+      <Breadcrumb />
+      <span className="flex-1" />
+      <ThemeToggle />
+      <UserMenu />
+    </header>
+  )
+}

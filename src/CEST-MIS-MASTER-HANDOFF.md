@@ -37,6 +37,15 @@ in place, causing brief lockout — resolved, not data loss. **Confirmed
 working on localhost only** as of this pass; production (Vercel) not yet
 verified — see §10.
 
+**Fifth update (2026-09-29, later):** app shell rebuilt with a sidebar,
+top bar, and light/dark theme — see §0 item 20.
+
+**Reconciled a fourth time (2026-09-29)** — the Dashboard was already
+substantially rebuilt (Recent Activity, Recently Updated, charts, budget
+rollup, KPIs, quick actions) but none of that was in this doc; this pass
+documents it and covers the centering fix + visual polish. See §0 items
+18–19 and §3a.
+
 Confidence labels:
 - **CONFIRMED** — verified in code, the live DB dump, or direct testing
 - **INFERENCE** — reasonable but not explicitly stated
@@ -208,6 +217,66 @@ Confidence labels:
       not bundled into this change — flagged as a separate, optional
       follow-up in §8/§10.
 
+18. **✅ Dashboard documented (was missing from this handoff).** The code
+    already had far more than the old routing-table row described: quick
+    actions, KPI row, Overdue/Upcoming lists, **Recent Activity** (the
+    "recent remarks across all projects" feed from the Sep 7 plan — see
+    §10, now done, backed by new `useAllRemarks.js`), **Recently Updated**
+    projects (reads `project_instances.updated_at`), compliance-by-phase
+    bars, attention flags, status/year bar charts, budget rollup, and
+    overdue-by-municipality hotspots. Full inventory in §3a.
+19. **✅ Dashboard centered and polished (2026-09-29).** Root cause of "not
+    centered": the page root was `max-w-5xl` with no `mx-auto`, so it hugged
+    the left edge of the `<main className="p-6">` wrapper. Fix: root is now
+    `max-w-6xl mx-auto w-full` (matches `ProjectDetail.jsx`), with the
+    loading/error states wrapped the same way. Polish pass, presentation
+    only — no hooks, data logic, or props changed: one shared `Card` surface
+    (white, `rounded-xl`, `shadow-sm`) plus `CardBar`/`EmptyNote`
+    primitives replacing ~10 hand-copied bordered divs; section headings
+    switched from tracked all-caps gray to sentence-case semibold; page
+    spacing via one `space-y-5` instead of per-block `mb-5`; `tabular-nums`
+    on figures so bars/counts line up; today's date in the header; clearer
+    empty-state and flag copy; emoji marked `aria-hidden`. **One behavior
+    change:** the hotspot counts were links to
+    `/documents?municipality=…&submitted=No`, and the card said "click to
+    filter" — but `Documents.jsx` never read those params, so it promised
+    something that never happened. Counts are now plain text and the false
+    hint was removed (§8). **Not yet eyeballed in a browser** — delivered
+    from a code read only.
+
+20. **✅ App shell restructured: sidebar + top bar + light/dark mode
+    (2026-09-29).** Replaces the single horizontal `Navbar.jsx`.
+    - **Shell** (`src/components/layout/`): `AppLayout.jsx` (rendered by
+      `App.jsx`'s `Layout` inside `RequireAuth`; owns sidebar-collapsed state,
+      persisted in `localStorage['cest_sidebar_collapsed']`, and mobile-drawer
+      state), `Sidebar.jsx` (fixed rail, 240px / 68px collapsed, off-canvas
+      drawer below `lg`), `Topbar.jsx` (sticky; breadcrumb, theme toggle,
+      avatar menu with email + sign out), `navConfig.jsx` (single source of
+      truth for nav groups **Monitor**: Dashboard/Overview/Map and
+      **Records**: Projects/Documents/Beneficiaries/Contacts, plus
+      `getBreadcrumb()`), `icons.jsx` (inline SVGs, no icon library). To add
+      a page to the nav, edit `navConfig.jsx` only.
+    - **Theme**: `src/lib/ThemeContext.jsx` (`ThemeProvider`, `useTheme()`;
+      `localStorage['cest_theme']` = `light`/`dark`, absent = follow OS)
+      wraps everything in `App.jsx`. `src/theme.css` is imported once after
+      Tailwind in the main stylesheet. **Dark mode is done by remapping
+      Tailwind's CSS color variables under `.dark`, not by `dark:` variants**
+      — so all existing pages flip with zero per-file edits. Gray scale and
+      the 50–300 / 700–900 shades of every accent color are remapped; the
+      400–600 range (buttons, bars, pins) is deliberately untouched. Because
+      `text-white` must stay white on buttons, `--color-white` is not
+      remapped; `.dark .bg-white` is overridden directly instead. **When
+      writing new UI: use the normal gray/color utilities and it themes
+      itself; don't hardcode hex colors or use `bg-white/NN` (opacity
+      variants bypass the override).**
+    - **Leaflet**: `.leaflet-container { isolation: isolate }` keeps map
+      panes below the sticky top bar and modals; tiles are inverted in dark
+      mode; popups get the dark surface.
+    - **`Navbar.jsx` is now orphaned** (no longer imported) — safe to delete.
+    - **Not yet eyeballed in a browser.** Likely first-pass tuning: dark
+      palette values in `theme.css`; `text-blue-600` (active tabs) is
+      unremapped so contrast on dark is modest.
+
 ---
 
 ## 1. Project Overview
@@ -262,7 +331,7 @@ list after mutations, **except** `useDocuments.updateDocument` /
 | Path | Component | Purpose |
 |---|---|---|
 | `/login` | `auth/Login.jsx` | **NEW (§0 item 17).** Email/password sign-in; not under `Layout`/`RequireAuth` for obvious reasons. No self-serve signup — accounts are created directly in Supabase's dashboard. |
-| `/` | `dashboard/Dashboard.jsx` | Overdue/upcoming docs, compliance %, attention flags, geo hotspots |
+| `/` | `dashboard/Dashboard.jsx` | Centered `max-w-6xl` page — quick actions, KPIs, overdue/upcoming docs, recent remarks, recently updated projects, compliance, flags, charts, budget, overdue hotspots. See §3a |
 | `/overview` | `overview/Overview.jsx` | Projects grouped by year, cards w/ per-phase progress — clicking a card now navigates straight to `/projects/:id` |
 | `/projects` | `projects/Projects.jsx` | Full project CRUD table |
 | `/projects/:id` | `projects/ProjectDetail.jsx` | **NEW.** Dedicated full-page project view/edit — see §10 for what it covers and why `EditPanel` still exists alongside it |
@@ -304,6 +373,34 @@ not read these params; unconfirmed if aspirational or broken.
 `ProjectDetail.jsx` was added using `'react-router'` for consistency with
 the majority.
 
+### 3a. Dashboard (`src/pages/dashboard/Dashboard.jsx`) — current layout
+
+Single file, no props. Data: `useAllDocuments`, `useProjects`,
+`useBeneficiaries` (count only), `useAllRemarks(10)`. Loading gates on
+docs/projects/beneficiaries; remarks load independently (its own inline
+"Loading activity..." card). Top to bottom, inside one
+`max-w-6xl mx-auto space-y-5` column:
+
+1. Header — title + today's date.
+2. `QuickActions` — two nav shortcuts (`/projects`, `/beneficiaries`);
+   they do **not** open the Add modal (would need `?add=1` support in
+   those pages — deliberately out of scope).
+3. `KpiRow` — projects, beneficiaries, overall compliance, total deployed (₱).
+4. Overdue + Upcoming (14 days) lists — rows link to
+   `/projects?edit=<id>` (opens `EditPanel`, not `/projects/:id`; see §10).
+5. Recent Activity (latest 10 remarks, links to `/projects/:id`) +
+   Recently Updated (8 most recently `updated_at`-stamped projects).
+6. Compliance by phase + Needs attention flags (no category / category but
+   no checklist / "For Deployment" 30+ days after `date_deployed`).
+7. Projects by status + Projects per year (plain-CSS bars, no chart lib).
+8. Budget rollup (total, by year, by category).
+9. Overdue documents by municipality (top 8; informational only).
+
+Shared primitives at the top of the file: `Card`, `CardBar`, `EmptyNote`,
+`SectionHeader`, `KpiCard`, `BarChart`. New sections should use `Card`
+rather than hand-rolling a bordered div. Status color map here duplicates
+the ones in `Documents.jsx`/`columns.jsx`/`Map.jsx` (known duplication, §8).
+
 ### Key lib/utility files
 
 - **`src/lib/supabase.js`** — the one Supabase client. No `supabase.auth.*` calls anywhere.
@@ -332,6 +429,8 @@ All follow `{ data, loading, error, refetch, mutations... }`.
 | `useBeneficiaryLocations` | `beneficiaries` (+lat/lng+count) | Map feature |
 | `useItineraries` | `itineraries`, `itinerary_stops` | `saveStops()` **not transactional** (delete-then-insert, 2 calls). Still used, now by `Map.jsx`'s Plan Visit tab rather than a standalone `Itinerary.jsx` page (§0 item 16) |
 | `useMergedBeneficiaries` | (composed) | **✅ Now actually used by `Map.jsx`** (§0 item 16) — the old inline merge logic in `Map.jsx` was replaced with this hook, so Overview and Plan Visit share one data source instead of two separate fetches |
+| `useRemarks` | `remarks` | Per-project feed; add + 15-min-window delete. Used by `RemarksSection.jsx` |
+| `useAllRemarks` | `remarks` (+project/beneficiary join) | **NEW to this doc.** Read-only, newest `limit` rows across all projects (Dashboard's Recent Activity). No mutations |
 | `useColumnSizing` | — | Persists TanStack `columnSizing` to localStorage. Still only used by the table pages (Projects/Beneficiaries/Contacts) — **not** by `ProjectDetail.jsx`, which is a plain page, not a resizable table |
 
 ### Components not in original docs
@@ -645,6 +744,15 @@ Notes on this list:
     was deliberately left untouched — `added_by` still comes from the
     per-browser "posted as" name, not the logged-in user's identity.
     Not a bug, just an unfinished follow-up — see §8/§10.
+18. **NEW: Dashboard hotspot → Documents filter never worked.** The old
+    links passed `?municipality=…&submitted=No` to `/documents`, which
+    doesn't read URL params. Links removed from the Dashboard (§0 item 19).
+    If a real drill-down is wanted, `Documents.jsx` needs to read
+    `useSearchParams` into its `filters` state first.
+19. **NEW: `Map.jsx` Plan Visit grid has a typo** — `lg:grid-ls-2` should
+    be `lg:grid-cols-2`, so the two columns don't split side-by-side on
+    large screens. There is also a stray no-op `useState //` line near the
+    Plan Visit logic. Not fixed (out of scope of the Dashboard pass).
 12. **Only 1 of 5 live projects has a generated document checklist (as of the dump).** Projects 2, 3, 5, 6 all have `project_category = 'In-house'` set but zero `documents` rows. Still the standing action item — see §10.
 13. **`documents.document_type_id` FK has no cascade rule** (default `NO ACTION`) — cannot delete a `document_types` row while any `documents` row still references it. Edit/deactivate rows instead of deleting them.
 14. **NEW: Beneficiaries page has no delete function in the UI.** `useBeneficiaries.deleteBeneficiary()` already exists, already has the same FK-violation delete-guard reasoning as the rest of the hook (blocks deletion while linked projects exist) — the gap is purely that `Beneficiaries.jsx`/its columns never call it. Contacts already has a working delete for comparison. **Queued as the next minor fix** — see §10.
@@ -765,6 +873,13 @@ Notes on this list:
   (custom numbered icons, a polyline layer) despite being the more
   visually complete answer to "true PM app." (B) remains a plausible
   future enhancement, not rejected outright, just not built now.
+- **NEW — Dashboard polish kept the app's existing visual language
+  (§0 item 19).** Centering was a one-class fix (`mx-auto`); polish was
+  limited to consolidating repeated card markup into shared primitives and
+  tightening copy/typography, rather than a redesign — the rest of the app
+  is plain Tailwind gray/blue and a divergent Dashboard would look out of
+  place. Hotspot counts were demoted from links to text rather than
+  keeping a control that silently did nothing (§7 item 18).
 - **NEW — `Itinerary.jsx` orphaned deliberately, not deleted (§0 item
   16).** Once its UI moved into `Map.jsx`, the file and its now-unused
   import in `App.jsx` were left in place rather than cleaned up — an
@@ -853,6 +968,10 @@ Still open:
   access dropped everywhere). **Confirmed working on localhost only** —
   production verification is the immediate next step below.
 
+- **✅ Dashboard centered + polished** (§0 items 18–19, §3a).
+- **✅ "Recent remarks across all projects" Dashboard section** — built
+  (Recent Activity, `useAllRemarks.js`); previously listed as unbuilt.
+
 ### ⚠️ Restored — the Sep 7 roadmap, missing from every version of this doc until now
 A planning session on 2026-09-07 (found verbatim in the source transcript,
 never previously folded into this handoff) sequenced a larger set of asks:
@@ -874,7 +993,7 @@ Reconciled against what's actually happened since:
 2. Remarks UI — ✅ done (see above), though "simple feed inside `EditPanel`"
    from the original Sep 7 plan became a `ProjectDetail.jsx` section
    instead once `/projects/:id` existed; the "recent remarks across all
-   projects" Dashboard section from that plan was **not** built.
+   projects" Dashboard section is now **also built** (§0 item 18).
 3. **Raw Excel export** (data as currently in the app) — not started.
 4. Heatmap — ✅ done (lat/lng on `beneficiaries`, Map feature live).
 5. **Responsiveness / mobile pass** — not started. Original plan: tables
@@ -914,7 +1033,9 @@ Reconciled against what's actually happened since:
 - **NEW:** consider rendering Plan Visit's stops on the actual Leaflet map (numbered pins + route line) instead of staying list-only — the "actually visual fold" option from §8, deferred rather than rejected.
 - Confirm whether any itineraries were lost (§9) and whether they need reconstruction like `document_types` did.
 - Consider whether `Documents.jsx` should also get a link into `/projects/:id` for cases where someone needs more than the document pivot while triaging — not requested, purely opportunistic.
-- A "recent remarks across all projects" Dashboard section (from the original Sep 7 Remarks plan) — not built when Remarks shipped; still opportunistic, not requested since.
+- ~~A "recent remarks across all projects" Dashboard section~~ — **✅ DONE** (§0 item 18).
+- **NEW:** eyeball the polished Dashboard in a browser (§0 item 19) and fix the `Map.jsx` `lg:grid-ls-2` typo (§7 item 19).
+- **NEW:** optionally repoint Dashboard's overdue/upcoming rows to `/projects/:id` to match Recent Activity/Recently Updated (ties into the open `?edit=<id>` decision above).
 
 ---
 
