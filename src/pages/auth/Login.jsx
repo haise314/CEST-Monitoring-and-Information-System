@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useNavigate, useLocation } from 'react-router'
 import { useAuth } from '../../lib/AuthContext'
+import logo from '../../assets/logo.svg'
 
 export default function Login() {
   const { signIn } = useAuth()
@@ -29,7 +30,10 @@ export default function Login() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50">
       <form onSubmit={handleSubmit} className="bg-white shadow rounded-lg p-8 w-full max-w-sm space-y-4">
-        <h1 className="text-xl font-semibold text-gray-800">CEST-MIS Sign In</h1>
+        <div className="flex items-center gap-3">
+          <img src={logo} alt="CEST-MIS logo" className="w-12 h-12 object-contain" />
+          <h1 className="text-xl font-semibold text-gray-800">CEST-MIS Sign In</h1>
+        </div>
         <div>
           <label className="block text-sm text-gray-600 mb-1">Email</label>
           <input

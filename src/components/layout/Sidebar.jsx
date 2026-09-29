@@ -1,13 +1,12 @@
 import { NavLink } from 'react-router'
 import { NAV_GROUPS } from './navConfig'
 import { ChevronLeftIcon, CloseIcon } from './icons'
+import logo from '../../assets/logo.svg'
 
 function Brand({ collapsed }) {
   return (
     <div className="flex items-center gap-3 min-w-0">
-      <div className="w-9 h-9 rounded-lg bg-blue-600 text-white flex items-center justify-center font-bold flex-shrink-0">
-        C
-      </div>
+      <img src={logo} alt="CEST-MIS logo" className="w-9 h-9 object-contain flex-shrink-0" />
       {!collapsed && (
         <div className="min-w-0 leading-tight">
           <div className="text-sm font-bold text-gray-800 truncate">CEST-MIS</div>

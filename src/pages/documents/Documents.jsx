@@ -298,9 +298,9 @@ export default function Documents() {
       </div>
 
       {/* Table */}
-      <div className="overflow-x-auto rounded-lg border border-gray-200">
+      <div className="overflow-auto rounded-xl border border-gray-200 bg-white shadow-sm max-h-[calc(100vh-14rem)]">
         <table className="min-w-full text-sm">
-          <thead className="bg-gray-50 text-gray-600 text-xs">
+          <thead className="text-xs text-gray-500">
             {table.getHeaderGroups().map(headerGroup => (
               <tr key={headerGroup.id}>
                 {headerGroup.headers.map(header => {
@@ -309,8 +309,8 @@ export default function Documents() {
                     <th
                       key={header.id}
                       onClick={header.column.getToggleSortingHandler()}
-                      className={`px-3 py-2.5 text-left font-medium cursor-pointer select-none hover:bg-gray-100 whitespace-nowrap bg-gray-50 ${
-                        pin ? 'sticky z-20' : ''
+                      className={`px-3 py-2.5 text-left font-semibold cursor-pointer select-none hover:bg-gray-100 whitespace-nowrap bg-gray-50 sticky top-0 shadow-[inset_0_-1px_0_var(--color-gray-200)] ${
+                        pin ? 'z-30' : 'z-20'
                       } ${header.column.id === 'location' ? 'border-r-2 border-gray-200' : ''}`}
                       style={pin ? { left: pin.left, width: pin.width, minWidth: pin.width } : undefined}
                       title={header.column.columnDef.header}

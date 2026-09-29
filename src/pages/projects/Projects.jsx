@@ -147,12 +147,12 @@ function Projects() {
       />
 
       {/* ── Table ── */}
-      <div className="overflow-x-auto rounded-lg border border-gray-200">
+      <div className="overflow-auto rounded-xl border border-gray-200 bg-white shadow-sm max-h-[calc(100vh-14rem)]">
         <table
           className="text-sm"
           style={{ width: table.getTotalSize(), tableLayout: 'fixed' }}
         >
-          <thead className="bg-gray-50 text-gray-600 uppercase text-xs">
+          <thead className="text-xs text-gray-500">
             {table.getHeaderGroups().map(headerGroup => (
               <tr key={headerGroup.id}>
                 {headerGroup.headers.map(header => (
@@ -173,13 +173,13 @@ function Projects() {
                 <tr
                   key={row.id}
                   onClick={() => setSelectedProjectId(row.original.id)}
-                  className="hover:bg-gray-50 cursor-pointer"
+                  className="hover:bg-blue-50/50 cursor-pointer transition-colors"
                 >
                   {row.getVisibleCells().map(cell => (
                     <td
                       key={cell.id}
                       style={{ width: cell.column.getSize() }}
-                      className="px-4 py-3 truncate"
+                      className="px-4 py-2.5 truncate"
                     >
                       {flexRender(cell.column.columnDef.cell, cell.getContext())}
                     </td>

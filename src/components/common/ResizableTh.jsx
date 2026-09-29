@@ -10,7 +10,7 @@ export default function ResizableTh({ header }) {
   return (
     <th
       style={{ width: header.getSize() }}
-      className="relative px-4 py-3 text-left font-medium select-none"
+      className="sticky top-0 z-10 px-4 py-2.5 text-left font-semibold select-none bg-gray-50 shadow-[inset_0_-1px_0_var(--color-gray-200)]"
     >
       <div
         onClick={header.column.getToggleSortingHandler()}

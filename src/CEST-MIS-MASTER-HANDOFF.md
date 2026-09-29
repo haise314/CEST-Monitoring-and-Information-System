@@ -277,6 +277,17 @@ Confidence labels:
       palette values in `theme.css`; `text-blue-600` (active tabs) is
       unremapped so contrast on dark is modest.
 
+21. **✅ Logo slot + table polish (2026-09-29).** The blue "C" in the
+    sidebar (`Sidebar.jsx` `Brand`) and a new mark on `Login.jsx` now render
+    `src/assets/logo.svg`. **That file is currently a generic placeholder,
+    not the DOST logo** — drop the official file in under the same name
+    (favicon in `index.html` is separate). Tables (Projects, Beneficiaries,
+    Contacts via `ResizableTh.jsx`; Documents inline): sticky column
+    headers inside a height-capped scroll area (`max-h-[calc(100vh-14rem)]`),
+    sentence-case semibold headers, tighter rows, blue-tinted hover, card-style
+    wrapper. Header underline uses an inset shadow, not `border-b`, because
+    `border-collapse` drops borders on sticky cells. Not yet eyeballed.
+
 ---
 
 ## 1. Project Overview
