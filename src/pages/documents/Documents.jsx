@@ -6,15 +6,16 @@ import {
   getPaginationRowModel,
   flexRender,
 } from '@tanstack/react-table'
-import { useState, useMemo, useEffect } from 'react'
+import { useState, useMemo } from 'react'
 import { useProjects } from '../../hooks/useProjects'
 import { useAllDocuments } from '../../hooks/useAllDocuments'
 import { useDocumentTypes } from '../../hooks/useDocumentTypes'
 import { PHASE_ORDER, computeProgress, progressBarColor } from '../../lib/documentProgress'
-import { statusRank, getDocStatus, STATUS_META, DOC_CONDITIONS } from '../../lib/documentStatus'
+import { statusRank, getDocStatus, isOverdue, STATUS_META, DOC_CONDITIONS } from '../../lib/documentStatus'
 import DocBadge from './DocBadge'
 import { useToast } from '../../lib/ToastContext'
 import { exportTableCsv, todayStamp } from '../../lib/exportCsv'
+import { MobileCardList, MobileCard, Pill } from '../../components/common/MobileCards'
 import PaginationBar from '../../components/common/PaginationBar'
 import VisibilityPanel from '../../components/common/VisibilityPanel'
 import EditPanel from '../projects/editPanel'
@@ -27,25 +28,6 @@ import DocumentsFilterBar, { emptyProjectFilters, emptyDocFilter } from './filte
 const PINNED_COLUMNS = {
   beneficiary: { width: 176, left: 0 },
   location:    { width: 160, left: 176 },
-}
-
-// Phones: two pinned columns (336px) would fill the whole screen, leaving no
-// room for the document columns. Below md, pin only the beneficiary column,
-// narrower, and let location scroll with the rest.
-const PINNED_COLUMNS_NARROW = {
-  beneficiary: { width: 128, left: 0 },
-}
-
-function useIsNarrow() {
-  const query = '(max-width: 767px)'
-  const [narrow, setNarrow] = useState(() => window.matchMedia(query).matches)
-  useEffect(() => {
-    const mq = window.matchMedia(query)
-    const onChange = e => setNarrow(e.matches)
-    mq.addEventListener('change', onChange)
-    return () => mq.removeEventListener('change', onChange)
-  }, [])
-  return narrow
 }
 
 const CATEGORY_COLORS = {
@@ -73,10 +55,109 @@ function Badge({ value, colorMap }) {
   )
 }
 
+// Phone sort choices — the same TanStack sorting state the table headers use.
+const MOBILE_SORTS = [
+  { key: 'default',  label: 'Default',                 value: [] },
+  { key: 'name',     label: 'Beneficiary (A–Z)',       value: [{ id: 'beneficiary', desc: false }] },
+  { key: 'progress', label: 'Least complete first',    value: [{ id: 'overall_pct', desc: false }] },
+  { key: 'year',     label: 'Newest year first',       value: [{ id: 'year', desc: true }] },
+]
+
+// Short labels for the per-phase summary chips on phone cards.
+const CHIP_ORDER = [
+  ['submitted', 'Submitted'],
+  ['hard',      'Hard copy'],
+  ['soft',      'Soft copy'],
+  ['claimable', 'Claimable'],
+  ['none',      'Nothing on file'],
+]
+
+// Phone version of one table row. The desktop pivot has one column per
+// document; on a phone that becomes a per-phase SUMMARY instead: progress,
+// a count per status, and the names of what still needs attention. Tapping
+// the card opens the same EditPanel as clicking a table row.
+function ProjectDocCard({ project, docs, phase, onOpen }) {
+  const ben = project.beneficiaries
+  const progress = computeProgress(docs)
+  const phaseProgress = progress.byPhase[phase]
+  const phaseDocs = phaseProgress.docs.filter(d => !d.is_not_applicable)
+
+  const counts = {}
+  const attention = []
+  let overdue = 0
+  phaseDocs.forEach(d => {
+    const st = getDocStatus(d)
+    counts[st] = (counts[st] ?? 0) + 1
+    const late = isOverdue(d)
+    if (late) overdue++
+    if (late || st === 'none') attention.push(d.document_types?.name ?? d.custom_label ?? 'Untitled')
+  })
+
+  const location = [ben?.barangay, ben?.municipality].filter(Boolean).join(', ')
+  const meta = [location, project.year, project.project_types?.name].filter(Boolean).join(' · ')
+
+  return (
+    <MobileCard onClick={onOpen}>
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0">
+          <div className="text-sm font-semibold text-gray-800 break-words">{ben?.name ?? '—'}</div>
+          {meta && <div className="text-xs text-gray-400 mt-0.5 break-words">{meta}</div>}
+        </div>
+        {project.overall_status && (
+          <Pill className={STATUS_COLORS[project.overall_status] ?? 'bg-gray-100 text-gray-700'}>
+            {project.overall_status}
+          </Pill>
+        )}
+      </div>
+
+      <div className="flex items-center gap-2 mt-3">
+        <div className="flex-1 h-1.5 bg-gray-200 rounded-full overflow-hidden">
+          <div className={`h-full rounded-full ${progressBarColor(progress.overallPct)}`} style={{ width: `${progress.overallPct}%` }} />
+        </div>
+        <span className="text-xs text-gray-500 w-20 text-right">Overall {progress.overallPct}%</span>
+      </div>
+
+      <div className="mt-3 pt-3 border-t border-gray-100">
+        <div className="text-xs font-medium text-gray-600 mb-1.5">
+          {phase}
+          {phaseProgress.applicableCount > 0 && (
+            <span className="font-normal text-gray-400"> · {phaseProgress.completeCount}/{phaseProgress.applicableCount} complete</span>
+          )}
+        </div>
+
+        {phaseDocs.length === 0 ? (
+          <p className="text-xs text-gray-400">
+            {phaseProgress.docs.length === 0 ? 'No documents in this phase yet.' : 'Everything in this phase is marked N/A.'}
+          </p>
+        ) : (
+          <>
+            <div className="flex flex-wrap gap-x-3 gap-y-1">
+              {CHIP_ORDER.filter(([st]) => counts[st]).map(([st, label]) => (
+                <span key={st} className="flex items-center gap-1 text-xs text-gray-500">
+                  <span className={`inline-block w-2.5 h-2.5 rounded-full ${STATUS_META[st].dotClass}`} />
+                  {counts[st]} {label}
+                </span>
+              ))}
+              {overdue > 0 && (
+                <span className="text-xs font-medium text-red-500">⚠ {overdue} overdue</span>
+              )}
+            </div>
+            {attention.length > 0 && (
+              <p className="text-xs text-gray-400 mt-1.5 break-words">
+                Needs attention: {attention.slice(0, 3).join(', ')}
+                {attention.length > 3 && ` +${attention.length - 3} more`}
+              </p>
+            )}
+          </>
+        )}
+      </div>
+    </MobileCard>
+  )
+}
+
 export default function Documents() {
-  const isNarrow = useIsNarrow()
-  const pinned = isNarrow ? PINNED_COLUMNS_NARROW : PINNED_COLUMNS
-  const lastPinnedId = isNarrow ? 'beneficiary' : 'location'
+  const pinned = PINNED_COLUMNS
+  const lastPinnedId = 'location'
   const { projects, loading: projectsLoading, updateProject, deleteProject } = useProjects()
   const { documents, loading: docsLoading, refetch: refetchDocuments }     = useAllDocuments()
   const { documentTypes, loading: typesLoading }                             = useDocumentTypes()
@@ -279,7 +360,7 @@ export default function Documents() {
           >
             ⇩ Export CSV
           </button>
-          <div className="relative">
+          <div className="relative hidden md:block">
             <button
               onClick={() => setShowVisibilityPanel(v => !v)}
               className="border border-gray-300 rounded px-3 py-1.5 text-sm hover:bg-gray-50"
@@ -339,7 +420,7 @@ export default function Documents() {
       </div>
 
       {/* Table */}
-      <div className="overflow-auto rounded-xl border border-gray-200 bg-white shadow-sm max-h-[calc(100vh-14rem)]">
+      <div className="hidden md:block overflow-auto rounded-xl border border-gray-200 bg-white shadow-sm max-h-[calc(100vh-14rem)]">
         <table className="min-w-full text-sm">
           <thead className="text-xs text-gray-500">
             {table.getHeaderGroups().map(headerGroup => (
@@ -405,6 +486,33 @@ export default function Documents() {
           </tbody>
         </table>
       </div>
+
+      {/* Phones: sort control (table headers aren't available) + cards */}
+      <div className="md:hidden flex items-center gap-2 mb-2 text-sm">
+        <span className="text-gray-500">Sort</span>
+        <select
+          value={MOBILE_SORTS.find(o => JSON.stringify(o.value) === JSON.stringify(sorting))?.key ?? 'default'}
+          onChange={e => setSorting(MOBILE_SORTS.find(o => o.key === e.target.value)?.value ?? [])}
+          className="border border-gray-300 rounded px-2 py-1.5 text-base focus:outline-none focus:ring-2 focus:ring-blue-500"
+        >
+          {MOBILE_SORTS.map(o => <option key={o.key} value={o.key}>{o.label}</option>)}
+        </select>
+      </div>
+
+      <MobileCardList
+        isEmpty={table.getRowModel().rows.length === 0}
+        emptyText="No projects match these filters"
+      >
+        {table.getRowModel().rows.map(row => (
+          <ProjectDocCard
+            key={row.id}
+            project={row.original}
+            docs={docsByProject[row.original.id] ?? []}
+            phase={activePhase}
+            onOpen={() => setSelectedProjectId(row.original.id)}
+          />
+        ))}
+      </MobileCardList>
 
       <PaginationBar table={table} />
 

@@ -1,3 +1,5 @@
+import { formatRelativeTime } from '../../lib/formatRelativeTime'
+
 export const ALL_COLUMNS = [
   { accessorKey: 'name',            header: 'Name',         size: 180, minSize: 120, cell: ({ getValue }) => getValue() ?? '—' },
   { accessorKey: 'role',            header: 'Role',         size: 150, minSize: 100, cell: ({ getValue }) => getValue() ?? '—' },
@@ -20,5 +22,19 @@ export const ALL_COLUMNS = [
           Open
         </a>
       : '—',
+  },
+  // Rows that existed before the column was added stay NULL until edited —
+  // shown as a dash rather than a made-up date.
+  {
+    accessorKey: 'updated_at',
+    header: 'Updated',
+    size: 130,
+    minSize: 100,
+    cell: ({ getValue }) => {
+      const v = getValue()
+      return v
+        ? <span className="text-xs text-gray-500" title={new Date(v).toLocaleString()}>{formatRelativeTime(v)}</span>
+        : <span className="text-gray-300">—</span>
+    },
   },
 ]

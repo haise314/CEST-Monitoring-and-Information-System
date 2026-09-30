@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { formatRelativeTime } from '../../lib/formatRelativeTime'
 
 const EMPTY_FORM = {
   beneficiary_id: '',
@@ -76,6 +77,9 @@ export default function ContactModal({ contact, beneficiaries, onClose, onSave, 
           </h2>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-xl leading-none p-2 -m-2">✕</button>
         </div>
+        {contact?.updated_at && (
+          <p className="text-xs text-gray-400 -mt-3 mb-4">Last updated {formatRelativeTime(contact.updated_at)}</p>
+        )}
 
         <div className="space-y-3">
           <div>

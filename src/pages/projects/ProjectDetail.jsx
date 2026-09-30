@@ -8,6 +8,7 @@ import DocumentChecklist from './DocumentChecklist'
 import ProjectContacts from './ProjectContacts'
 import RemarksSection from './RemarksSection'
 import { useToast } from '../../lib/ToastContext'
+import { formatRelativeTime } from '../../lib/formatRelativeTime'
 
 // Not in columns.jsx's STATIC_OPTIONS (that file only covers project-level
 // enums) — sourced from the beneficiary_category enum in the live DB dump.
@@ -270,6 +271,14 @@ export default function ProjectDetail() {
           {project.beneficiaries?.name ?? '—'}
           <span className="ml-2 text-sm font-normal text-gray-400">· {project.year}</span>
         </h1>
+        {project.updated_at && (
+          <p
+            className="text-xs text-gray-400 mt-1"
+            title={new Date(project.updated_at).toLocaleString()}
+          >
+            Last updated {formatRelativeTime(project.updated_at)}
+          </p>
+        )}
       </div>
 
       {/* Main two-column layout: primary editable details on the left
