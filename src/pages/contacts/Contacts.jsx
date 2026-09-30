@@ -9,6 +9,7 @@ import { useToast } from '../../lib/ToastContext'
 import { exportTableCsv, todayStamp } from '../../lib/exportCsv'
 import { ALL_COLUMNS } from './columns'
 import ContactModal from './ContactModal'
+import { MobileCardList, MobileCard } from '../../components/common/MobileCards'
 
 export default function Contacts() {
   const { contacts, loading, error, addContact, updateContact, deleteContact } = useContacts()
@@ -96,25 +97,25 @@ export default function Contacts() {
   return (
     <div>
       {/* Header */}
-      <div className="flex items-center justify-between mb-4">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-4">
         <h1 className="text-xl font-bold text-gray-800">
           Contacts
           <span className="ml-2 text-sm font-normal text-gray-400">
             {filtered.length} of {contacts.length}
           </span>
         </h1>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <input
             type="text"
             placeholder="Search name, beneficiary, municipality..."
             value={search}
             onChange={e => setSearch(e.target.value)}
-            className="border border-gray-300 rounded px-3 py-1.5 text-sm w-72 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="border border-gray-300 rounded px-3 py-1.5 text-sm w-full sm:w-72 focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
           <button
             onClick={() => setColumnSizing({})}
             title="Reset column widths to default"
-            className="border border-gray-300 rounded px-3 py-1.5 text-sm hover:bg-gray-50"
+            className="hidden md:block border border-gray-300 rounded px-3 py-1.5 text-sm hover:bg-gray-50"
           >
             ↺ Widths
           </button>
@@ -135,7 +136,7 @@ export default function Contacts() {
       </div>
 
       {/* Table — click any row to open its edit modal (delete lives inside) */}
-      <div className="overflow-auto rounded-xl border border-gray-200 bg-white shadow-sm max-h-[calc(100vh-14rem)]">
+      <div className="hidden md:block overflow-auto rounded-xl border border-gray-200 bg-white shadow-sm max-h-[calc(100vh-14rem)]">
         <table className="text-sm" style={{ width: table.getTotalSize(), tableLayout: 'fixed' }}>
           <thead className="text-xs text-gray-500">
             {table.getHeaderGroups().map(headerGroup => (
@@ -175,6 +176,49 @@ export default function Contacts() {
           </tbody>
         </table>
       </div>
+
+      {/* Cards (phones). The number is a tel: link so a call in the field
+          is one tap away. */}
+      <MobileCardList
+        isEmpty={table.getRowModel().rows.length === 0}
+        emptyText="No contacts found"
+      >
+        {table.getRowModel().rows.map(row => {
+          const c = row.original
+          const org = [c.beneficiaries?.name, c.beneficiaries?.municipality].filter(Boolean).join(' · ')
+          return (
+            <MobileCard key={row.id} onClick={() => openEdit(c)}>
+              <div className="text-sm font-semibold text-gray-800 break-words">{c.name}</div>
+              {c.role && <div className="text-xs text-gray-500 mt-0.5">{c.role}</div>}
+              {org && <div className="text-xs text-gray-400 mt-0.5 break-words">{org}</div>}
+              {(c.contact_number || c.messenger_link) && (
+                <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-2 text-sm">
+                  {c.contact_number && (
+                    <a
+                      href={`tel:${c.contact_number.replace(/[^\d+]/g, '')}`}
+                      onClick={e => e.stopPropagation()}
+                      className="text-blue-600 font-medium py-1"
+                    >
+                      {c.contact_number}
+                    </a>
+                  )}
+                  {c.messenger_link && (
+                    <a
+                      href={c.messenger_link}
+                      target="_blank"
+                      rel="noreferrer"
+                      onClick={e => e.stopPropagation()}
+                      className="text-blue-600 py-1"
+                    >
+                      Messenger
+                    </a>
+                  )}
+                </div>
+              )}
+            </MobileCard>
+          )
+        })}
+      </MobileCardList>
 
       {/* Add/Edit Modal */}
       {showModal && (

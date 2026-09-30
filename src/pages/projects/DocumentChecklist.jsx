@@ -35,7 +35,7 @@ function ExpectedDateCell({ doc, onChange }) {
         value={input}
         onChange={e => setInput(e.target.value)}
         onBlur={handleBlur}
-        className="border border-blue-400 rounded px-1.5 py-0.5 text-xs w-32 focus:outline-none"
+        className="border border-blue-400 rounded px-1.5 py-1 text-base sm:text-xs w-36 sm:w-32 focus:outline-none"
       />
     )
   }
@@ -80,7 +80,7 @@ function LinkCell({ value, onChange }) {
         onChange={e => setInput(e.target.value)}
         onBlur={handleBlur}
         placeholder="Paste GDrive link..."
-        className="border border-blue-400 rounded px-2 py-0.5 text-xs w-44 focus:outline-none"
+        className="border border-blue-400 rounded px-2 py-1 text-base sm:text-xs w-full min-w-[12rem] sm:w-44 focus:outline-none"
       />
     )
   }
@@ -131,13 +131,13 @@ function DocumentRow({ doc, onUpdate }) {
 
   return (
     <div className={`py-2 border-b border-gray-50 last:border-0 ${isNA ? 'opacity-40' : ''}`}>
-      <div className="flex items-center gap-2">
+      <div className="flex flex-wrap sm:flex-nowrap items-center gap-x-2 gap-y-2">
 
         {/* N/A toggle */}
         <button
           onClick={() => handleCheck('is_not_applicable', !isNA)}
           title={isNA ? 'Mark as applicable' : 'Mark as not applicable'}
-          className={`text-xs px-1.5 py-0.5 rounded border flex-shrink-0 transition-colors ${
+          className={`text-xs px-2 py-1 sm:px-1.5 sm:py-0.5 rounded border flex-shrink-0 transition-colors ${
             isNA
               ? 'bg-gray-200 border-gray-300 text-gray-500'
               : 'border-gray-200 text-gray-300 hover:border-gray-400 hover:text-gray-500'
@@ -155,7 +155,10 @@ function DocumentRow({ doc, onUpdate }) {
         </span>
 
         {!isNA && (
-          <>
+          // On phones this group drops to its own line under the name
+          // (w-full, indented past the N/A button); from sm up it sits
+          // inline with the name as before.
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-2 w-full pl-9 sm:w-auto sm:pl-0 sm:flex-nowrap sm:flex-shrink-0">
             {/* Expected date */}
             <div className="flex-shrink-0">
               <ExpectedDateCell
@@ -174,59 +177,59 @@ function DocumentRow({ doc, onUpdate }) {
 
             {/* Checkboxes */}
             <div className="flex items-center gap-3 flex-shrink-0">
-              <label className="flex items-center gap-1 text-xs text-gray-500 cursor-pointer" title="Hard Copy">
+              <label className="flex items-center gap-1.5 text-xs text-gray-500 cursor-pointer py-1" title="Hard Copy">
                 <input
                   type="checkbox"
                   checked={doc.has_hard_copy ?? false}
                   onChange={e => handleCheck('has_hard_copy', e.target.checked)}
-                  className="rounded"
+                  className="rounded h-4 w-4"
                 />
-                <span className="hidden sm:inline">HC</span>
+                <span>HC</span>
               </label>
 
-              <label className="flex items-center gap-1 text-xs text-gray-500 cursor-pointer" title="Hard Copy Claimable">
+              <label className="flex items-center gap-1.5 text-xs text-gray-500 cursor-pointer py-1" title="Hard Copy Claimable">
                 <input
                   type="checkbox"
                   checked={doc.hard_copy_claimable ?? false}
                   onChange={e => handleCheck('hard_copy_claimable', e.target.checked)}
-                  className="rounded"
+                  className="rounded h-4 w-4"
                 />
-                <span className="hidden sm:inline">Claim</span>
+                <span>Claim</span>
               </label>
 
-              <label className="flex items-center gap-1 text-xs text-gray-500 cursor-pointer" title="Submitted to next office">
+              <label className="flex items-center gap-1.5 text-xs text-gray-500 cursor-pointer py-1" title="Submitted to next office">
                 <input
                   type="checkbox"
                   checked={doc.submitted ?? false}
                   onChange={e => handleCheck('submitted', e.target.checked)}
-                  className="rounded"
+                  className="rounded h-4 w-4"
                 />
-                <span className="hidden sm:inline">Sub</span>
+                <span>Sub</span>
               </label>
 
               {/* Notes toggle */}
               <button
                 onClick={() => setShowNotes(v => !v)}
-                className={`text-xs transition-colors ${showNotes || doc.notes ? 'text-blue-400' : 'text-gray-300 hover:text-gray-500'}`}
+                className={`text-sm sm:text-xs px-1 transition-colors ${showNotes || doc.notes ? 'text-blue-400' : 'text-gray-300 hover:text-gray-500'}`}
                 title="Notes"
               >
                 ✎
               </button>
             </div>
-          </>
+          </div>
         )}
       </div>
 
       {/* Notes input — expands on toggle */}
       {showNotes && !isNA && (
-        <div className="mt-1.5 ml-7">
+        <div className="mt-1.5 ml-9 sm:ml-7">
           <input
             type="text"
             value={notes}
             onChange={e => setNotes(e.target.value)}
             onBlur={handleNotesBlur}
             placeholder="Add notes..."
-            className="w-full border border-gray-200 rounded px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-blue-400"
+            className="w-full border border-gray-200 rounded px-2 py-1.5 text-base sm:text-xs focus:outline-none focus:ring-1 focus:ring-blue-400"
           />
         </div>
       )}
@@ -371,7 +374,7 @@ export default function DocumentChecklist({ project, onChanged }) {
       </div>
 
       {/* Legend */}
-      <div className="flex gap-3 mb-3 px-1">
+      <div className="flex flex-wrap gap-x-3 gap-y-1 mb-3 px-1">
         <span className="text-xs text-gray-400">HC = Hard Copy</span>
         <span className="text-xs text-gray-400">Claim = Claimable</span>
         <span className="text-xs text-gray-400">Sub = Submitted</span>

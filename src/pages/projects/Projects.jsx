@@ -7,7 +7,7 @@ import {
   flexRender,
 } from '@tanstack/react-table'
 import { useState, useMemo, useEffect } from 'react'
-import { useSearchParams } from 'react-router'
+import { useSearchParams, Link } from 'react-router'
 import { useProjects } from '../../hooks/useProjects'
 import { useColumnSizing } from '../../hooks/useColumnSizing'
 import { ALL_COLUMNS, DEFAULT_VISIBLE, FILTERABLE_COLUMN_IDS } from './columns'
@@ -19,6 +19,8 @@ import { useToast } from '../../lib/ToastContext'
 import { exportTableCsv, todayStamp } from '../../lib/exportCsv'
 import AddModal from './addModal'
 import EditPanel from './editPanel'
+import StatusCell, { OperationalCell } from './statusCell'
+import { MobileCardList, MobileCard, Pill } from '../../components/common/MobileCards'
 
 function Projects() {
   const { projects, loading, error, addProject, updateProject, deleteProject } = useProjects()
@@ -102,29 +104,29 @@ function Projects() {
     <div>
 
       {/* ── Header ── */}
-      <div className="flex items-center justify-between mb-3">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-3">
         <h1 className="text-xl font-bold text-gray-800">
           Projects
           <span className="ml-2 text-sm font-normal text-gray-400">
             {table.getFilteredRowModel().rows.length} of {projects.length}
           </span>
         </h1>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <input
             type="text"
             placeholder="Search..."
             value={globalFilter}
             onChange={e => setGlobalFilter(e.target.value)}
-            className="border border-gray-300 rounded px-3 py-1.5 text-sm w-52 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="border border-gray-300 rounded px-3 py-1.5 text-sm w-full sm:w-52 focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
           <button
             onClick={() => setColumnSizing({})}
             title="Reset column widths to default"
-            className="border border-gray-300 rounded px-3 py-1.5 text-sm hover:bg-gray-50"
+            className="hidden md:block border border-gray-300 rounded px-3 py-1.5 text-sm hover:bg-gray-50"
           >
             ↺ Widths
           </button>
-          <div className="relative">
+          <div className="relative hidden md:block">
             <button
               onClick={() => setShowVisibilityPanel(v => !v)}
               className="border border-gray-300 rounded px-3 py-1.5 text-sm hover:bg-gray-50"
@@ -163,7 +165,7 @@ function Projects() {
       />
 
       {/* ── Table ── */}
-      <div className="overflow-auto rounded-xl border border-gray-200 bg-white shadow-sm max-h-[calc(100vh-14rem)]">
+      <div className="hidden md:block overflow-auto rounded-xl border border-gray-200 bg-white shadow-sm max-h-[calc(100vh-14rem)]">
         <table
           className="text-sm"
           style={{ width: table.getTotalSize(), tableLayout: 'fixed' }}
@@ -206,6 +208,57 @@ function Projects() {
           </tbody>
         </table>
       </div>
+
+      {/* ── Cards (phones) ── */}
+      <MobileCardList
+        isEmpty={table.getRowModel().rows.length === 0}
+        emptyText="No projects found"
+      >
+        {table.getRowModel().rows.map(row => {
+          const p = row.original
+          const where = [p.beneficiaries?.barangay, p.beneficiaries?.municipality].filter(Boolean).join(', ')
+          return (
+            <MobileCard key={row.id} onClick={() => setSelectedProjectId(p.id)}>
+              <div className="flex items-start justify-between gap-2">
+                <div className="min-w-0">
+                  <div className="text-sm font-semibold text-gray-800 break-words">
+                    {p.title || p.project_types?.name || 'Untitled project'}
+                  </div>
+                  <div className="text-xs text-gray-500 mt-0.5 break-words">
+                    {p.beneficiaries?.name ?? '—'}
+                  </div>
+                  {where && <div className="text-xs text-gray-400 break-words">{where}</div>}
+                </div>
+                <span className="text-xs text-gray-400 flex-shrink-0">{p.year}</span>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-1.5 mt-2.5">
+                {p.overall_status && <StatusCell getValue={() => p.overall_status} />}
+                {p.operational_status && <OperationalCell getValue={() => p.operational_status} />}
+                {p.project_category && (
+                  <Pill className={p.project_category === 'In-house' ? 'bg-indigo-100 text-indigo-800' : 'bg-teal-100 text-teal-800'}>
+                    {p.project_category}
+                  </Pill>
+                )}
+              </div>
+
+              <div className="flex items-center justify-between mt-2.5 text-xs text-gray-500">
+                <span className="truncate">
+                  {p.project_types?.name ?? '—'}
+                  {p.amount != null && ` · ₱${Number(p.amount).toLocaleString()}`}
+                </span>
+                <Link
+                  to={`/projects/${p.id}`}
+                  onClick={e => e.stopPropagation()}
+                  className="text-blue-600 font-medium flex-shrink-0 ml-2 py-1"
+                >
+                  Full page ↗
+                </Link>
+              </div>
+            </MobileCard>
+          )
+        })}
+      </MobileCardList>
 
       {/* ── Pagination ── */}
       <PaginationBar table={table} />

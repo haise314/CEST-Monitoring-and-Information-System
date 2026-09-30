@@ -6,7 +6,7 @@ import {
   getPaginationRowModel,
   flexRender,
 } from '@tanstack/react-table'
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { useProjects } from '../../hooks/useProjects'
 import { useAllDocuments } from '../../hooks/useAllDocuments'
 import { useDocumentTypes } from '../../hooks/useDocumentTypes'
@@ -27,6 +27,25 @@ import DocumentsFilterBar, { emptyProjectFilters, emptyDocFilter } from './filte
 const PINNED_COLUMNS = {
   beneficiary: { width: 176, left: 0 },
   location:    { width: 160, left: 176 },
+}
+
+// Phones: two pinned columns (336px) would fill the whole screen, leaving no
+// room for the document columns. Below md, pin only the beneficiary column,
+// narrower, and let location scroll with the rest.
+const PINNED_COLUMNS_NARROW = {
+  beneficiary: { width: 128, left: 0 },
+}
+
+function useIsNarrow() {
+  const query = '(max-width: 767px)'
+  const [narrow, setNarrow] = useState(() => window.matchMedia(query).matches)
+  useEffect(() => {
+    const mq = window.matchMedia(query)
+    const onChange = e => setNarrow(e.matches)
+    mq.addEventListener('change', onChange)
+    return () => mq.removeEventListener('change', onChange)
+  }, [])
+  return narrow
 }
 
 const CATEGORY_COLORS = {
@@ -55,6 +74,9 @@ function Badge({ value, colorMap }) {
 }
 
 export default function Documents() {
+  const isNarrow = useIsNarrow()
+  const pinned = isNarrow ? PINNED_COLUMNS_NARROW : PINNED_COLUMNS
+  const lastPinnedId = isNarrow ? 'beneficiary' : 'location'
   const { projects, loading: projectsLoading, updateProject, deleteProject } = useProjects()
   const { documents, loading: docsLoading, refetch: refetchDocuments }     = useAllDocuments()
   const { documentTypes, loading: typesLoading }                             = useDocumentTypes()
@@ -235,20 +257,20 @@ export default function Documents() {
   return (
     <div>
       {/* Header */}
-      <div className="flex items-center justify-between mb-3">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-3">
         <h1 className="text-xl font-bold text-gray-800">
           Documents
           <span className="ml-2 text-sm font-normal text-gray-400">
             {table.getFilteredRowModel().rows.length} of {projects.length} projects
           </span>
         </h1>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <input
             type="text"
             placeholder="Search beneficiary, location, type..."
             value={globalFilter}
             onChange={e => setGlobalFilter(e.target.value)}
-            className="border border-gray-300 rounded px-3 py-1.5 text-sm w-64 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="border border-gray-300 rounded px-3 py-1.5 text-sm w-full sm:w-64 focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
           <button
             onClick={handleExport}
@@ -280,12 +302,12 @@ export default function Documents() {
       />
 
       {/* Phase tabs */}
-      <div className="flex gap-1 mb-3 border-b border-gray-200">
+      <div className="flex gap-1 mb-3 border-b border-gray-200 overflow-x-auto">
         {PHASE_ORDER.map(phase => (
           <button
             key={phase}
             onClick={() => setActivePhase(phase)}
-            className={`px-3 py-2 text-sm font-medium border-b-2 -mb-px transition-colors ${
+            className={`px-3 py-2 text-sm font-medium border-b-2 -mb-px transition-colors whitespace-nowrap flex-shrink-0 ${
               activePhase === phase
                 ? 'border-blue-500 text-blue-600'
                 : 'border-transparent text-gray-500 hover:text-gray-700'
@@ -323,14 +345,14 @@ export default function Documents() {
             {table.getHeaderGroups().map(headerGroup => (
               <tr key={headerGroup.id}>
                 {headerGroup.headers.map(header => {
-                  const pin = PINNED_COLUMNS[header.column.id]
+                  const pin = pinned[header.column.id]
                   return (
                     <th
                       key={header.id}
                       onClick={header.column.getToggleSortingHandler()}
                       className={`px-3 py-2.5 text-left font-semibold cursor-pointer select-none hover:bg-gray-100 whitespace-nowrap bg-gray-50 sticky top-0 shadow-[inset_0_-1px_0_var(--color-gray-200)] ${
                         pin ? 'z-30' : 'z-20'
-                      } ${header.column.id === 'location' ? 'border-r-2 border-gray-200' : ''}`}
+                      } ${header.column.id === lastPinnedId ? 'border-r-2 border-gray-200' : ''}`}
                       style={pin ? { left: pin.left, width: pin.width, minWidth: pin.width } : undefined}
                       title={header.column.columnDef.header}
                     >
@@ -363,12 +385,12 @@ export default function Documents() {
                     className={`cursor-pointer transition-colors ${isSelected ? 'bg-blue-50' : 'hover:bg-gray-50'}`}
                   >
                     {row.getVisibleCells().map(cell => {
-                      const pin = PINNED_COLUMNS[cell.column.id]
+                      const pin = pinned[cell.column.id]
                       return (
                         <td
                           key={cell.id}
-                          className={`px-3 py-2 whitespace-nowrap ${pin ? `sticky z-10 ${rowBg}` : ''} ${
-                            cell.column.id === 'location' ? 'border-r-2 border-gray-200' : ''
+                          className={`px-3 py-2 whitespace-nowrap ${pin ? `sticky z-10 overflow-hidden text-ellipsis ${rowBg}` : ''} ${
+                            cell.column.id === lastPinnedId ? 'border-r-2 border-gray-200' : ''
                           }`}
                           style={pin ? { left: pin.left, width: pin.width, minWidth: pin.width } : undefined}
                         >

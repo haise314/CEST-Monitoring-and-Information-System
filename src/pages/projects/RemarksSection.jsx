@@ -61,7 +61,7 @@ function RemarkRow({ remark, onDelete }) {
 
   return (
     <div className="py-3 border-b border-gray-50 last:border-0 group">
-      <div className="flex items-center gap-2 mb-1">
+      <div className="flex flex-wrap items-center gap-x-2 gap-y-1 mb-1">
         <LevelBadge level={remark.level} />
         <span className="text-xs font-medium text-gray-600">{remark.added_by || 'Unknown'}</span>
         <span className="text-xs text-gray-300">·</span>
@@ -70,7 +70,7 @@ function RemarkRow({ remark, onDelete }) {
         {canDelete && !confirming && (
           <button
             onClick={() => setConfirming(true)}
-            className="text-xs text-gray-300 hover:text-red-500 ml-auto opacity-0 group-hover:opacity-100 transition-opacity"
+            className="text-xs text-gray-300 hover:text-red-500 ml-auto py-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity"
             title={`You can delete this for ${minutesLeft} more minute${minutesLeft === 1 ? '' : 's'}`}
           >
             Delete
@@ -102,8 +102,8 @@ function RemarkRow({ remark, onDelete }) {
   )
 }
 
-const inputClass  = 'w-full border border-gray-300 rounded px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500'
-const selectClass = 'border border-gray-300 rounded px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500'
+const inputClass  = 'w-full border border-gray-300 rounded px-3 py-1.5 text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-blue-500'
+const selectClass = 'border border-gray-300 rounded px-2 py-1.5 text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-blue-500'
 
 export default function RemarksSection({ projectId }) {
   const { remarks, loading, error, addRemark, deleteRemark } = useRemarks(projectId)
@@ -167,7 +167,7 @@ export default function RemarksSection({ projectId }) {
     <div>
       {/* ── Compose ── */}
       <div className="border border-gray-200 rounded-lg p-3 mb-4 bg-gray-50">
-        <div className="flex items-center gap-2 mb-2">
+        <div className="flex flex-wrap items-center gap-2 mb-2">
           <select
             value={level}
             onChange={e => setLevel(e.target.value)}
@@ -186,7 +186,7 @@ export default function RemarksSection({ projectId }) {
               onBlur={() => { if (author.trim()) setEditingAuthor(false) }}
               placeholder="Your name"
               autoFocus
-              className={inputClass + ' max-w-[160px]'}
+              className={inputClass + ' sm:max-w-[160px]'}
             />
           ) : (
             <button
@@ -211,14 +211,14 @@ export default function RemarksSection({ projectId }) {
           <p className="text-red-500 text-xs mt-1">{postError}</p>
         )}
 
-        <div className="flex items-center justify-between mt-2">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between mt-2">
           <p className="text-xs text-gray-400">
             Remarks can be deleted for {DELETE_WINDOW_MINUTES} minutes after posting. After that, post a correction instead.
           </p>
           <button
             onClick={handlePost}
             disabled={posting || !content.trim()}
-            className="bg-blue-600 text-white rounded px-3 py-1.5 text-xs font-medium hover:bg-blue-700 disabled:opacity-50 flex-shrink-0 ml-3"
+            className="bg-blue-600 text-white rounded px-3 py-1.5 text-xs font-medium hover:bg-blue-700 disabled:opacity-50 flex-shrink-0 sm:ml-3 py-2 sm:py-1.5"
           >
             {posting ? 'Posting...' : 'Post Remark'}
           </button>

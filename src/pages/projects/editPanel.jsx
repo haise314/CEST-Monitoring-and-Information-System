@@ -212,7 +212,7 @@ export default function EditPanel({ project, onClose, onUpdate, onDelete, onDocu
       <div className="fixed inset-0 z-40 bg-black/30" onClick={onClose} />
 
       <div
-        className="fixed right-0 top-0 z-50 h-full w-full bg-white shadow-xl flex flex-col"
+        className="fixed right-0 top-0 z-50 h-dvh w-full bg-white shadow-xl flex flex-col"
         style={{ maxWidth: width }}
       >
         {/* Drag handle — full-height strip on the left edge */}
@@ -220,13 +220,13 @@ export default function EditPanel({ project, onClose, onUpdate, onDelete, onDocu
           onMouseDown={startDrag}
           onDoubleClick={resetWidth}
           title="Drag to resize · double-click to reset"
-          className="absolute left-0 top-0 h-full w-1.5 -translate-x-1/2 cursor-col-resize group z-10"
+          className="absolute left-0 top-0 h-dvh w-1.5 -translate-x-1/2 cursor-col-resize group z-10"
         >
-          <div className="h-full w-full group-hover:bg-blue-400 transition-colors" />
+          <div className="h-dvh w-full group-hover:bg-blue-400 transition-colors" />
         </div>
 
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 flex-shrink-0">
+        <div className="flex items-center justify-between px-4 sm:px-6 py-4 border-b border-gray-200 flex-shrink-0">
           <div>
             <h2 className="text-base font-semibold text-gray-800">Edit Project</h2>
             <p className="text-xs text-gray-400 mt-0.5">
@@ -237,7 +237,7 @@ export default function EditPanel({ project, onClose, onUpdate, onDelete, onDocu
         </div>
 
         {/* Scrollable body */}
-        <div className="flex-1 overflow-y-auto px-6 py-5">
+        <div className="flex-1 overflow-y-auto px-4 sm:px-6 py-5">
           {loading ? (
             <div className="text-center py-6 text-gray-400 text-sm">Loading...</div>
           ) : (

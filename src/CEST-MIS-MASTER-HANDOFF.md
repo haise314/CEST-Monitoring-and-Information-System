@@ -40,6 +40,13 @@ verified — see §10.
 **Fifth update (2026-09-29, later):** app shell rebuilt with a sidebar,
 top bar, and light/dark theme — see §0 item 20.
 
+**Sixth update (2026-09-30, later):** first pass of the **mobile-responsiveness
+work** (card lists, scrollable bottom-sheet modals, wrapping document rows,
+phone-friendly Documents pivot) and the **agreed user-management design**
+(admin / editor / viewer, admin-created accounts, delete logging) — see §0
+item 23. The design is decided, **not built**; the mobile files were
+delivered, **not yet confirmed applied or tested on a real phone**.
+
 **Reconciled a fourth time (2026-09-29)** — the Dashboard was already
 substantially rebuilt (Recent Activity, Recently Updated, charts, budget
 rollup, KPIs, quick actions) but none of that was in this doc; this pass
@@ -321,6 +328,108 @@ Confidence labels:
       works for any other caller). Unused `Itinerary` import removed from
       `App.jsx`.
     - Not yet eyeballed/tested in a browser.
+
+23. **✅ Mobile pass delivered (files handed over, untested) + user-management
+    design decided (not built) — 2026-09-30.**
+
+    **Phone usage context (from Rat):** mainly *viewing*, with occasional
+    emergency *edits* in the field. Root cause of the reported "edit panel /
+    modal gets weird on a phone": `DocumentChecklist` rows were a single
+    non-wrapping flex row (name + date + link + 3 checkboxes + notes, all
+    `flex-shrink-0`), which overflowed at ~360px; the HC/Claim/Sub labels were
+    also `hidden sm:inline`, leaving unlabeled checkboxes on touch. Separately,
+    `BeneficiaryModal`/`ContactModal` had no max-height/scroll, so tall modals
+    were cut off. (`EditPanel`'s own wrapper is `w-full` + a max-width, so it
+    was fine at the wrapper level.)
+
+    **What was changed (all Tailwind-only, behavior/props untouched):**
+    - **`src/components/common/MobileCards.jsx` (new):** `MobileCardList`
+      (`md:hidden`, with empty state), `MobileCard` (tappable, keyboard
+      accessible), `Pill`. Pattern: each page renders the TanStack table in a
+      `hidden md:block` wrapper **and** a card list built from
+      `table.getRowModel().rows` — a pure-CSS switch, so search / filters /
+      sorting / pagination keep working. Uses only normal gray/blue utilities
+      so it themes with the dark-mode remap (§0 item 20).
+    - **`Projects.jsx`, `Beneficiaries.jsx`, `Contacts.jsx`:** toolbar wraps
+      (search full-width on phones), `↺ Widths` and `⊞ Columns` hidden below
+      `md`, card layouts added. Project cards: title/beneficiary/location,
+      status + operational + category pills, type + amount, "Full page ↗" link
+      to `/projects/:id`. Contact cards: `tel:` link on the number + Messenger
+      link (stopPropagation so they don't open the modal). **Assumption to
+      verify:** project cards render `StatusCell`/`OperationalCell` (from
+      `./statusCell`, never uploaded) via `getValue={() => …}` — fine only if
+      those components read nothing but `getValue()`.
+    - **`DocumentChecklist.jsx`:** row wraps — N/A + name on line 1, controls
+      (date, link, HC/Claim/Sub, notes) on line 2 below `sm`; single line from
+      `sm` up as before. Labels always visible, larger tap targets, inputs
+      `text-base sm:text-xs` (avoids iOS focus-zoom), legend wraps.
+    - **`BeneficiaryModal.jsx`, `ContactModal.jsx`, `addModal.jsx`:** bottom
+      sheet on phones (`items-end sm:items-center`, `rounded-t-2xl`),
+      `max-h-[92dvh] overflow-y-auto`, safe-area bottom padding, 16px inputs on
+      phones, larger ✕ hit area.
+    - **`Documents.jsx`:** the pivot pinned *two* columns (176 + 160 = 336px),
+      filling a phone screen. Now: below `md`, only `beneficiary` is pinned
+      (128px, ellipsis) and `location` scrolls with the rest, via a small
+      `useIsNarrow()` (matchMedia) hook and a `pinned`/`lastPinnedId` pair
+      replacing direct `PINNED_COLUMNS` reads; phase tabs scroll horizontally;
+      toolbar wraps.
+    - **`RemarksSection.jsx` (layout only):** the Delete button was
+      `opacity-0 group-hover:opacity-100` — **invisible on touch devices**; now
+      always visible below `sm`. Compose row and footer wrap; inputs 16px.
+      **`added_by` logic is unchanged.**
+    - **Navigation needed no work:** `Sidebar` already has a mobile drawer
+      (§0 item 20).
+
+    **Manual edits still pending on Rat's side:** `EditPanel` wrapper
+    `h-full` → `h-dvh` and `px-6` → `px-4 sm:px-6` (header/body/footer), and
+    optionally stop backdrop-tap from closing the panel on phones (accidental
+    tap loses unsaved edits); `ProjectDetail.jsx` (~line 441) District /
+    Municipality / Barangay `grid grid-cols-3` → `grid grid-cols-1 sm:grid-cols-3`.
+    `editPanel.jsx` lines 300–376 were never reviewed. Not yet changed:
+    `ProjectDetail`'s other grids, `Overview.jsx`, `Map.jsx`, `Dashboard.jsx`
+    on phones.
+
+    **User-management design — decisions made (answers to the proposal Rat
+    reviewed; nothing built yet):**
+    - **Roles:** admin / editor / viewer are enough. No office-based roles.
+    - **Scope:** every editor sees and edits everything — no per-municipality
+      or per-project scoping.
+    - **Deletes:** editors may delete, but **limited and/or logged so it's
+      visible who deleted** — planned `deletion_log` (who, what, when, row
+      snapshot) written on every delete, admin-only viewer. (Remarks already
+      have a 15-minute delete window, §0 item 12 — a model for "limited".)
+    - **Accounts:** admin creates the account and **hands over a temporary
+      password** directly (no email invite, sidestepping Supabase's rate-limited
+      built-in email). **Forced password change on first login — confirmed.**
+      Creating users needs **one small Supabase Edge Function** (Auth admin API,
+      `service_role` key, checks the caller is admin); that key must never
+      ship to the browser.
+    - **Login / activity history:** yes *if cheap*, **admin-only**.
+    - **Remarks attribution:** new remarks will use the logged-in user's full
+      name (from `profiles`); **existing remarks keep their typed `added_by`
+      text** — confirmed. This is the §7 item 17 follow-up, now decided.
+    - **Enforcement principle:** access rules live in **RLS**
+      (`is_admin()` / `can_edit()` helpers); hiding UI is only a courtesy.
+    - **Current RLS baseline (re-verified via `pg_policies`, 2026-09-30):**
+      exactly one policy on each of the 10 tables — `"Allow authenticated
+      users"`, `cmd = ALL`, `roles = {authenticated}`, `qual = true`. No
+      `profiles` table exists yet.
+    - **Sequencing (do not reorder — item 17's lockout incident):**
+      (1) `profiles` table (+ trigger on signup) and **seed the admin's row
+      first**, confirm login still works; (2) replace the `qual = true`
+      policies with role-aware ones; (3) Edge Function + admin Users page
+      (create, change role, deactivate/reactivate, reset password) + a
+      "change my password" page; (4) attribution (`added_by` from
+      `profiles.full_name`, `created_by`/`updated_by`), `deletion_log`, admin
+      activity view, optional guarded reference-data admin (project types /
+      document types — mind the no-cascade FK, §7 item 13).
+    - **Also proposed, not yet answered by Rat:** other ideas from the
+      proposal (Excel import, email reminders/digest, report templates,
+      scheduled backup, error boundary, tests) — Rat said to focus on
+      responsiveness first.
+    - **Ignore:** an unrelated block of field-schedule notes (deployment
+      dates, team splits) was pasted alongside the proposal by mistake —
+      Rat confirmed it belongs to a different topic and is not an app requirement.
 
 ---
 
@@ -607,6 +716,15 @@ control is currently none. **Explicitly deprioritized by Rat** — the app's
 link is only known to him, so this isn't currently treated as a live risk;
 not to be re-raised unprompted.
 
+**Re-verified 2026-09-30:** a fresh `pg_policies` dump shows exactly the
+state described above — one `"Allow authenticated users"` / `ALL` /
+`{authenticated}` / `true` policy on each of `document_types`,
+`beneficiaries`, `project_types`, `project_instances`, `documents`,
+`beneficiary_contacts`, `itineraries`, `remarks`, `itinerary_stops`,
+`project_contacts`. So: anonymous access is blocked, but **any signed-in user
+can read, write and delete everything** — no roles yet (see §0 item 23 for the
+admin / editor / viewer plan).
+
 ### ⚠️ Live data snapshot (as of the original dump — not re-verified this update)
 - 5 `project_types`, 6 `beneficiaries` (ids 1–6, though only 2–6 appear in
   `project_instances`), 5 `project_instances` (ids 2–6, all `project_category
@@ -788,7 +906,7 @@ Notes on this list:
     (§0 item 17).** Real Supabase Auth now exists, but `RemarksSection.jsx`
     was deliberately left untouched — `added_by` still comes from the
     per-browser "posted as" name, not the logged-in user's identity.
-    Not a bug, just an unfinished follow-up — see §8/§10.
+    Not a bug, just an unfinished follow-up — see §8/§10. **Decision made 2026-09-30 (§0 item 23):** new remarks will use `profiles.full_name`; old rows keep their typed `added_by`. Blocked on the `profiles` table (Phase 1 of the user-management plan).
 18. **NEW: Dashboard hotspot → Documents filter never worked.** The old
     links passed `?municipality=…&submitted=No` to `/documents`, which
     doesn't read URL params. Links removed from the Dashboard (§0 item 19).
@@ -801,6 +919,17 @@ Notes on this list:
 12. **Only 1 of 5 live projects has a generated document checklist (as of the dump).** Projects 2, 3, 5, 6 all have `project_category = 'In-house'` set but zero `documents` rows. Still the standing action item — see §10.
 13. **`documents.document_type_id` FK has no cascade rule** (default `NO ACTION`) — cannot delete a `document_types` row while any `documents` row still references it. Edit/deactivate rows instead of deleting them.
 14. **NEW: Beneficiaries page has no delete function in the UI.** `useBeneficiaries.deleteBeneficiary()` already exists, already has the same FK-violation delete-guard reasoning as the rest of the hook (blocks deletion while linked projects exist) — the gap is purely that `Beneficiaries.jsx`/its columns never call it. Contacts already has a working delete for comparison. **Queued as the next minor fix** — see §10.
+
+20. **NEW (2026-09-30): Mobile pass not yet applied/tested.** The card lists,
+    modal, checklist and Documents-pivot changes in §0 item 23 were delivered
+    as files and verified only for syntax (esbuild). Two manual edits
+    (`EditPanel`, `ProjectDetail`) remain, and `StatusCell`/`OperationalCell`
+    compatibility with the project cards is an unverified assumption.
+21. **NEW (2026-09-30): Any signed-in user can delete anything.** Consequence
+    of the authenticated-only RLS baseline; the admin/editor/viewer plus
+    `deletion_log` design (§0 item 23) is the intended fix. Until then there
+    is no record of who deleted a project, beneficiary or contact (only
+    remarks have the 15-minute window).
 
 ---
 
@@ -1041,7 +1170,7 @@ Reconciled against what's actually happened since:
    projects" Dashboard section is now **also built** (§0 item 18).
 3. **Raw Excel export** (data as currently in the app) — not started.
 4. Heatmap — ✅ done (lat/lng on `beneficiaries`, Map feature live).
-5. **Responsiveness / mobile pass** — not started. Original plan: tables
+5. **Responsiveness / mobile pass** — ⚠️ **first pass delivered 2026-09-30 (§0 item 23), pending apply + phone testing.** Original plan: tables
    collapse to card lists below a breakpoint, `EditPanel` becomes a
    full-screen modal on small screens. The `/projects/:id` width question
    this was once bundled with is now resolved (§0 item 15, two-column
@@ -1052,6 +1181,16 @@ Reconciled against what's actually happened since:
    sequenced last for a reason, doubly so with Excel import still undone.
 
 ### Immediate (do next)
+0. **NEW (2026-09-30): apply and phone-test the mobile pass (§0 item 23).**
+   Drop in `MobileCards.jsx` + the changed pages/modals/checklist/Documents/
+   RemarksSection, make the two manual edits (`EditPanel`, `ProjectDetail`),
+   and check on a real phone: cards on Projects/Beneficiaries/Contacts, the
+   `/projects/:id` page, the document checklist, all modals, the Documents
+   pivot. Remaining not-yet-done phone work: `Overview`, `Map`, `Dashboard`,
+   remaining `ProjectDetail` grids, `editPanel.jsx` lines 300–376 (unreviewed).
+   Then **start the user-management build in the agreed order** (§0 item 23):
+   `profiles` + seeded admin → role-aware RLS → Edge Function + Users page →
+   attribution / `deletion_log` / change-password.
 1. **NEW: Confirm auth + RLS work correctly in production (Vercel), not
    just localhost (§0 item 17, §7 item 16).** Deploy if not already done,
    sign in with each real account, and confirm data reads/writes work as
@@ -1074,7 +1213,7 @@ Reconciled against what's actually happened since:
 - ~~Decide on `CATEGORY_COLORS` wiring for map markers~~ — **✅ DONE** (§0 item 16).
 - Housekeeping: dedupe `PaginationBar`/`VisibilityPanel`, remove dead `documents/columns.jsx`, normalize router imports (`ProjectDetail.jsx` already follows the majority `'react-router'` convention; `Navbar.jsx` still uses `'react-router-dom'`, unchanged by the Map overhaul).
 - **NEW:** remove the now-orphaned `Itinerary.jsx` file and its unused import in `App.jsx` (§0 item 16, §7 item 15) — left in place deliberately for now, not forgotten.
-- **NEW:** swap Remarks' `added_by` attribution from the `localStorage`-backed free-text name over to the now-available real logged-in user identity (§0 item 17, §7 item 17) — not urgent, the current system still works, but redundant now that real accounts exist.
+- **NEW → now part of the user-management plan (§0 item 23, Phase 4):** swap Remarks' `added_by` from the `localStorage` free-text name to the logged-in user's `profiles.full_name`; existing rows keep their typed name (decided 2026-09-30). Depends on the `profiles` table existing first.
 - **NEW:** consider rendering Plan Visit's stops on the actual Leaflet map (numbered pins + route line) instead of staying list-only — the "actually visual fold" option from §8, deferred rather than rejected.
 - Confirm whether any itineraries were lost (§9) and whether they need reconstruction like `document_types` did.
 - Consider whether `Documents.jsx` should also get a link into `/projects/:id` for cases where someone needs more than the document pivot while triaging — not requested, purely opportunistic.
@@ -1089,6 +1228,8 @@ Reconciled against what's actually happened since:
 - **`src/hooks/useColumnSizing.js`** — persists TanStack `columnSizing` to localStorage; used by Projects/Beneficiaries/Contacts tables (not `ProjectDetail.jsx`, which is a plain page).
 - **`src/components/common/ResizableTh.jsx`** — resizable/sortable `<th>` with drag handle; used across all three tables.
 - **`src/pages/projects/ProjectDetail.jsx`** — new this update, now covered in §6.
+
+- **`src/components/common/MobileCards.jsx`** — new 2026-09-30 (§0 item 23): `MobileCardList` / `MobileCard` / `Pill`, the phone card-list pattern used by Projects, Beneficiaries and Contacts (rendered `md:hidden` next to the `hidden md:block` table).
 
 Both of the first two are real, working, actively-imported code from a build
 session that happened after the original doc set was last refreshed.
@@ -1120,4 +1261,7 @@ feature's overhaul from an itinerary-focused tool into a portfolio-status
 visualization with Plan Visit folded in as a tab, and a third same-day
 reconciliation (§0 item 17) covering real Supabase Auth being built and
 the RLS "allow all" hole actually closed — confirmed working on
-localhost, production verification still pending (§10).*
+localhost, production verification still pending (§10), and a sixth
+same-day pass (§0 item 23) covering the first mobile-responsiveness delivery
+and the agreed admin / editor / viewer user-management design (decided, not
+built).*

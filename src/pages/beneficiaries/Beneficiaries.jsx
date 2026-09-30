@@ -8,6 +8,7 @@ import { useToast } from '../../lib/ToastContext'
 import { exportTableCsv, todayStamp } from '../../lib/exportCsv'
 import { ALL_COLUMNS } from './columns'
 import BeneficiaryModal from './BeneficiaryModal'
+import { MobileCardList, MobileCard, Pill } from '../../components/common/MobileCards'
 
 export default function Beneficiaries() {
   const {
@@ -104,25 +105,25 @@ export default function Beneficiaries() {
   return (
     <div>
       {/* Header */}
-      <div className="flex items-center justify-between mb-4">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-4">
         <h1 className="text-xl font-bold text-gray-800">
           Beneficiaries
           <span className="ml-2 text-sm font-normal text-gray-400">
             {filtered.length} of {beneficiaries.length}
           </span>
         </h1>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <input
             type="text"
             placeholder="Search name, category, location..."
             value={search}
             onChange={e => setSearch(e.target.value)}
-            className="border border-gray-300 rounded px-3 py-1.5 text-sm w-72 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="border border-gray-300 rounded px-3 py-1.5 text-sm w-full sm:w-72 focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
           <button
             onClick={() => setColumnSizing({})}
             title="Reset column widths to default"
-            className="border border-gray-300 rounded px-3 py-1.5 text-sm hover:bg-gray-50"
+            className="hidden md:block border border-gray-300 rounded px-3 py-1.5 text-sm hover:bg-gray-50"
           >
             ↺ Widths
           </button>
@@ -143,7 +144,7 @@ export default function Beneficiaries() {
       </div>
 
       {/* Table — click any row to open its edit modal (delete lives inside) */}
-      <div className="overflow-auto rounded-xl border border-gray-200 bg-white shadow-sm max-h-[calc(100vh-14rem)]">
+      <div className="hidden md:block overflow-auto rounded-xl border border-gray-200 bg-white shadow-sm max-h-[calc(100vh-14rem)]">
         <table className="text-sm" style={{ width: table.getTotalSize(), tableLayout: 'fixed' }}>
           <thead className="text-xs text-gray-500">
             {table.getHeaderGroups().map(headerGroup => (
@@ -183,6 +184,30 @@ export default function Beneficiaries() {
           </tbody>
         </table>
       </div>
+
+      {/* Cards (phones) */}
+      <MobileCardList
+        isEmpty={table.getRowModel().rows.length === 0}
+        emptyText="No beneficiaries found"
+      >
+        {table.getRowModel().rows.map(row => {
+          const b = row.original
+          const where = [b.barangay, b.municipality, b.district].filter(Boolean).join(', ')
+          const n = projectCount(b)
+          return (
+            <MobileCard key={row.id} onClick={() => openEdit(b)}>
+              <div className="flex items-start justify-between gap-2">
+                <div className="text-sm font-semibold text-gray-800 break-words min-w-0">{b.name}</div>
+                {b.category && <Pill className="bg-gray-100 text-gray-700 flex-shrink-0">{b.category}</Pill>}
+              </div>
+              {where && <div className="text-xs text-gray-500 mt-1 break-words">{where}</div>}
+              <div className="text-xs text-gray-400 mt-1.5">
+                {n} project{n === 1 ? '' : 's'}
+              </div>
+            </MobileCard>
+          )
+        })}
+      </MobileCardList>
 
       {/* Add/Edit Modal */}
       {showModal && (

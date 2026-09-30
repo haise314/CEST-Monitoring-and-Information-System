@@ -10,7 +10,7 @@ const EMPTY_FORM = {
   barangay: '',
 }
 
-const inputClass = 'w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500'
+const inputClass = 'w-full border border-gray-300 rounded px-3 py-2.5 sm:py-2 text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-blue-500'
 
 // Used for both Add (beneficiary = null) and Edit (beneficiary = existing row)
 export default function BeneficiaryModal({ beneficiary, linkedProjectCount = 0, onClose, onSave, onDelete }) {
@@ -70,14 +70,14 @@ export default function BeneficiaryModal({ beneficiary, linkedProjectCount = 0, 
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-      <div className="bg-white rounded-lg shadow-xl w-full max-w-sm p-6">
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40 sm:p-4">
+      <div className="bg-white rounded-t-2xl sm:rounded-lg shadow-xl w-full max-w-sm p-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] sm:p-6 max-h-[92dvh] overflow-y-auto">
 
         <div className="flex items-center justify-between mb-5">
           <h2 className="text-lg font-semibold text-gray-800">
             {beneficiary ? 'Edit Beneficiary' : 'Add Beneficiary'}
           </h2>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-xl leading-none">✕</button>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-xl leading-none p-2 -m-2">✕</button>
         </div>
 
         <div className="space-y-3">
