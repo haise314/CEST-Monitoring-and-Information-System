@@ -4,6 +4,8 @@ import { useSearchParams } from 'react-router'
 import { useBeneficiaries, projectCount } from '../../hooks/useBeneficiaries'
 import { useColumnSizing } from '../../hooks/useColumnSizing'
 import ResizableTh from '../../components/common/ResizableTh'
+import { useToast } from '../../lib/ToastContext'
+import { exportTableCsv, todayStamp } from '../../lib/exportCsv'
 import { ALL_COLUMNS } from './columns'
 import BeneficiaryModal from './BeneficiaryModal'
 
@@ -12,6 +14,7 @@ export default function Beneficiaries() {
     beneficiaries, loading, error,
     addBeneficiary, updateBeneficiary, deleteBeneficiary,
   } = useBeneficiaries()
+  const toast = useToast()
 
   const [searchParams, setSearchParams] = useSearchParams()
 
@@ -70,8 +73,11 @@ export default function Beneficiaries() {
   }
 
   async function handleSave(payload) {
-    if (editingBeneficiary) return updateBeneficiary(editingBeneficiary.id, payload)
-    return addBeneficiary(payload)
+    const result = editingBeneficiary
+      ? await updateBeneficiary(editingBeneficiary.id, payload)
+      : await addBeneficiary(payload)
+    if (!result.error) toast.success(editingBeneficiary ? 'Beneficiary updated' : 'Beneficiary added')
+    return result
   }
 
   // Passed into the modal's Danger Zone. The modal itself disables the
@@ -80,8 +86,16 @@ export default function Beneficiaries() {
   // underneath us (e.g. another tab adds a project mid-session).
   async function handleDelete(id) {
     const result = await deleteBeneficiary(id)
-    if (!result.error) setShowModal(false)
+    if (!result.error) {
+      setShowModal(false)
+      toast.success('Beneficiary deleted')
+    }
     return result
+  }
+
+  function handleExport() {
+    const n = exportTableCsv(table, { filename: `cest-beneficiaries-${todayStamp()}.csv` })
+    toast.success(`Exported ${n} beneficiar${n === 1 ? 'y' : 'ies'} to CSV`)
   }
 
   if (loading) return <div className="p-6 text-gray-500">Loading beneficiaries...</div>
@@ -111,6 +125,13 @@ export default function Beneficiaries() {
             className="border border-gray-300 rounded px-3 py-1.5 text-sm hover:bg-gray-50"
           >
             ↺ Widths
+          </button>
+          <button
+            onClick={handleExport}
+            title="Download the rows currently shown (all pages) as CSV"
+            className="border border-gray-300 rounded px-3 py-1.5 text-sm hover:bg-gray-50"
+          >
+            ⇩ Export CSV
           </button>
           <button
             onClick={openAdd}

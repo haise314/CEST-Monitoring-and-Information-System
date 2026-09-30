@@ -4,6 +4,7 @@ import { useFormData } from '../../hooks/useFormData'
 import { STATIC_OPTIONS, parseAmount } from './columns'
 import DocumentChecklist from './DocumentChecklist'
 import ProjectContacts from './ProjectContacts'
+import { useToast } from '../../lib/ToastContext'
 
 const MIN_WIDTH = 420
 const MAX_WIDTH = 1100
@@ -82,6 +83,7 @@ const selectClass = 'w-full border border-gray-300 rounded px-3 py-1.5 text-sm f
 
 export default function EditPanel({ project, onClose, onUpdate, onDelete, onDocumentsChanged }) {
   const { projectTypes, entryPoints, loading } = useFormData()
+  const toast = useToast()
   const [form, setForm]                   = useState({})
   const [saving, setSaving]               = useState(false)
   const [deleting, setDeleting]           = useState(false)
@@ -181,6 +183,7 @@ export default function EditPanel({ project, onClose, onUpdate, onDelete, onDocu
     else {
       // Update the ref so re-opening the panel doesn't re-trigger the warning
       originalCategory.current = form.project_category ?? ''
+      toast.success('Project saved')
     }
   }
 
@@ -189,7 +192,10 @@ export default function EditPanel({ project, onClose, onUpdate, onDelete, onDocu
     const { error } = await onDelete(project.id)
     setDeleting(false)
     if (error) setError(error)
-    else onClose()
+    else {
+      toast.success('Project deleted')
+      onClose()
+    }
   }
 
   if (!project) return null

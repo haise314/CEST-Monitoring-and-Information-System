@@ -15,11 +15,15 @@ import FilterBar from './filterBar'
 import VisibilityPanel from '../../components/common/VisibilityPanel'
 import PaginationBar from '../../components/common/PaginationBar'
 import ResizableTh from '../../components/common/ResizableTh'
+import { useToast } from '../../lib/ToastContext'
+import { exportTableCsv, todayStamp } from '../../lib/exportCsv'
 import AddModal from './addModal'
 import EditPanel from './editPanel'
 
 function Projects() {
   const { projects, loading, error, addProject, updateProject, deleteProject } = useProjects()
+
+  const toast = useToast()
 
   // Table state
   const [globalFilter, setGlobalFilter]           = useState('')
@@ -86,6 +90,11 @@ function Projects() {
 
   const visibleColumnIds = table.getVisibleLeafColumns().map(c => c.id)
 
+  function handleExport() {
+    const n = exportTableCsv(table, { filename: `cest-projects-${todayStamp()}.csv` })
+    toast.success(`Exported ${n} project${n === 1 ? '' : 's'} to CSV`)
+  }
+
   if (loading) return <div className="p-6 text-gray-500">Loading projects...</div>
   if (error)   return <div className="p-6 text-red-500">Error: {error}</div>
 
@@ -129,6 +138,13 @@ function Projects() {
               />
             )}
           </div>
+          <button
+            onClick={handleExport}
+            title="Download the rows currently shown (all pages) as CSV"
+            className="border border-gray-300 rounded px-3 py-1.5 text-sm hover:bg-gray-50"
+          >
+            ⇩ Export CSV
+          </button>
           <button
             onClick={() => setShowAddModal(true)}
             className="bg-blue-600 text-white rounded px-3 py-1.5 text-sm font-medium hover:bg-blue-700"

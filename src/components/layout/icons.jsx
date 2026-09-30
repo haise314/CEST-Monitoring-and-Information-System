@@ -23,3 +23,4 @@ export const MenuIcon      = p => <Icon {...p}><path d="M4 6h16M4 12h16M4 18h16"
 export const CloseIcon     = p => <Icon {...p}><path d="M6 6l12 12M18 6 6 18" /></Icon>
 export const ChevronLeftIcon = p => <Icon {...p}><path d="m15 6-6 6 6 6" /></Icon>
 export const LogoutIcon    = p => <Icon {...p}><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9" /></Icon>
+export const SearchIcon    = p => <Icon {...p}><circle cx="11" cy="11" r="7" /><path d="m20 20-3.5-3.5" /></Icon>

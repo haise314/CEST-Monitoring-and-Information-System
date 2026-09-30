@@ -288,6 +288,40 @@ Confidence labels:
     wrapper. Header underline uses an inset shadow, not `border-b`, because
     `border-collapse` drops borders on sticky cells. Not yet eyeballed.
 
+22. **✅ Toasts, unsaved-changes guard, CSV export, global search, quick
+    fixes (2026-09-30).**
+    - **Toasts:** `src/lib/ToastContext.jsx` (`ToastProvider` in `App.jsx`
+      outside `AuthProvider`; `useToast()` → `.success/.error/.info`). Wired
+      into ProjectDetail, EditPanel, Beneficiaries, Contacts, DocumentChecklist
+      (generate), RemarksSection (post/delete). Field-level errors still show
+      inline in forms; toasts confirm success.
+    - **Unsaved-changes guard (`ProjectDetail.jsx`):** `useBlocker` (needs the
+      data router — `createBrowserRouter`, which the app uses) + `beforeunload`.
+      Dirty = project form or beneficiary form differs from the server values
+      (`formFromProject`/`benFormFromProject`, compared as strings). Delete
+      bypasses via `leaveOk` ref. `benBaseline` state exists because a
+      beneficiary save does **not** refetch the project (that would reset
+      unsaved project edits) — it records the saved values. Save bar is now
+      sticky and shows "unsaved / all saved". The page no longer swaps to a
+      "Loading project..." spinner on refetch (only on first load).
+    - **CSV export:** `src/lib/exportCsv.js` (`exportTableCsv(table, {filename,
+      formatValue})`). "⇩ Export CSV" on Projects, Beneficiaries, Contacts,
+      Documents. Exports **visible columns**, **all filtered/sorted rows across
+      pages**. Documents exports the **active phase tab** with each document
+      cell as its status text (e.g. "Hard copy on file"). UTF-8 BOM for Excel.
+    - **Global search:** `components/layout/CommandPalette.jsx`, opened from
+      the top bar or **Ctrl/Cmd+K**. Searches projects, beneficiaries and
+      contacts (fetched fresh on each open; portal-rendered). Empty query =
+      page shortcuts. Deep links: projects → `/projects/:id`, beneficiaries →
+      `/beneficiaries?edit=:id`, contacts → `/contacts?edit=:id` (**new**:
+      `Contacts.jsx` now reads `?edit=`, same pattern as Beneficiaries).
+    - **Fixes:** `Map.jsx` `lg:grid-ls-2` typo and stray `useState //` line
+      removed; Dashboard overdue/upcoming rows now link to `/projects/:id`
+      instead of `/projects?edit=` (the `?edit=` param on `/projects` still
+      works for any other caller). Unused `Itinerary` import removed from
+      `App.jsx`.
+    - Not yet eyeballed/tested in a browser.
+
 ---
 
 ## 1. Project Overview
@@ -398,7 +432,7 @@ docs/projects/beneficiaries; remarks load independently (its own inline
    those pages — deliberately out of scope).
 3. `KpiRow` — projects, beneficiaries, overall compliance, total deployed (₱).
 4. Overdue + Upcoming (14 days) lists — rows link to
-   `/projects?edit=<id>` (opens `EditPanel`, not `/projects/:id`; see §10).
+   `/projects/:id` (§0 item 22).
 5. Recent Activity (latest 10 remarks, links to `/projects/:id`) +
    Recently Updated (8 most recently `updated_at`-stamped projects).
 6. Compliance by phase + Needs attention flags (no category / category but
@@ -760,7 +794,7 @@ Notes on this list:
     doesn't read URL params. Links removed from the Dashboard (§0 item 19).
     If a real drill-down is wanted, `Documents.jsx` needs to read
     `useSearchParams` into its `filters` state first.
-19. **NEW: `Map.jsx` Plan Visit grid has a typo** — `lg:grid-ls-2` should
+19. ~~**`Map.jsx` Plan Visit grid typo**~~ **✅ FIXED (§0 item 22)** — — `lg:grid-ls-2` should
     be `lg:grid-cols-2`, so the two columns don't split side-by-side on
     large screens. There is also a stray no-op `useState //` line near the
     Plan Visit logic. Not fixed (out of scope of the Dashboard pass).
@@ -1045,8 +1079,8 @@ Reconciled against what's actually happened since:
 - Confirm whether any itineraries were lost (§9) and whether they need reconstruction like `document_types` did.
 - Consider whether `Documents.jsx` should also get a link into `/projects/:id` for cases where someone needs more than the document pivot while triaging — not requested, purely opportunistic.
 - ~~A "recent remarks across all projects" Dashboard section~~ — **✅ DONE** (§0 item 18).
-- **NEW:** eyeball the polished Dashboard in a browser (§0 item 19) and fix the `Map.jsx` `lg:grid-ls-2` typo (§7 item 19).
-- **NEW:** optionally repoint Dashboard's overdue/upcoming rows to `/projects/:id` to match Recent Activity/Recently Updated (ties into the open `?edit=<id>` decision above).
+- **NEW:** eyeball the polished Dashboard, shell, tables, toasts, search and export in a browser (§0 items 19–22).
+- ~~Repoint Dashboard overdue/upcoming rows to `/projects/:id`~~ — ✅ done (§0 item 22).
 
 ---
 

@@ -1,5 +1,5 @@
-import { useState, useEffect, useRef } from 'react'
-import { useParams, useNavigate } from 'react-router'
+import { useState, useEffect, useRef, useMemo } from 'react'
+import { useParams, useNavigate, useBlocker } from 'react-router'
 import { useProjects } from '../../hooks/useProjects'
 import { useBeneficiaries } from '../../hooks/useBeneficiaries'
 import { useFormData } from '../../hooks/useFormData'
@@ -7,6 +7,7 @@ import { STATIC_OPTIONS, parseAmount } from './columns'
 import DocumentChecklist from './DocumentChecklist'
 import ProjectContacts from './ProjectContacts'
 import RemarksSection from './RemarksSection'
+import { useToast } from '../../lib/ToastContext'
 
 // Not in columns.jsx's STATIC_OPTIONS (that file only covers project-level
 // enums) — sourced from the beneficiary_category enum in the live DB dump.
@@ -35,9 +36,47 @@ function Field({ label, children }) {
 const inputClass  = 'w-full border border-gray-300 rounded px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500'
 const selectClass = 'w-full border border-gray-300 rounded px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500'
 
+// Field-by-field snapshots of what the server has, used both to fill the
+// forms and to tell whether they've been edited (unsaved-changes guard).
+function formFromProject(project) {
+  return {
+    year:                project.year                ?? '',
+    title:               project.title               ?? '',
+    project_type_id:     project.project_type_id     ?? '',
+    project_category:    project.project_category    ?? '',
+    property_number:     project.property_number     ?? '',
+    amount:              project.amount              ?? '',
+    date_deployed:       project.date_deployed       ?? '',
+    entry_point:         project.entry_point         ?? '',
+    intervention:        project.intervention        ?? '',
+    overall_status:      project.overall_status      ?? '',
+    operational_status:  project.operational_status  ?? '',
+    interventions_count: project.interventions_count ?? '',
+    people_trained:      project.people_trained      ?? '',
+    impact_notes:        project.impact_notes        ?? '',
+    gdrive_folder_link:  project.gdrive_folder_link  ?? '',
+  }
+}
+
+function benFormFromProject(project) {
+  return {
+    name:         project.beneficiaries.name         ?? '',
+    category:     project.beneficiaries.category     ?? '',
+    district:     project.beneficiaries.district     ?? '',
+    municipality: project.beneficiaries.municipality ?? '',
+    barangay:     project.beneficiaries.barangay     ?? '',
+  }
+}
+
+// Compared as strings: inputs hand back strings, the DB hands back numbers.
+function isChanged(current, baseline) {
+  return Object.keys(baseline).some(k => String(current[k] ?? '') !== String(baseline[k] ?? ''))
+}
+
 export default function ProjectDetail() {
   const { id } = useParams()
   const navigate = useNavigate()
+  const toast = useToast()
 
   const { projects, loading, updateProject, deleteProject } = useProjects()
   const { updateBeneficiary } = useBeneficiaries()
@@ -61,6 +100,10 @@ export default function ProjectDetail() {
   const [benForm, setBenForm]     = useState({})
   const [benSaving, setBenSaving] = useState(false)
   const [benError, setBenError]   = useState(null)
+  // After a successful beneficiary save the page's project data is stale (it
+  // isn't refetched, so unsaved project edits aren't clobbered). This holds
+  // the just-saved values so the form isn't wrongly flagged as unsaved.
+  const [benBaseline, setBenBaseline] = useState(null)
 
   // ── Danger zone ──
   const [deleting, setDeleting]           = useState(false)
@@ -68,23 +111,7 @@ export default function ProjectDetail() {
 
   useEffect(() => {
     if (!project) return
-    setForm({
-      year:                project.year                ?? '',
-      title:               project.title               ?? '',
-      project_type_id:     project.project_type_id     ?? '',
-      project_category:    project.project_category    ?? '',
-      property_number:     project.property_number     ?? '',
-      amount:              project.amount              ?? '',
-      date_deployed:       project.date_deployed       ?? '',
-      entry_point:         project.entry_point         ?? '',
-      intervention:        project.intervention        ?? '',
-      overall_status:      project.overall_status      ?? '',
-      operational_status:  project.operational_status  ?? '',
-      interventions_count: project.interventions_count ?? '',
-      people_trained:      project.people_trained      ?? '',
-      impact_notes:        project.impact_notes        ?? '',
-      gdrive_folder_link:  project.gdrive_folder_link  ?? '',
-    })
+    setForm(formFromProject(project))
     originalCategory.current = project.project_category ?? ''
     setError(null)
     setShowCategoryWarning(false)
@@ -93,17 +120,32 @@ export default function ProjectDetail() {
 
   useEffect(() => {
     if (!project?.beneficiaries) return
-    setBenForm({
-      name:         project.beneficiaries.name         ?? '',
-      category:     project.beneficiaries.category     ?? '',
-      district:     project.beneficiaries.district     ?? '',
-      municipality: project.beneficiaries.municipality ?? '',
-      barangay:     project.beneficiaries.barangay     ?? '',
-    })
+    setBenForm(benFormFromProject(project))
+    setBenBaseline(null)
     setBenError(null)
     // beneficiary_id is stable per project, so this only re-runs if the
     // underlying beneficiary row's data actually changes (e.g. after save).
   }, [project?.beneficiaries])
+
+  // ── Unsaved-changes guard ──
+  const initialForm = useMemo(() => (project ? formFromProject(project) : null), [project])
+  const initialBen  = useMemo(
+    () => benBaseline ?? (project?.beneficiaries ? benFormFromProject(project) : null),
+    [project, benBaseline]
+  )
+  const formDirty = Boolean(initialForm) && Object.keys(form).length > 0 && isChanged(form, initialForm)
+  const benDirty  = Boolean(initialBen) && Object.keys(benForm).length > 0 && isChanged(benForm, initialBen)
+  const dirty = formDirty || benDirty
+
+  const leaveOk = useRef(false) // set right before an intentional navigation (delete)
+  const blocker = useBlocker(() => dirty && !leaveOk.current)
+
+  useEffect(() => {
+    if (!dirty) return
+    const onBeforeUnload = e => { e.preventDefault(); e.returnValue = '' }
+    window.addEventListener('beforeunload', onBeforeUnload)
+    return () => window.removeEventListener('beforeunload', onBeforeUnload)
+  }, [dirty])
 
   function handleChange(key, value)    { setForm(prev => ({ ...prev, [key]: value })) }
   function handleBenChange(key, value) { setBenForm(prev => ({ ...prev, [key]: value })) }
@@ -155,7 +197,10 @@ export default function ProjectDetail() {
     const { error } = await updateProject(project.id, payload)
     setSaving(false)
     if (error) setError(error)
-    else originalCategory.current = form.project_category ?? ''
+    else {
+      originalCategory.current = form.project_category ?? ''
+      toast.success('Project saved')
+    }
   }
 
   // Beneficiary rows are shared across every project under that
@@ -175,6 +220,10 @@ export default function ProjectDetail() {
     })
     setBenSaving(false)
     if (error) setBenError(error)
+    else {
+      setBenBaseline({ ...benForm })
+      toast.success('Beneficiary updated')
+    }
   }
 
   async function handleDelete() {
@@ -182,10 +231,16 @@ export default function ProjectDetail() {
     const { error } = await deleteProject(project.id)
     setDeleting(false)
     if (error) setError(error)
-    else navigate('/projects')
+    else {
+      leaveOk.current = true
+      toast.success('Project deleted')
+      navigate('/projects')
+    }
   }
 
-  if (loading || formDataLoading) {
+  // Only block the page on the very first load — a refetch after saving must
+  // not unmount the whole page (and its checklist/remarks) behind a spinner.
+  if ((loading && !project) || formDataLoading) {
     return <div className="p-6 text-gray-500 text-sm">Loading project...</div>
   }
 
@@ -588,23 +643,55 @@ export default function ProjectDetail() {
         )}
       </Section>
 
-      {/* Save bar — not sticky/footer-pinned like EditPanel, since this is
-          a full page, not an overlay. Sits at the natural end of content. */}
-      <div className="flex gap-2 pt-2 border-t border-gray-200">
+      {/* Save bar — sticks to the bottom of the viewport so Save is always in
+          reach on this long page, and says whether anything is unsaved. */}
+      <div className="sticky bottom-0 z-20 bg-white border-t border-gray-200 py-3 flex items-center gap-2">
+        <span className={`text-xs mr-auto ${dirty ? 'text-amber-600' : 'text-gray-400'}`}>
+          {formDirty
+            ? 'You have unsaved project changes.'
+            : benDirty
+              ? 'Unsaved beneficiary changes. Use "Save Beneficiary Info".'
+              : 'All changes saved.'}
+        </span>
         <button
           onClick={handleSave}
           disabled={saving}
-          className="flex-1 bg-blue-600 text-white rounded px-4 py-2 text-sm font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+          className="bg-blue-600 text-white rounded px-6 py-2 text-sm font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {saving ? 'Saving...' : 'Save Changes'}
         </button>
         <button
           onClick={() => navigate(-1)}
-          className="flex-1 border border-gray-300 rounded px-4 py-2 text-sm hover:bg-gray-50"
+          className="border border-gray-300 rounded px-4 py-2 text-sm hover:bg-gray-50"
         >
           Cancel
         </button>
       </div>
+
+      {blocker.state === 'blocked' && (
+        <div className="fixed inset-0 z-[65] flex items-center justify-center bg-black/40 px-4">
+          <div className="bg-white border border-gray-200 rounded-xl shadow-xl w-full max-w-sm p-5">
+            <h2 className="text-base font-semibold text-gray-800 mb-1">Discard unsaved changes?</h2>
+            <p className="text-sm text-gray-500 mb-4">
+              You've edited this project but haven't saved. Leaving now will lose those edits.
+            </p>
+            <div className="flex justify-end gap-2">
+              <button
+                onClick={() => blocker.reset()}
+                className="border border-gray-300 rounded px-3 py-1.5 text-sm hover:bg-gray-50"
+              >
+                Keep editing
+              </button>
+              <button
+                onClick={() => blocker.proceed()}
+                className="bg-red-600 text-white rounded px-3 py-1.5 text-sm hover:bg-red-700"
+              >
+                Discard changes
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

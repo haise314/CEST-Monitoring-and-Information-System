@@ -11,8 +11,10 @@ import { useProjects } from '../../hooks/useProjects'
 import { useAllDocuments } from '../../hooks/useAllDocuments'
 import { useDocumentTypes } from '../../hooks/useDocumentTypes'
 import { PHASE_ORDER, computeProgress, progressBarColor } from '../../lib/documentProgress'
-import { statusRank, DOC_CONDITIONS } from '../../lib/documentStatus'
+import { statusRank, getDocStatus, STATUS_META, DOC_CONDITIONS } from '../../lib/documentStatus'
 import DocBadge from './DocBadge'
+import { useToast } from '../../lib/ToastContext'
+import { exportTableCsv, todayStamp } from '../../lib/exportCsv'
 import PaginationBar from '../../components/common/PaginationBar'
 import VisibilityPanel from '../../components/common/VisibilityPanel'
 import EditPanel from '../projects/editPanel'
@@ -56,6 +58,8 @@ export default function Documents() {
   const { projects, loading: projectsLoading, updateProject, deleteProject } = useProjects()
   const { documents, loading: docsLoading, refetch: refetchDocuments }     = useAllDocuments()
   const { documentTypes, loading: typesLoading }                             = useDocumentTypes()
+
+  const toast = useToast()
 
   const [globalFilter, setGlobalFilter]         = useState('')
   const [sorting, setSorting]                   = useState([])
@@ -216,6 +220,14 @@ export default function Documents() {
     initialState: { pagination: { pageSize: 25 } },
   })
 
+  function handleExport() {
+    const n = exportTableCsv(table, {
+      filename: `cest-documents-${activePhase.toLowerCase().replace(/[^a-z]+/g, '-')}-${todayStamp()}.csv`,
+      formatValue: (col, value) => (col.id.startsWith('doc_') ? STATUS_META[getDocStatus(value)].label : value),
+    })
+    toast.success(`Exported ${n} project${n === 1 ? '' : 's'} (${activePhase} documents)`)
+  }
+
   const loading = projectsLoading || docsLoading || typesLoading
 
   if (loading) return <div className="p-6 text-gray-500">Loading documents...</div>
@@ -238,6 +250,13 @@ export default function Documents() {
             onChange={e => setGlobalFilter(e.target.value)}
             className="border border-gray-300 rounded px-3 py-1.5 text-sm w-64 focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
+          <button
+            onClick={handleExport}
+            title="Download the rows currently shown, for the selected phase tab, as CSV"
+            className="border border-gray-300 rounded px-3 py-1.5 text-sm hover:bg-gray-50"
+          >
+            ⇩ Export CSV
+          </button>
           <div className="relative">
             <button
               onClick={() => setShowVisibilityPanel(v => !v)}

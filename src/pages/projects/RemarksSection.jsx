@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useRemarks } from '../../hooks/useRemarks'
 import { getSavedAuthor, saveAuthor } from '../../lib/localAuthor'
+import { useToast } from '../../lib/ToastContext'
 
 const LEVEL_OPTIONS = [
   { value: 'provincial', label: 'Provincial' },
@@ -106,6 +107,7 @@ const selectClass = 'border border-gray-300 rounded px-2 py-1.5 text-sm focus:ou
 
 export default function RemarksSection({ projectId }) {
   const { remarks, loading, error, addRemark, deleteRemark } = useRemarks(projectId)
+  const toast = useToast()
 
   const [level, setLevel]     = useState('provincial')
   const [content, setContent] = useState('')
@@ -151,12 +153,14 @@ export default function RemarksSection({ projectId }) {
 
     saveAuthor(trimmedAuthor)
     setContent('')
+    toast.success('Remark posted')
   }
 
   async function handleDelete(id) {
     setDeleteError(null)
     const { error } = await deleteRemark(id)
     if (error) setDeleteError(error)
+    else toast.success('Remark deleted')
   }
 
   return (

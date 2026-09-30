@@ -1,14 +1,19 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
+import { useSearchParams } from 'react-router'
 import { useReactTable, getCoreRowModel, getSortedRowModel, flexRender } from '@tanstack/react-table'
 import { useContacts } from '../../hooks/useContacts'
 import { useFormData } from '../../hooks/useFormData'
 import { useColumnSizing } from '../../hooks/useColumnSizing'
 import ResizableTh from '../../components/common/ResizableTh'
+import { useToast } from '../../lib/ToastContext'
+import { exportTableCsv, todayStamp } from '../../lib/exportCsv'
 import { ALL_COLUMNS } from './columns'
 import ContactModal from './ContactModal'
 
 export default function Contacts() {
   const { contacts, loading, error, addContact, updateContact, deleteContact } = useContacts()
+  const toast = useToast()
+  const [searchParams, setSearchParams] = useSearchParams()
   const { beneficiaries } = useFormData() // already fetches beneficiaries for dropdowns elsewhere
 
   const [search, setSearch]         = useState('')
@@ -16,6 +21,19 @@ export default function Contacts() {
   const [columnSizing, setColumnSizing] = useColumnSizing('contactsColumnSizing')
   const [showModal, setShowModal]   = useState(false)
   const [editingContact, setEditingContact] = useState(null) // null = add mode
+
+  // Deep-link support: /contacts?edit=123 opens that contact's edit modal
+  // (used by global search). Same pattern as Beneficiaries.jsx.
+  useEffect(() => {
+    const editId = searchParams.get('edit')
+    if (!editId || loading) return
+    const match = contacts.find(c => String(c.id) === editId)
+    if (match) {
+      setEditingContact(match)
+      setShowModal(true)
+    }
+    setSearchParams({}, { replace: true })
+  }, [searchParams, contacts, loading]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase()
@@ -49,16 +67,27 @@ export default function Contacts() {
   }
 
   async function handleSave(payload) {
-    if (editingContact) return updateContact(editingContact.id, payload)
-    return addContact(payload)
+    const result = editingContact
+      ? await updateContact(editingContact.id, payload)
+      : await addContact(payload)
+    if (!result.error) toast.success(editingContact ? 'Contact updated' : 'Contact added')
+    return result
   }
 
   // Passed into the modal's Danger Zone — closes the modal on success,
   // same pattern as editPanel.jsx's project delete.
   async function handleDelete(id) {
     const result = await deleteContact(id)
-    if (!result.error) setShowModal(false)
+    if (!result.error) {
+      setShowModal(false)
+      toast.success('Contact deleted')
+    }
     return result
+  }
+
+  function handleExport() {
+    const n = exportTableCsv(table, { filename: `cest-contacts-${todayStamp()}.csv` })
+    toast.success(`Exported ${n} contact${n === 1 ? '' : 's'} to CSV`)
   }
 
   if (loading) return <div className="p-6 text-gray-500">Loading contacts...</div>
@@ -88,6 +117,13 @@ export default function Contacts() {
             className="border border-gray-300 rounded px-3 py-1.5 text-sm hover:bg-gray-50"
           >
             ↺ Widths
+          </button>
+          <button
+            onClick={handleExport}
+            title="Download the rows currently shown (all pages) as CSV"
+            className="border border-gray-300 rounded px-3 py-1.5 text-sm hover:bg-gray-50"
+          >
+            ⇩ Export CSV
           </button>
           <button
             onClick={openAdd}

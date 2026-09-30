@@ -3,7 +3,8 @@ import { Link, useLocation } from 'react-router'
 import { useAuth } from '../../lib/AuthContext'
 import { useTheme } from '../../lib/ThemeContext'
 import { getBreadcrumb } from './navConfig'
-import { MenuIcon, SunIcon, MoonIcon, LogoutIcon } from './icons'
+import CommandPalette from './CommandPalette'
+import { MenuIcon, SunIcon, MoonIcon, LogoutIcon, SearchIcon } from './icons'
 
 function Breadcrumb() {
   const { pathname } = useLocation()
@@ -83,7 +84,23 @@ function UserMenu() {
   )
 }
 
+const isMac = typeof navigator !== 'undefined' && /Mac/i.test(navigator.platform)
+
 export default function Topbar({ onOpenMobile }) {
+  const [searchOpen, setSearchOpen] = useState(false)
+
+  // Ctrl/Cmd + K opens global search from anywhere.
+  useEffect(() => {
+    function onKey(e) {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault()
+        setSearchOpen(v => !v)
+      }
+    }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [])
+
   return (
     <header className="sticky top-0 z-30 h-14 bg-white border-b border-gray-200 flex items-center gap-3 px-4 sm:px-6">
       <button
@@ -95,8 +112,24 @@ export default function Topbar({ onOpenMobile }) {
       </button>
       <Breadcrumb />
       <span className="flex-1" />
+      <button
+        onClick={() => setSearchOpen(true)}
+        className="hidden sm:flex items-center gap-2 w-56 lg:w-72 h-9 px-3 rounded-lg border border-gray-200 bg-gray-50 text-sm text-gray-400 hover:border-gray-300"
+      >
+        <SearchIcon className="w-4 h-4" />
+        <span className="flex-1 text-left">Search...</span>
+        <kbd className="text-[10px] border border-gray-200 rounded px-1.5 py-0.5">{isMac ? '⌘K' : 'Ctrl K'}</kbd>
+      </button>
+      <button
+        onClick={() => setSearchOpen(true)}
+        aria-label="Search"
+        className="sm:hidden w-9 h-9 rounded-lg flex items-center justify-center text-gray-500 hover:bg-gray-100"
+      >
+        <SearchIcon />
+      </button>
       <ThemeToggle />
       <UserMenu />
+      {searchOpen && <CommandPalette onClose={() => setSearchOpen(false)} />}
     </header>
   )
 }

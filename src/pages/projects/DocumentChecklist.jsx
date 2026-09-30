@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useDocuments } from '../../hooks/useDocuments'
 import { PHASE_ORDER, computeProgress, progressBarColor } from '../../lib/documentProgress'
 import { isOverdue } from '../../lib/documentStatus'
+import { useToast } from '../../lib/ToastContext'
 
 // Format a 'YYYY-MM-DD' string as e.g. "Sep 15" without going through
 // Date/timezone conversion (which can shift the day depending on locale).
@@ -289,6 +290,7 @@ export default function DocumentChecklist({ project, onChanged }) {
   const { documents, loading, error, generateDocuments, updateDocument } = useDocuments(project.id)
   const [generating, setGenerating]     = useState(false)
   const [generateError, setGenerateError] = useState(null)
+  const toast = useToast()
 
   async function handleGenerate() {
     if (!project.project_category) {
@@ -297,10 +299,13 @@ export default function DocumentChecklist({ project, onChanged }) {
     }
     setGenerating(true)
     setGenerateError(null)
-    const { error } = await generateDocuments(project.project_category)
+    const { error, added } = await generateDocuments(project.project_category)
     setGenerating(false)
     if (error) setGenerateError(error)
-    else onChanged?.()
+    else {
+      onChanged?.()
+      toast.success(added ? `Added ${added} document${added === 1 ? '' : 's'} to the checklist` : 'Checklist is already up to date')
+    }
   }
 
   // Wrap updateDocument so every field edit (date, link, checkboxes, notes,

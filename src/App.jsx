@@ -1,6 +1,7 @@
 import { createBrowserRouter, RouterProvider, Navigate, useLocation } from 'react-router'
 import { AuthProvider, useAuth } from './lib/AuthContext'
 import { ThemeProvider } from './lib/ThemeContext'
+import { ToastProvider } from './lib/ToastContext'
 import AppLayout from './components/layout/AppLayout'
 import Login from './pages/auth/Login'
 import Dashboard from './pages/dashboard/Dashboard'
@@ -11,7 +12,6 @@ import Contacts from './pages/contacts/Contacts'
 import Documents from './pages/documents/Documents'
 import Overview from './pages/overview/Overview'
 import MapPage from './pages/map/Map'
-import Itinerary from './pages/itinerary/Itinerary'
 
 // Gate for everything under the main Layout. Shows a brief loading state
 // while Supabase checks for an existing session, then either renders the
@@ -59,9 +59,11 @@ const router = createBrowserRouter([
 function App() {
   return (
     <ThemeProvider>
-      <AuthProvider>
-        <RouterProvider router={router} />
-      </AuthProvider>
+      <ToastProvider>
+        <AuthProvider>
+          <RouterProvider router={router} />
+        </AuthProvider>
+      </ToastProvider>
     </ThemeProvider>
   )
 }

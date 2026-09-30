@@ -202,8 +202,6 @@ export default function MapPage() {
   // ── Plan Visit: same logic as the old Itinerary.jsx, verbatim ──
   const selectedItinerary = selectedId === 'new' ? null : itineraries.find(it => it.id === selectedId)
 
-  useState // (no-op placeholder removed below; kept hooks order stable)
-
   const filteredForPlan = useMemo(
     () => filterBeneficiaries(merged, itinFilters, itinDocFilter),
     [merged, itinFilters, itinDocFilter]
@@ -530,7 +528,7 @@ export default function MapPage() {
             documentTypesByPhase={documentTypesByPhase}
           />
 
-          <div className="grid grid-cols-1 lg:grid-ls-2 gap-4" style={{ height: '65vh' }}>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4" style={{ height: '65vh' }}>
             <CandidatePool
               all={filteredForPlan}
               excludeIds={new Set(stopIds)}
