@@ -5,6 +5,7 @@ import { useBeneficiaries, projectCount } from '../../hooks/useBeneficiaries'
 import { useColumnSizing } from '../../hooks/useColumnSizing'
 import ResizableTh from '../../components/common/ResizableTh'
 import { useToast } from '../../lib/ToastContext'
+import { useAuth } from '../../lib/AuthContext'
 import { exportTableCsv, todayStamp } from '../../lib/exportCsv'
 import { ALL_COLUMNS } from './columns'
 import BeneficiaryModal from './BeneficiaryModal'
@@ -16,6 +17,7 @@ export default function Beneficiaries() {
     addBeneficiary, updateBeneficiary, deleteBeneficiary,
   } = useBeneficiaries()
   const toast = useToast()
+  const { canEdit, isAdmin } = useAuth()
 
   const [searchParams, setSearchParams] = useSearchParams()
 
@@ -134,12 +136,14 @@ export default function Beneficiaries() {
           >
             ⇩ Export CSV
           </button>
-          <button
+          {canEdit && (
+<button
             onClick={openAdd}
             className="bg-blue-600 text-white rounded px-3 py-1.5 text-sm font-medium hover:bg-blue-700"
           >
             + Add Beneficiary
           </button>
+          )}
         </div>
       </div>
 
@@ -216,7 +220,8 @@ export default function Beneficiaries() {
           linkedProjectCount={editingBeneficiary ? projectCount(editingBeneficiary) : 0}
           onClose={() => setShowModal(false)}
           onSave={handleSave}
-          onDelete={editingBeneficiary ? handleDelete : undefined}
+          readOnly={!canEdit}
+          onDelete={editingBeneficiary && isAdmin ? handleDelete : undefined}
         />
       )}
     </div>

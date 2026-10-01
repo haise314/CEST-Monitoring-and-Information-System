@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react'
-import { formatRelativeTime } from '../../lib/formatRelativeTime'
 
 const EMPTY_FORM = {
   beneficiary_id: '',
@@ -12,7 +11,7 @@ const EMPTY_FORM = {
 const inputClass = 'w-full border border-gray-300 rounded px-3 py-2.5 sm:py-2 text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-blue-500'
 
 // Used for both Add (contact = null) and Edit (contact = existing row)
-export default function ContactModal({ contact, beneficiaries, onClose, onSave, onDelete }) {
+export default function ContactModal({ contact, beneficiaries, readOnly = false, onClose, onSave, onDelete }) {
   const [form, setForm]     = useState(EMPTY_FORM)
   const [saving, setSaving] = useState(false)
   const [error, setError]   = useState(null)
@@ -73,15 +72,13 @@ export default function ContactModal({ contact, beneficiaries, onClose, onSave, 
 
         <div className="flex items-center justify-between mb-5">
           <h2 className="text-lg font-semibold text-gray-800">
-            {contact ? 'Edit Contact' : 'Add Contact'}
+            {readOnly ? 'Contact' : contact ? 'Edit Contact' : 'Add Contact'}
           </h2>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-xl leading-none p-2 -m-2">✕</button>
         </div>
-        {contact?.updated_at && (
-          <p className="text-xs text-gray-400 -mt-3 mb-4">Last updated {formatRelativeTime(contact.updated_at)}</p>
-        )}
 
         <div className="space-y-3">
+          <fieldset disabled={readOnly} className="space-y-3 min-w-0">
           <div>
             <label className="block text-sm text-gray-600 mb-1">Beneficiary</label>
             <select
@@ -140,6 +137,8 @@ export default function ContactModal({ contact, beneficiaries, onClose, onSave, 
             />
           </div>
 
+          </fieldset>
+
           {error && (
             <div className="text-red-500 text-sm bg-red-50 border border-red-200 rounded px-3 py-2">
               {error}
@@ -182,18 +181,20 @@ export default function ContactModal({ contact, beneficiaries, onClose, onSave, 
           )}
 
           <div className="flex gap-2 pt-2">
-            <button
+            {!readOnly && (
+<button
               onClick={handleSubmit}
               disabled={saving}
               className="flex-1 bg-blue-600 text-white rounded px-4 py-2 text-sm font-medium hover:bg-blue-700 disabled:opacity-50"
             >
               {saving ? 'Saving...' : contact ? 'Save Changes' : 'Add Contact'}
             </button>
+            )}
             <button
               onClick={onClose}
               className="flex-1 border border-gray-300 rounded px-4 py-2 text-sm hover:bg-gray-50"
             >
-              Cancel
+              {readOnly ? 'Close' : 'Cancel'}
             </button>
           </div>
         </div>

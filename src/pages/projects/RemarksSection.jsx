@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useRemarks } from '../../hooks/useRemarks'
 import { getSavedAuthor, saveAuthor } from '../../lib/localAuthor'
 import { useToast } from '../../lib/ToastContext'
+import { useAuth } from '../../lib/AuthContext'
 
 const LEVEL_OPTIONS = [
   { value: 'provincial', label: 'Provincial' },
@@ -43,11 +44,15 @@ function formatTimestamp(iso) {
 }
 
 function RemarkRow({ remark, onDelete }) {
+  const { user, isAdmin, canEdit } = useAuth()
   const [confirming, setConfirming] = useState(false)
   const [deleting, setDeleting]     = useState(false)
 
   const ageMinutes  = minutesSince(remark.created_at)
-  const canDelete   = ageMinutes < DELETE_WINDOW_MINUTES
+  // Matches the database rule: admin may delete any remark; an editor only
+  // their own, and only within the window.
+  const withinWindow = ageMinutes < DELETE_WINDOW_MINUTES
+  const canDelete   = isAdmin || (canEdit && remark.created_by === user?.id && withinWindow)
   const minutesLeft = Math.max(0, Math.ceil(DELETE_WINDOW_MINUTES - ageMinutes))
 
   async function handleDelete() {
@@ -71,7 +76,7 @@ function RemarkRow({ remark, onDelete }) {
           <button
             onClick={() => setConfirming(true)}
             className="text-xs text-gray-300 hover:text-red-500 ml-auto py-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity"
-            title={`You can delete this for ${minutesLeft} more minute${minutesLeft === 1 ? '' : 's'}`}
+            title={withinWindow ? `You can delete this for ${minutesLeft} more minute${minutesLeft === 1 ? '' : 's'}` : 'Admin: delete this remark'}
           >
             Delete
           </button>
@@ -108,6 +113,7 @@ const selectClass = 'border border-gray-300 rounded px-2 py-1.5 text-base sm:tex
 export default function RemarksSection({ projectId }) {
   const { remarks, loading, error, addRemark, deleteRemark } = useRemarks(projectId)
   const toast = useToast()
+  const { canEdit } = useAuth()
 
   const [level, setLevel]     = useState('provincial')
   const [content, setContent] = useState('')
@@ -166,7 +172,7 @@ export default function RemarksSection({ projectId }) {
   return (
     <div>
       {/* ── Compose ── */}
-      <div className="border border-gray-200 rounded-lg p-3 mb-4 bg-gray-50">
+      <div className={canEdit ? 'border border-gray-200 rounded-lg p-3 mb-4 bg-gray-50' : 'hidden'}>
         <div className="flex flex-wrap items-center gap-2 mb-2">
           <select
             value={level}

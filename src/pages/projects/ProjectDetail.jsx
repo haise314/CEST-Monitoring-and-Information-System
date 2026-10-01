@@ -8,19 +8,21 @@ import DocumentChecklist from './DocumentChecklist'
 import ProjectContacts from './ProjectContacts'
 import RemarksSection from './RemarksSection'
 import { useToast } from '../../lib/ToastContext'
-import { formatRelativeTime } from '../../lib/formatRelativeTime'
+import { useAuth } from '../../lib/AuthContext'
 
 // Not in columns.jsx's STATIC_OPTIONS (that file only covers project-level
 // enums) — sourced from the beneficiary_category enum in the live DB dump.
 const BENEFICIARY_CATEGORIES = ['LGU', 'Academe', 'SDO', 'NGO', 'Cooperative', 'Others', 'BLGU']
 
-function Section({ title, children }) {
+// `locked` disables every input/select/button inside (native <fieldset
+// disabled>) — used to make the form read-only for viewers.
+function Section({ title, locked = false, children }) {
   return (
     <div className="mb-6">
       <div className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3 pb-1 border-b border-gray-100">
         {title}
       </div>
-      <div className="space-y-3">{children}</div>
+      <fieldset disabled={locked} className="space-y-3 min-w-0">{children}</fieldset>
     </div>
   )
 }
@@ -75,6 +77,7 @@ function isChanged(current, baseline) {
 }
 
 export default function ProjectDetail() {
+  const { canEdit, isAdmin } = useAuth()
   const { id } = useParams()
   const navigate = useNavigate()
   const toast = useToast()
@@ -271,14 +274,6 @@ export default function ProjectDetail() {
           {project.beneficiaries?.name ?? '—'}
           <span className="ml-2 text-sm font-normal text-gray-400">· {project.year}</span>
         </h1>
-        {project.updated_at && (
-          <p
-            className="text-xs text-gray-400 mt-1"
-            title={new Date(project.updated_at).toLocaleString()}
-          >
-            Last updated {formatRelativeTime(project.updated_at)}
-          </p>
-        )}
       </div>
 
       {/* Main two-column layout: primary editable details on the left
@@ -287,7 +282,7 @@ export default function ProjectDetail() {
           Stacks to a single column below the lg breakpoint. */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-6">
       <div className="lg:col-span-2 space-y-6">
-      <Section title="Project Info">
+      <Section title="Project Info" locked={!canEdit}>
         <div className="grid grid-cols-2 gap-3">
           <Field label="Year">
             <input
@@ -424,7 +419,7 @@ export default function ProjectDetail() {
           not a per-project copy. Reassigning a project to a *different*
           beneficiary is still not supported here (that's a separate,
           bigger change from "edit this beneficiary's info"). */}
-      <Section title="Beneficiary">
+      <Section title="Beneficiary" locked={!canEdit}>
         <div className="grid grid-cols-2 gap-3">
           <Field label="Name">
             <input
@@ -447,7 +442,7 @@ export default function ProjectDetail() {
             </select>
           </Field>
         </div>
-        <div className="grid grid-cols-3 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <Field label="District">
             <input
               type="text"
@@ -498,7 +493,7 @@ export default function ProjectDetail() {
       {/* Right rail — lighter-weight status/impact/links/contacts info,
           stacks below the left column under lg. */}
       <div className="lg:col-span-1 space-y-6">
-      <Section title="Status">
+      <Section title="Status" locked={!canEdit}>
         <Field label="Overall Status">
           <select
             value={form.overall_status}
@@ -525,7 +520,7 @@ export default function ProjectDetail() {
         </Field>
       </Section>
 
-      <Section title="Impact">
+      <Section title="Impact" locked={!canEdit}>
         <div className="grid grid-cols-2 gap-3">
           <Field label="No. of Interventions">
             <input
@@ -554,7 +549,7 @@ export default function ProjectDetail() {
         </Field>
       </Section>
 
-      <Section title="Links">
+      <Section title="Links" locked={!canEdit}>
         <Field label="Google Drive Folder Link">
           <input
             type="url"
@@ -620,7 +615,8 @@ export default function ProjectDetail() {
         </div>
       )}
 
-      <Section title="Danger Zone">
+      {isAdmin && (
+<Section title="Danger Zone">
         {!confirmDelete ? (
           <button
             onClick={() => setConfirmDelete(true)}
@@ -651,10 +647,12 @@ export default function ProjectDetail() {
           </div>
         )}
       </Section>
+      )}
 
       {/* Save bar — sticks to the bottom of the viewport so Save is always in
           reach on this long page, and says whether anything is unsaved. */}
-      <div className="sticky bottom-0 z-20 bg-white border-t border-gray-200 py-3 flex items-center gap-2">
+      {canEdit && (
+<div className="sticky bottom-0 z-20 bg-white border-t border-gray-200 py-3 flex items-center gap-2">
         <span className={`text-xs mr-auto ${dirty ? 'text-amber-600' : 'text-gray-400'}`}>
           {formDirty
             ? 'You have unsaved project changes.'
@@ -676,6 +674,7 @@ export default function ProjectDetail() {
           Cancel
         </button>
       </div>
+      )}
 
       {blocker.state === 'blocked' && (
         <div className="fixed inset-0 z-[65] flex items-center justify-center bg-black/40 px-4">

@@ -3,6 +3,7 @@ import { useDocuments } from '../../hooks/useDocuments'
 import { PHASE_ORDER, computeProgress, progressBarColor } from '../../lib/documentProgress'
 import { isOverdue } from '../../lib/documentStatus'
 import { useToast } from '../../lib/ToastContext'
+import { useAuth } from '../../lib/AuthContext'
 
 // Format a 'YYYY-MM-DD' string as e.g. "Sep 15" without going through
 // Date/timezone conversion (which can shift the day depending on locale).
@@ -20,6 +21,15 @@ function ExpectedDateCell({ doc, onChange }) {
   const [editing, setEditing] = useState(false)
   const [input, setInput]     = useState(doc.expected_date ?? '')
   const overdue = isOverdue(doc)
+  const { canEdit } = useAuth()
+
+  if (!canEdit) {
+    return doc.expected_date ? (
+      <span className={`text-xs whitespace-nowrap ${overdue ? 'text-red-500 font-medium' : 'text-gray-400'}`}>
+        {overdue ? '⚠ ' : ''}{formatShortDate(doc.expected_date)}
+      </span>
+    ) : null
+  }
 
   function handleBlur() {
     setEditing(false)
@@ -64,6 +74,13 @@ function ExpectedDateCell({ doc, onChange }) {
 function LinkCell({ value, onChange }) {
   const [editing, setEditing] = useState(false)
   const [input, setInput]     = useState(value ?? '')
+  const { canEdit } = useAuth()
+
+  if (!canEdit) {
+    return value ? (
+      <a href={value} target="_blank" rel="noreferrer" className="text-blue-500 text-xs underline">Open</a>
+    ) : null
+  }
 
   function handleBlur() {
     setEditing(false)
@@ -116,6 +133,7 @@ function LinkCell({ value, onChange }) {
 // ─── Document Row ─────────────────────────────────────────────────────────────
 
 function DocumentRow({ doc, onUpdate }) {
+  const { canEdit } = useAuth()
   const [showNotes, setShowNotes] = useState(false)
   const [notes, setNotes]         = useState(doc.notes ?? '')
   const isNA = doc.is_not_applicable
@@ -137,6 +155,7 @@ function DocumentRow({ doc, onUpdate }) {
         <button
           onClick={() => handleCheck('is_not_applicable', !isNA)}
           title={isNA ? 'Mark as applicable' : 'Mark as not applicable'}
+          disabled={!canEdit}
           className={`text-xs px-2 py-1 sm:px-1.5 sm:py-0.5 rounded border flex-shrink-0 transition-colors ${
             isNA
               ? 'bg-gray-200 border-gray-300 text-gray-500'
@@ -181,6 +200,7 @@ function DocumentRow({ doc, onUpdate }) {
                 <input
                   type="checkbox"
                   checked={doc.has_hard_copy ?? false}
+                  disabled={!canEdit}
                   onChange={e => handleCheck('has_hard_copy', e.target.checked)}
                   className="rounded h-4 w-4"
                 />
@@ -191,6 +211,7 @@ function DocumentRow({ doc, onUpdate }) {
                 <input
                   type="checkbox"
                   checked={doc.hard_copy_claimable ?? false}
+                  disabled={!canEdit}
                   onChange={e => handleCheck('hard_copy_claimable', e.target.checked)}
                   className="rounded h-4 w-4"
                 />
@@ -201,6 +222,7 @@ function DocumentRow({ doc, onUpdate }) {
                 <input
                   type="checkbox"
                   checked={doc.submitted ?? false}
+                  disabled={!canEdit}
                   onChange={e => handleCheck('submitted', e.target.checked)}
                   className="rounded h-4 w-4"
                 />
@@ -228,6 +250,7 @@ function DocumentRow({ doc, onUpdate }) {
             value={notes}
             onChange={e => setNotes(e.target.value)}
             onBlur={handleNotesBlur}
+            readOnly={!canEdit}
             placeholder="Add notes..."
             className="w-full border border-gray-200 rounded px-2 py-1.5 text-base sm:text-xs focus:outline-none focus:ring-1 focus:ring-blue-400"
           />
@@ -294,6 +317,7 @@ export default function DocumentChecklist({ project, onChanged }) {
   const [generating, setGenerating]     = useState(false)
   const [generateError, setGenerateError] = useState(null)
   const toast = useToast()
+  const { canEdit } = useAuth()
 
   async function handleGenerate() {
     if (!project.project_category) {
@@ -339,7 +363,7 @@ export default function DocumentChecklist({ project, onChanged }) {
             ? 'No documents yet. Generate the checklist based on the project category.'
             : 'Set a Project Category first, then generate the document checklist.'}
         </p>
-        {project.project_category && (
+        {project.project_category && canEdit && (
           <button
             onClick={handleGenerate}
             disabled={generating}
@@ -395,7 +419,7 @@ export default function DocumentChecklist({ project, onChanged }) {
       })}
 
       {/* Sync missing docs (e.g. after category change) */}
-      <div className="mt-2 flex items-center gap-2">
+      <div className={canEdit ? 'mt-2 flex items-center gap-2' : 'hidden'}>
         <button
           onClick={handleGenerate}
           disabled={generating}

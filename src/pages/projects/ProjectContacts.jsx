@@ -1,8 +1,10 @@
 import { useState } from 'react'
 import { useProjectContacts } from '../../hooks/useProjectContacts'
 import { useBeneficiaryContacts } from '../../hooks/useBeneficiaryContacts'
+import { useAuth } from '../../lib/AuthContext'
 
 export default function ProjectContacts({ project }) {
+  const { canEdit } = useAuth()
   const { contacts, loading, error, addContact, removeContact } = useProjectContacts(project?.id)
   const { contacts: availableContacts, loading: loadingAvailable } = useBeneficiaryContacts(project?.beneficiary_id)
 
@@ -46,18 +48,20 @@ export default function ProjectContacts({ project }) {
                   {[c.role, c.contact_number].filter(Boolean).join(' · ') || '—'}
                 </div>
               </div>
-              <button
+              {canEdit && (
+<button
                 onClick={() => removeContact(c.linkId)}
                 className="text-xs text-red-400 hover:text-red-600 flex-shrink-0 ml-2"
               >
                 Remove
               </button>
+              )}
             </div>
           ))}
         </div>
       )}
 
-      {loadingAvailable ? (
+      {!canEdit ? null : loadingAvailable ? (
         <p className="text-xs text-gray-400">Loading available contacts...</p>
       ) : !project.beneficiary_id ? (
         <p className="text-xs text-gray-400">No beneficiary set for this project.</p>

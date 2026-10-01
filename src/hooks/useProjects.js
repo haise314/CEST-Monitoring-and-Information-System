@@ -1,7 +1,12 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
+import { useAuth } from '../lib/AuthContext'
+
+const NO_EDIT  = "You don't have permission to make changes."
+const NO_ADMIN = 'Only an admin can delete this.'
 
 export function useProjects() {
+  const { canEdit, isAdmin } = useAuth()
   const [projects, setProjects] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
@@ -30,6 +35,7 @@ export function useProjects() {
   }
 
   async function addProject(data) {
+    if (!canEdit) return { error: NO_EDIT }
     const { error } = await supabase
       .from('project_instances')
       .insert(data)
@@ -39,6 +45,7 @@ export function useProjects() {
   }
 
   async function updateProject(id, updates) {
+    if (!canEdit) return { error: NO_EDIT }
     const { error } = await supabase
       .from('project_instances')
       .update(updates)
@@ -49,6 +56,7 @@ export function useProjects() {
   }
 
   async function deleteProject(id) {
+    if (!isAdmin) return { error: NO_ADMIN }
     const { error } = await supabase
       .from('project_instances')
       .delete()

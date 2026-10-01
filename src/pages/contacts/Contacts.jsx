@@ -6,8 +6,8 @@ import { useFormData } from '../../hooks/useFormData'
 import { useColumnSizing } from '../../hooks/useColumnSizing'
 import ResizableTh from '../../components/common/ResizableTh'
 import { useToast } from '../../lib/ToastContext'
+import { useAuth } from '../../lib/AuthContext'
 import { exportTableCsv, todayStamp } from '../../lib/exportCsv'
-import { formatRelativeTime } from '../../lib/formatRelativeTime'
 import { ALL_COLUMNS } from './columns'
 import ContactModal from './ContactModal'
 import { MobileCardList, MobileCard } from '../../components/common/MobileCards'
@@ -15,6 +15,7 @@ import { MobileCardList, MobileCard } from '../../components/common/MobileCards'
 export default function Contacts() {
   const { contacts, loading, error, addContact, updateContact, deleteContact } = useContacts()
   const toast = useToast()
+  const { canEdit } = useAuth()
   const [searchParams, setSearchParams] = useSearchParams()
   const { beneficiaries } = useFormData() // already fetches beneficiaries for dropdowns elsewhere
 
@@ -127,12 +128,14 @@ export default function Contacts() {
           >
             ⇩ Export CSV
           </button>
-          <button
+          {canEdit && (
+<button
             onClick={openAdd}
             className="bg-blue-600 text-white rounded px-3 py-1.5 text-sm font-medium hover:bg-blue-700"
           >
             + Add Contact
           </button>
+          )}
         </div>
       </div>
 
@@ -192,9 +195,6 @@ export default function Contacts() {
               <div className="text-sm font-semibold text-gray-800 break-words">{c.name}</div>
               {c.role && <div className="text-xs text-gray-500 mt-0.5">{c.role}</div>}
               {org && <div className="text-xs text-gray-400 mt-0.5 break-words">{org}</div>}
-              {c.updated_at && (
-                <div className="text-[11px] text-gray-400 mt-0.5">Updated {formatRelativeTime(c.updated_at)}</div>
-              )}
               {(c.contact_number || c.messenger_link) && (
                 <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-2 text-sm">
                   {c.contact_number && (
@@ -231,7 +231,8 @@ export default function Contacts() {
           beneficiaries={beneficiaries}
           onClose={() => setShowModal(false)}
           onSave={handleSave}
-          onDelete={editingContact ? handleDelete : undefined}
+          readOnly={!canEdit}
+          onDelete={editingContact && canEdit ? handleDelete : undefined}
         />
       )}
     </div>

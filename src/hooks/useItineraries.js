@@ -1,5 +1,9 @@
 import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
+import { useAuth } from '../lib/AuthContext'
+
+const NO_EDIT  = "You don't have permission to make changes."
+const NO_ADMIN = 'Only an admin can delete this.'
 
 // Same hook shape as the rest of the app: { data, loading, error, refetch,
 // mutations... }, mutations never throw — they return { error } and the
@@ -16,6 +20,7 @@ import { supabase } from '../lib/supabase'
 // ever matters, the fix is a Postgres RPC function wrapping both in a
 // transaction, called via supabase.rpc(...).
 export function useItineraries() {
+  const { canEdit, isAdmin } = useAuth()
   const [data, setData] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
@@ -46,6 +51,7 @@ export function useItineraries() {
   useEffect(() => { fetchItineraries() }, [fetchItineraries])
 
   async function addItinerary({ name, visit_date = null, notes = null }) {
+    if (!canEdit) return { error: NO_EDIT }
     const { data: inserted, error } = await supabase
       .from('itineraries')
       .insert({ name, visit_date, notes })
@@ -57,6 +63,7 @@ export function useItineraries() {
   }
 
   async function updateItinerary(id, patch) {
+    if (!canEdit) return { error: NO_EDIT }
     const { error } = await supabase.from('itineraries').update(patch).eq('id', id)
     if (error) return { error: error.message }
     await fetchItineraries()
@@ -64,6 +71,7 @@ export function useItineraries() {
   }
 
   async function deleteItinerary(id) {
+    if (!canEdit) return { error: NO_EDIT }
     const { error } = await supabase.from('itineraries').delete().eq('id', id)
     if (error) return { error: error.message }
     await fetchItineraries()
@@ -75,6 +83,7 @@ export function useItineraries() {
   // rather than diffing into separate add/remove/reorder calls.
   // `beneficiaryIds` is the full ordered list for this itinerary.
   async function saveStops(itineraryId, beneficiaryIds) {
+    if (!canEdit) return { error: NO_EDIT }
     const { error: deleteError } = await supabase
       .from('itinerary_stops')
       .delete()

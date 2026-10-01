@@ -1,5 +1,9 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
+import { useAuth } from '../lib/AuthContext'
+
+const NO_EDIT  = "You don't have permission to make changes."
+const NO_ADMIN = 'Only an admin can delete this.'
 
 // Full CRUD on the beneficiaries table. Pulls a count of linked
 // project_instances per beneficiary so the UI can block deletion of
@@ -8,6 +12,7 @@ import { supabase } from '../lib/supabase'
 // beneficiary_contacts), so an unguarded delete would just throw a
 // raw Postgres FK-violation error.
 export function useBeneficiaries() {
+  const { canEdit, isAdmin } = useAuth()
   const [beneficiaries, setBeneficiaries] = useState([])
   const [loading, setLoading]             = useState(true)
   const [error, setError]                 = useState(null)
@@ -35,6 +40,7 @@ export function useBeneficiaries() {
   }
 
   async function addBeneficiary(data) {
+    if (!canEdit) return { error: NO_EDIT }
     const { error } = await supabase
       .from('beneficiaries')
       .insert(data)
@@ -44,6 +50,7 @@ export function useBeneficiaries() {
   }
 
   async function updateBeneficiary(id, updates) {
+    if (!canEdit) return { error: NO_EDIT }
     const { error } = await supabase
       .from('beneficiaries')
       .update(updates)
@@ -54,6 +61,7 @@ export function useBeneficiaries() {
   }
 
   async function deleteBeneficiary(id) {
+    if (!isAdmin) return { error: NO_ADMIN }
     const { error } = await supabase
       .from('beneficiaries')
       .delete()

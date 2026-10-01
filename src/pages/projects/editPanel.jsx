@@ -5,6 +5,7 @@ import { STATIC_OPTIONS, parseAmount } from './columns'
 import DocumentChecklist from './DocumentChecklist'
 import ProjectContacts from './ProjectContacts'
 import { useToast } from '../../lib/ToastContext'
+import { useAuth } from '../../lib/AuthContext'
 
 const MIN_WIDTH = 420
 const MAX_WIDTH = 1100
@@ -58,13 +59,15 @@ function useResizablePanel() {
   return { width, startDrag, resetWidth }
 }
 
-function Section({ title, children }) {
+// `locked` disables every input/select/button inside (native <fieldset
+// disabled>) — used to make the form read-only for viewers.
+function Section({ title, locked = false, children }) {
   return (
     <div className="mb-6">
       <div className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3 pb-1 border-b border-gray-100">
         {title}
       </div>
-      <div className="space-y-3">{children}</div>
+      <fieldset disabled={locked} className="space-y-3 min-w-0">{children}</fieldset>
     </div>
   )
 }
@@ -82,6 +85,7 @@ const inputClass  = 'w-full border border-gray-300 rounded px-3 py-1.5 text-sm f
 const selectClass = 'w-full border border-gray-300 rounded px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500'
 
 export default function EditPanel({ project, onClose, onUpdate, onDelete, onDocumentsChanged }) {
+  const { canEdit, isAdmin } = useAuth()
   const { projectTypes, entryPoints, loading } = useFormData()
   const toast = useToast()
   const [form, setForm]                   = useState({})
@@ -220,9 +224,9 @@ export default function EditPanel({ project, onClose, onUpdate, onDelete, onDocu
           onMouseDown={startDrag}
           onDoubleClick={resetWidth}
           title="Drag to resize · double-click to reset"
-          className="absolute left-0 top-0 h-dvh w-1.5 -translate-x-1/2 cursor-col-resize group z-10"
+          className="absolute left-0 top-0 h-full w-1.5 -translate-x-1/2 cursor-col-resize group z-10"
         >
-          <div className="h-dvh w-full group-hover:bg-blue-400 transition-colors" />
+          <div className="h-full w-full group-hover:bg-blue-400 transition-colors" />
         </div>
 
         {/* Header */}
@@ -242,7 +246,7 @@ export default function EditPanel({ project, onClose, onUpdate, onDelete, onDocu
             <div className="text-center py-6 text-gray-400 text-sm">Loading...</div>
           ) : (
             <>
-              <Section title="Project Info">
+              <Section title="Project Info" locked={!canEdit}>
                 <div className="grid grid-cols-2 gap-3">
                   <Field label="Year">
                     <input
@@ -376,7 +380,7 @@ export default function EditPanel({ project, onClose, onUpdate, onDelete, onDocu
                 </Field>
               </Section>
 
-              <Section title="Beneficiary">
+              <Section title="Beneficiary" locked={!canEdit}>
                 <div className="bg-gray-50 rounded px-3 py-2.5 text-sm">
                   <div className="font-medium text-gray-700">
                     {project.beneficiaries?.name ?? '—'}
@@ -406,7 +410,7 @@ export default function EditPanel({ project, onClose, onUpdate, onDelete, onDocu
                 <ProjectContacts project={project} />
               </Section>
 
-              <Section title="Status">
+              <Section title="Status" locked={!canEdit}>
                 <Field label="Overall Status">
                   <select
                     value={form.overall_status}
@@ -433,7 +437,7 @@ export default function EditPanel({ project, onClose, onUpdate, onDelete, onDocu
                 </Field>
               </Section>
 
-              <Section title="Impact">
+              <Section title="Impact" locked={!canEdit}>
                 <div className="grid grid-cols-2 gap-3">
                   <Field label="No. of Interventions">
                     <input
@@ -462,7 +466,7 @@ export default function EditPanel({ project, onClose, onUpdate, onDelete, onDocu
                 </Field>
               </Section>
 
-              <Section title="Links">
+              <Section title="Links" locked={!canEdit}>
                 <Field label="Google Drive Folder Link">
                   <input
                     type="url"
@@ -521,7 +525,8 @@ export default function EditPanel({ project, onClose, onUpdate, onDelete, onDocu
                 </div>
               )}
 
-              <Section title="Danger Zone">
+              {isAdmin && (
+<Section title="Danger Zone">
                 {!confirmDelete ? (
                   <button
                     onClick={() => setConfirmDelete(true)}
@@ -552,24 +557,27 @@ export default function EditPanel({ project, onClose, onUpdate, onDelete, onDocu
                   </div>
                 )}
               </Section>
+              )}
             </>
           )}
         </div>
 
         {/* Sticky footer */}
-        <div className="px-6 py-4 border-t border-gray-200 flex gap-2 flex-shrink-0">
-          <button
+        <div className="px-4 sm:px-6 py-4 border-t border-gray-200 flex gap-2 flex-shrink-0">
+          {canEdit && (
+<button
             onClick={handleSave}
             disabled={saving}
             className="flex-1 bg-blue-600 text-white rounded px-4 py-2 text-sm font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {saving ? 'Saving...' : 'Save Changes'}
           </button>
+          )}
           <button
             onClick={onClose}
             className="flex-1 border border-gray-300 rounded px-4 py-2 text-sm hover:bg-gray-50"
           >
-            Cancel
+            {canEdit ? 'Cancel' : 'Close'}
           </button>
         </div>
 

@@ -16,6 +16,7 @@ import VisibilityPanel from '../../components/common/VisibilityPanel'
 import PaginationBar from '../../components/common/PaginationBar'
 import ResizableTh from '../../components/common/ResizableTh'
 import { useToast } from '../../lib/ToastContext'
+import { useAuth } from '../../lib/AuthContext'
 import { exportTableCsv, todayStamp } from '../../lib/exportCsv'
 import AddModal from './addModal'
 import EditPanel from './editPanel'
@@ -26,6 +27,7 @@ function Projects() {
   const { projects, loading, error, addProject, updateProject, deleteProject } = useProjects()
 
   const toast = useToast()
+  const { canEdit } = useAuth()
 
   // Table state
   const [globalFilter, setGlobalFilter]           = useState('')
@@ -147,12 +149,14 @@ function Projects() {
           >
             ⇩ Export CSV
           </button>
-          <button
+          {canEdit && (
+<button
             onClick={() => setShowAddModal(true)}
             className="bg-blue-600 text-white rounded px-3 py-1.5 text-sm font-medium hover:bg-blue-700"
           >
             + Add Project
           </button>
+          )}
         </div>
       </div>
 

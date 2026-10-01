@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { Outlet, useLocation } from 'react-router'
 import Sidebar from './Sidebar'
 import Topbar from './Topbar'
+import BackupReminder from './BackupReminder'
 
 const COLLAPSED_KEY = 'cest_sidebar_collapsed'
 
@@ -33,6 +34,7 @@ export default function AppLayout() {
       <div className={`min-w-0 transition-[padding] duration-200 ${collapsed ? 'lg:pl-[68px]' : 'lg:pl-60'}`}>
         <Topbar onOpenMobile={() => setMobileOpen(true)} />
         <main className="p-4 sm:p-6 min-w-0">
+          <BackupReminder />
           <Outlet />
         </main>
       </div>

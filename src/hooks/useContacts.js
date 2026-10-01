@@ -1,5 +1,9 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
+import { useAuth } from '../lib/AuthContext'
+
+const NO_EDIT  = "You don't have permission to make changes."
+const NO_ADMIN = 'Only an admin can delete this.'
 
 // Manages the full beneficiary_contacts table — every contact in the
 // system, regardless of which project(s) they're linked to. This is
@@ -7,6 +11,7 @@ import { supabase } from '../lib/supabase'
 // for one project) and useBeneficiaryContacts (which only reads contacts
 // for one beneficiary, for the picker inside ProjectContacts).
 export function useContacts() {
+  const { canEdit, isAdmin } = useAuth()
   const [contacts, setContacts] = useState([])
   const [loading, setLoading]   = useState(true)
   const [error, setError]       = useState(null)
@@ -34,6 +39,7 @@ export function useContacts() {
   }
 
   async function addContact(data) {
+    if (!canEdit) return { error: NO_EDIT }
     const { error } = await supabase
       .from('beneficiary_contacts')
       .insert(data)
@@ -43,6 +49,7 @@ export function useContacts() {
   }
 
   async function updateContact(id, updates) {
+    if (!canEdit) return { error: NO_EDIT }
     const { error } = await supabase
       .from('beneficiary_contacts')
       .update(updates)
@@ -53,6 +60,7 @@ export function useContacts() {
   }
 
   async function deleteContact(id) {
+    if (!canEdit) return { error: NO_EDIT }
     const { error } = await supabase
       .from('beneficiary_contacts')
       .delete()
