@@ -1,21 +1,16 @@
 import { useState, useEffect } from 'react'
 import { useRemarks } from '../../hooks/useRemarks'
-import { getSavedAuthor, saveAuthor } from '../../lib/localAuthor'
 import { useToast } from '../../lib/ToastContext'
 import { useAuth } from '../../lib/AuthContext'
 
 const LEVEL_OPTIONS = [
   { value: 'provincial', label: 'Provincial' },
   { value: 'regional',   label: 'Regional' },
-  { value: 'pcest',      label: 'PCEST' },
-  { value: 'rcest',      label: 'RCEST' },
 ]
 
 const LEVEL_META = {
   provincial: { label: 'Provincial', className: 'bg-blue-50 text-blue-700 border-blue-200' },
   regional:   { label: 'Regional',   className: 'bg-purple-50 text-purple-700 border-purple-200' },
-  pcest:      { label: 'PCEST',      className: 'bg-teal-50 text-teal-700 border-teal-200' },
-  rcest:      { label: 'RCEST',      className: 'bg-amber-50 text-amber-700 border-amber-200' },
 }
 
 // How long after posting a remark can still be deleted (mis-clicks/typos
@@ -68,7 +63,7 @@ function RemarkRow({ remark, onDelete }) {
     <div className="py-3 border-b border-gray-50 last:border-0 group">
       <div className="flex flex-wrap items-center gap-x-2 gap-y-1 mb-1">
         <LevelBadge level={remark.level} />
-        <span className="text-xs font-medium text-gray-600">{remark.added_by || 'Unknown'}</span>
+        <span className="text-xs font-medium text-gray-600">{remark.author_name}</span>
         <span className="text-xs text-gray-300">·</span>
         <span className="text-xs text-gray-400">{formatTimestamp(remark.created_at)}</span>
 
@@ -113,15 +108,18 @@ const selectClass = 'border border-gray-300 rounded px-2 py-1.5 text-base sm:tex
 export default function RemarksSection({ projectId }) {
   const { remarks, loading, error, addRemark, deleteRemark } = useRemarks(projectId)
   const toast = useToast()
-  const { canEdit } = useAuth()
+  const { canEdit, profile, user } = useAuth()
 
   const [level, setLevel]     = useState('provincial')
   const [content, setContent] = useState('')
-  const [author, setAuthor]   = useState(getSavedAuthor())
-  const [editingAuthor, setEditingAuthor] = useState(!getSavedAuthor())
   const [posting, setPosting] = useState(false)
   const [postError, setPostError] = useState(null)
   const [deleteError, setDeleteError] = useState(null)
+
+  // Who's posting — the signed-in account's name, not a typed field
+  // anymore. Falls back to email if full_name isn't set on the profile
+  // for some reason, so the compose box never shows a blank.
+  const posterName = profile?.full_name || user?.email || 'You'
 
   // Re-render periodically so "Delete" buttons disappear on their own
   // once the window closes, without needing a page refresh. Only runs
@@ -136,19 +134,13 @@ export default function RemarksSection({ projectId }) {
 
   async function handlePost() {
     const trimmedContent = content.trim()
-    const trimmedAuthor  = author.trim()
     if (!trimmedContent) return
-    if (!trimmedAuthor) {
-      setEditingAuthor(true)
-      return
-    }
 
     setPosting(true)
     setPostError(null)
     const { error } = await addRemark({
       level,
       content: trimmedContent,
-      added_by: trimmedAuthor,
     })
     setPosting(false)
 
@@ -157,7 +149,6 @@ export default function RemarksSection({ projectId }) {
       return
     }
 
-    saveAuthor(trimmedAuthor)
     setContent('')
     toast.success('Remark posted')
   }
@@ -184,25 +175,9 @@ export default function RemarksSection({ projectId }) {
             ))}
           </select>
 
-          {editingAuthor ? (
-            <input
-              type="text"
-              value={author}
-              onChange={e => setAuthor(e.target.value)}
-              onBlur={() => { if (author.trim()) setEditingAuthor(false) }}
-              placeholder="Your name"
-              autoFocus
-              className={inputClass + ' sm:max-w-[160px]'}
-            />
-          ) : (
-            <button
-              onClick={() => setEditingAuthor(true)}
-              className="text-xs text-gray-500 hover:text-gray-700"
-              title="Not you? Click to change"
-            >
-              Posting as <span className="font-medium">{author}</span> · not you?
-            </button>
-          )}
+          <span className="text-xs text-gray-500">
+            Posting as <span className="font-medium">{posterName}</span>
+          </span>
         </div>
 
         <textarea
