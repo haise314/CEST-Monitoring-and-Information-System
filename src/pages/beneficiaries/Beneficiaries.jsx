@@ -149,13 +149,17 @@ export default function Beneficiaries() {
 
       {/* Table — click any row to open its edit modal (delete lives inside) */}
       <div className="hidden md:block overflow-auto rounded-xl border border-gray-200 bg-white shadow-sm max-h-[calc(100vh-14rem)]">
-        <table className="text-sm" style={{ width: table.getTotalSize(), tableLayout: 'fixed' }}>
+        <table className="text-sm" style={{ width: '100%', minWidth: table.getTotalSize(), tableLayout: 'fixed' }}>
           <thead className="text-xs text-gray-500">
             {table.getHeaderGroups().map(headerGroup => (
               <tr key={headerGroup.id}>
                 {headerGroup.headers.map(header => (
                   <ResizableTh key={header.id} header={header} />
                 ))}
+                {/* Flex spacer: every real column has a pixel width, so on wide
+                    screens this width-less column absorbs the leftover space
+                    instead of leaving a gap on the right. */}
+                <th aria-hidden="true" className="bg-gray-50 border-b border-gray-200" />
               </tr>
             ))}
           </thead>
@@ -182,6 +186,7 @@ export default function Beneficiaries() {
                       {flexRender(cell.column.columnDef.cell, cell.getContext())}
                     </td>
                   ))}
+                  <td aria-hidden="true" />
                 </tr>
               ))
             )}

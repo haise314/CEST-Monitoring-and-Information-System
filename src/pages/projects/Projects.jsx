@@ -10,8 +10,11 @@ import { useState, useMemo, useEffect } from 'react'
 import { useSearchParams, Link } from 'react-router'
 import { useProjects } from '../../hooks/useProjects'
 import { useColumnSizing } from '../../hooks/useColumnSizing'
-import { ALL_COLUMNS, DEFAULT_VISIBLE, FILTERABLE_COLUMN_IDS } from './columns'
-import FilterBar from './filterBar'
+import { ALL_COLUMNS, DEFAULT_VISIBLE } from './columns'
+import FilterChips from '../../components/common/FilterChips'
+import { PROJECT_FILTER_FIELDS } from './filterFields'
+import { applyFilters } from '../../lib/filterEngine'
+import { useSessionState } from '../../hooks/useSessionState'
 import VisibilityPanel from '../../components/common/VisibilityPanel'
 import PaginationBar from '../../components/common/PaginationBar'
 import ResizableTh from '../../components/common/ResizableTh'
@@ -34,9 +37,9 @@ function Projects() {
   const [sorting, setSorting]                     = useState([])
   const [columnVisibility, setColumnVisibility]   = useState(DEFAULT_VISIBLE)
   const [columnSizing, setColumnSizing]           = useColumnSizing('projectsColumnSizing')
-  const [filters, setFilters]                     = useState(
-    Object.fromEntries(FILTERABLE_COLUMN_IDS.map(id => [id, '']))
-  )
+  // Active filter chips — remembered for the browser tab, so coming back from a
+  // project page keeps your filters.
+  const [filters, setFilters] = useSessionState('projectsFilters', [])
 
   // UI state
   const [showVisibilityPanel, setShowVisibilityPanel] = useState(false)
@@ -59,22 +62,11 @@ function Projects() {
     setSearchParams({}, { replace: true })
   }, [searchParams, projects, loading, setSearchParams])
 
-  // Apply dropdown filters before passing to TanStack
-  const filtered = useMemo(() =>
-    projects.filter(p => {
-      if (filters.year               && String(p.year) !== String(filters.year))                   return false
-      if (filters.project_category   && p.project_category !== filters.project_category)           return false
-      if (filters.municipality       && p.beneficiaries?.municipality !== filters.municipality)    return false
-      if (filters.barangay           && p.beneficiaries?.barangay     !== filters.barangay)        return false
-      if (filters.district           && p.beneficiaries?.district     !== filters.district)        return false
-      if (filters.category           && p.beneficiaries?.category     !== filters.category)        return false
-      if (filters.overall_status     && p.overall_status              !== filters.overall_status)  return false
-      if (filters.operational_status && p.operational_status          !== filters.operational_status) return false
-      if (filters.project_type       && p.project_types?.name         !== filters.project_type)   return false
-      if (filters.entry_point        && p.entry_point                 !== filters.entry_point)     return false
-      return true
-    })
-  , [projects, filters])
+  // Apply the filter chips before passing rows to TanStack
+  const filtered = useMemo(
+    () => applyFilters(projects, filters, PROJECT_FILTER_FIELDS),
+    [projects, filters]
+  )
 
   const table = useReactTable({
     data: filtered,
@@ -91,8 +83,6 @@ function Projects() {
     getPaginationRowModel:    getPaginationRowModel(),
     initialState: { pagination: { pageSize: 25 } },
   })
-
-  const visibleColumnIds = table.getVisibleLeafColumns().map(c => c.id)
 
   function handleExport() {
     const n = exportTableCsv(table, { filename: `cest-projects-${todayStamp()}.csv` })
@@ -160,12 +150,12 @@ function Projects() {
         </div>
       </div>
 
-      {/* ── Filter Bar ── */}
-      <FilterBar
-        projects={projects}
+      {/* ── Filter chips ── */}
+      <FilterChips
+        fields={PROJECT_FILTER_FIELDS}
+        rows={projects}
         filters={filters}
-        setFilters={setFilters}
-        visibleColumnIds={visibleColumnIds}
+        onChange={setFilters}
       />
 
       {/* ── Table ── */}

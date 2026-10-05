@@ -6,8 +6,10 @@ import 'leaflet/dist/leaflet.css'
 import '../../lib/Leafleticon'
 import { useMergedBeneficiaries } from '../../hooks/useMergedBeneficiaries'
 import { useItineraries } from '../../hooks/useItineraries'
-import { filterBeneficiaries } from '../../lib/beneficiaryFilters'
-import MapFilterBar, { emptyMapFilters, emptyDocFilter } from './filterBar'
+import FilterChips from '../../components/common/FilterChips'
+import { applyFilters, isEmptyValue } from '../../lib/filterEngine'
+import { useSessionState } from '../../hooks/useSessionState'
+import { buildMapFilterFields } from './mapFilterFields'
 import CandidatePool from '../itinerary/CandidatePool'
 import StopList from '../itinerary/StopList'
 
@@ -27,7 +29,7 @@ const CATEGORY_COLORS = {
   Others:      '#6b7280', // gray
 }
 
-// Matches filterBar.jsx's STATIC_OPTIONS.overall_status exactly. First pass
+// Matches mapFilterFields.jsx's OVERALL_STATUS_OPTIONS exactly. First pass
 // at a categorical palette — easy to retune later, nothing depends on the
 // specific hues.
 const STATUS_COLORS = {
@@ -59,6 +61,8 @@ function getBeneficiaryColor(b, colorBy) {
 // Small colored-dot marker via a Leaflet divIcon — no image assets needed,
 // and it can represent "dimmed" (filtered out, but still shown) as a
 // distinct gray/faded state rather than just hiding the pin.
+// NOTE: custom per-project-type icons (user-supplied SVGs) are a separate,
+// not-yet-started follow-up — this stays the plain colored dot until then.
 function createDotIcon(color, dimmed) {
   const size = dimmed ? 14 : 20
   const fill = dimmed ? '#d1d5db' : color
@@ -139,21 +143,28 @@ export default function MapPage() {
   const { merged, documentTypesByPhase, loading: dataLoading, error, setLocation, clearLocation } = useMergedBeneficiaries()
   const { data: itineraries, loading: itinLoading, addItinerary, updateItinerary, deleteItinerary, saveStops } = useItineraries()
 
+  // Same field set for both tabs (Overview's dim-filter and Plan Visit's
+  // candidate-pool filter are conceptually the same "which beneficiaries"
+  // question) — built once, keyed on documentTypesByPhase since the
+  // document-compliance field depends on it.
+  const mapFields = useMemo(() => buildMapFilterFields(documentTypesByPhase), [documentTypesByPhase])
+
   // ── Overview mode state ──
   const [pinningId, setPinningId] = useState(null)
   const [search, setSearch]       = useState('')
   const [saveError, setSaveError] = useState(null)
-  const [filters, setFilters]     = useState(emptyMapFilters())
-  const [docFilter, setDocFilter] = useState(emptyDocFilter())
+  // Active filter chips — remembered for the browser tab, same pattern as
+  // Projects.jsx, so switching to a project and back keeps your filters.
+  const [filters, setFilters]     = useSessionState('mapOverviewFilters', [])
   const [colorBy, setColorBy]     = useState('category')
 
-  // ── Plan Visit mode state (unchanged from the old Itinerary.jsx) ──
+  // ── Plan Visit mode state (unchanged from the old Itinerary.jsx, except
+  // its filters are now chips too) ──
   const [selectedId, setSelectedId]       = useState('new')
   const [itinName, setItinName]           = useState('')
   const [visitDate, setVisitDate]         = useState('')
   const [stopIds, setStopIds]             = useState([])
-  const [itinFilters, setItinFilters]     = useState(emptyMapFilters())
-  const [itinDocFilter, setItinDocFilter] = useState(emptyDocFilter())
+  const [itinFilters, setItinFilters]     = useSessionState('mapPlanFilters', [])
   const [itinSaving, setItinSaving]       = useState(false)
   const [itinSaveMsg, setItinSaveMsg]     = useState(null)
 
@@ -163,12 +174,14 @@ export default function MapPage() {
   // shows every pinned beneficiary always; matches vs. non-matches are a
   // visual (color/opacity) distinction instead.
   const filteredForQueue = useMemo(
-    () => filterBeneficiaries(merged, filters, docFilter),
-    [merged, filters, docFilter]
+    () => applyFilters(merged, filters, mapFields),
+    [merged, filters, mapFields]
   )
   const matchedIds = useMemo(() => new Set(filteredForQueue.map(b => b.id)), [filteredForQueue])
-  const hasActiveOverviewFilter =
-    Object.values(filters).some(v => v !== '') || (docFilter.documentTypeId !== '' && docFilter.conditionId !== '')
+  const hasActiveOverviewFilter = useMemo(() => {
+    const byId = Object.fromEntries(mapFields.map(f => [f.id, f]))
+    return filters.some(f => byId[f.field] && !isEmptyValue(byId[f.field], f.value))
+  }, [filters, mapFields])
 
   const allPinned   = useMemo(() => merged.filter(b => b.latitude != null && b.longitude != null), [merged])
   const allUnpinned = useMemo(() => merged.filter(b => b.latitude == null || b.longitude == null), [merged])
@@ -199,12 +212,13 @@ export default function MapPage() {
 
   const pinningBeneficiary = merged.find(b => b.id === pinningId)
 
-  // ── Plan Visit: same logic as the old Itinerary.jsx, verbatim ──
+  // ── Plan Visit: same logic as the old Itinerary.jsx, filtering swapped
+  // to FilterChips/filterEngine ──
   const selectedItinerary = selectedId === 'new' ? null : itineraries.find(it => it.id === selectedId)
 
   const filteredForPlan = useMemo(
-    () => filterBeneficiaries(merged, itinFilters, itinDocFilter),
-    [merged, itinFilters, itinDocFilter]
+    () => applyFilters(merged, itinFilters, mapFields),
+    [merged, itinFilters, mapFields]
   )
   const stops = useMemo(
     () => stopIds.map(id => merged.find(b => b.id === id)).filter(Boolean),
@@ -311,7 +325,7 @@ export default function MapPage() {
               <select
                 value={colorBy}
                 onChange={e => setColorBy(e.target.value)}
-                className="border border-gray-300 rounded px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="border border-gray-300 rounded px-2 py-1 text-sm bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
                 <option value="category">Category</option>
                 <option value="status">Status</option>
@@ -319,13 +333,11 @@ export default function MapPage() {
             </div>
           </div>
 
-          <MapFilterBar
-            beneficiaries={merged}
+          <FilterChips
+            fields={mapFields}
+            rows={merged}
             filters={filters}
-            setFilters={setFilters}
-            docFilter={docFilter}
-            setDocFilter={setDocFilter}
-            documentTypesByPhase={documentTypesByPhase}
+            onChange={setFilters}
           />
 
           {pinningBeneficiary && (
@@ -472,7 +484,7 @@ export default function MapPage() {
             <select
               value={selectedId}
               onChange={e => loadItinerary(e.target.value === 'new' ? 'new' : Number(e.target.value))}
-              className="border border-gray-300 rounded px-2 py-1.5 text-sm"
+              className="border border-gray-300 rounded px-2 py-1.5 text-sm bg-white text-gray-700"
             >
               <option value="new">+ New itinerary</option>
               {itineraries.map(it => (
@@ -519,13 +531,11 @@ export default function MapPage() {
             {itinSaveMsg?.ok && <span className="text-xs text-green-600">Saved.</span>}
           </div>
 
-          <MapFilterBar
-            beneficiaries={merged}
+          <FilterChips
+            fields={mapFields}
+            rows={merged}
             filters={itinFilters}
-            setFilters={setItinFilters}
-            docFilter={itinDocFilter}
-            setDocFilter={setItinDocFilter}
-            documentTypesByPhase={documentTypesByPhase}
+            onChange={setItinFilters}
           />
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4" style={{ height: '65vh' }}>

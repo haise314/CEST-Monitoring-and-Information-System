@@ -726,6 +726,19 @@ lockout by running a policy migration before accounts existed):**
 5. Remarks use the real name.
 6. Report support (project profile view).
 
+### UI work done outside the user-management order (2026-09-30)
+- **Filter chips on Projects** (replaces the dropdown `FilterBar`): `components/common/FilterChips.jsx`
+  (reusable), `lib/filterEngine.js` (pure logic), `hooks/useSessionState.js`, `pages/projects/filterFields.js`
+  (26 fields = every Projects column), `Projects.jsx` patched. "+ Filter" → searchable field list → value editor
+  (select with live faceted counts / text contains / number min–max / date range / has-link). Values in one chip are
+  OR'd, chips are AND'd; filters persist per browser tab (sessionStorage `projectsFilters`); bottom sheets on phones.
+  Tested with a simulated browser (31 checks). `pages/projects/filterBar.jsx` is now unused by Projects (delete when
+  convenient; `documents/filterBar.jsx` is a different component). **Not yet applied elsewhere** — Beneficiaries,
+  Contacts, Documents and Map can reuse `FilterChips` by defining their own `fields`.
+- **Decided in another thread (not built here):** patch `bg-white text-gray-800` onto every unstyled `<select>`
+  (~26 across ~15 files) rather than a shared `<Select>` wrapper; **custom small SVG map icon per project type**
+  (e.g. a tray for Portasol) — still to do.
+
 ### Lower priority / opportunistic
 - Housekeeping: dedupe `PaginationBar`/`VisibilityPanel`, remove dead `documents/columns.jsx`, delete orphaned `Navbar.jsx` and `Itinerary.jsx` (+ its `App.jsx` import) once nobody needs them as reference.
 - Consider rendering Plan Visit's stops on the actual Leaflet map (numbered pins + route line) instead of staying list-only (§8/§9) — deferred, not rejected.

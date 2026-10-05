@@ -132,6 +132,31 @@ body {
    so white *backgrounds* are overridden directly. */
 .dark .bg-white { background-color: var(--surface); }
 
+/* Themed scrollbars — the OS default looks jarring against dark surfaces,
+   especially inside table overflow-x containers. Firefox uses the two-value
+   `scrollbar-color` property; everything else (Chrome/Edge/Safari) uses the
+   ::-webkit-scrollbar-* pseudo-elements. Both are scoped with :where() so
+   they carry zero specificity and never need !important to override. */
+:where(*) {
+  scrollbar-color: var(--color-gray-300) transparent;
+}
+:where(*)::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+:where(*)::-webkit-scrollbar-track {
+  background: transparent;
+}
+:where(*)::-webkit-scrollbar-thumb {
+  background-color: var(--color-gray-300);
+  border-radius: 9999px;
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+:where(*)::-webkit-scrollbar-thumb:hover {
+  background-color: var(--color-gray-400);
+}
+
 /* Leaflet: keep the map's stacking contained so the sticky top bar and
    modals always sit above it, and darken the OSM tiles in dark mode. */
 .leaflet-container { isolation: isolate; }

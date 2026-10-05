@@ -48,7 +48,7 @@ export default function FilterBar({ projects, filters, setFilters, visibleColumn
           key={id}
           value={filters[id] ?? ''}
           onChange={e => handleChange(id, e.target.value)}
-          className="border border-gray-300 rounded px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="bg-white text-gray-800 border border-gray-300 rounded px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
         >
           <option value="">All {FILTER_LABELS[id]}</option>
           {(options[id] ?? []).map(o => (
