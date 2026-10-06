@@ -164,3 +164,18 @@ body {
 .dark .leaflet-popup-content-wrapper,
 .dark .leaflet-popup-tip { background: var(--surface); color: var(--color-gray-800); }
 .dark .leaflet-container a.leaflet-popup-close-button { color: var(--color-gray-400); }
+/* Native <select> dropdown lists (the popup) are drawn by the browser and
+   ignore the page's remapped colors: the list stays white while the option
+   text inherits the light dark-mode text color, making it unreadable
+   (seen in Brave/Firefox on Windows). Setting an explicit background + text
+   color on select/option/optgroup fixes every dropdown in the app at once,
+   including any added later without the <Select> wrapper. */
+.dark select,
+.dark select option,
+.dark select optgroup {
+  background-color: var(--surface);
+  color: var(--color-gray-800);
+}
+.dark select option:disabled {
+  color: var(--color-gray-400);
+}
