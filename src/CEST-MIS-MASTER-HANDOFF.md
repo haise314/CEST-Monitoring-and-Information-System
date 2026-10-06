@@ -203,16 +203,7 @@ same column on `documents`; **not yet independently displayed anywhere in
 the UI** and not the primary place chosen to surface staleness (see below).
 
 **`beneficiary_contacts`** — `id` PK, `beneficiary_id` FK → beneficiaries,
-`name` NOT NULL, `role`, `contact_number`, `messenger_link` nullable. No
-`created_at`. **`updated_at` migration written, not yet confirmed run:**
-`migrations/beneficiary_contacts_updated_at.sql` adds a *nullable*
-`updated_at` (default `now()` for new rows) plus
-`trg_beneficiary_contacts_updated_at` using the existing
-`set_updated_at()`. Deliberately **not backfilled** — with no `created_at`
-there is no honest value for old rows, so they stay NULL (UI shows "—")
-until first edited. The UI (Contacts table column "Updated", mobile card
-line, `ContactModal` "Last updated") is already written and renders nothing
-until the column exists. `useContacts` needs no change (`select *`).
+`name` NOT NULL, `role`, `contact_number`, `messenger_link` nullable.
 
 **`document_types`** — `id` PK, `name` varchar(255) NOT NULL, `is_default`
 boolean NOT NULL default true (unused by frontend — UNKNOWN purpose),
@@ -284,8 +275,7 @@ read/write, regardless of login state, were audited and dropped). This
 means: **any signed-in user can currently read, write, and delete
 everything** — there are no per-role restrictions yet (see §10 for the
 planned admin/editor/viewer work). **Confirmed working correctly in both
-localhost and production (Vercel).** No `profiles` table exists yet — step 1
-of the §10 user-management build (`migrations/01_profiles.sql`) creates it.
+localhost and production (Vercel).**
 
 ### Live data snapshot (last direct verification)
 5 `project_types`, 6 `beneficiaries`, 5 `project_instances` (all
@@ -460,18 +450,6 @@ second line below `sm`; `BeneficiaryModal`/`ContactModal`/`addModal` become
 bottom sheets on phones with safe-area padding; `Documents.jsx`'s pivot
 table drops to a single pinned column below `md` instead of two.
 **Confirmed tested and working on a real phone** — no longer a caveat.
-**Documents** now follows the same pattern: the pivot table is `hidden
-md:block`, and phones get `ProjectDocCard` cards (in `Documents.jsx`) —
-beneficiary/location/year/type, status pill, overall bar, then a
-**summary of the active phase tab** (x/y complete, a dot+count per status,
-overdue count, and the first 3 names that are missing or overdue). Tapping a
-card opens the same `EditPanel` as a table row. The earlier
-"single narrow pinned column on phones" workaround (`useIsNarrow`,
-`PINNED_COLUMNS_NARROW`) was removed as dead code, and the Columns button is
-hidden on phones (table-only). A small **Sort** select replaces the table
-headers on phones (default / beneficiary A–Z / least complete first /
-newest year), driving the same TanStack sorting state. *Not yet tested on a
-real phone.*
 
 ---
 
@@ -495,36 +473,27 @@ real phone.*
 9. **`documents.document_type_id` FK has no cascade rule** — cannot delete
    a `document_types` row while any `documents` row references it; edit or
    deactivate instead.
-10. **Remarks attribution still uses a `localStorage` per-browser name, not
-    real identity** — real Supabase Auth exists now, but `RemarksSection.jsx`
-    was deliberately left on the old system for the time being. Decided
-    (not yet built): new remarks will use `profiles.full_name` once the
-    `profiles` table exists as part of the user-management work (§10);
-    existing rows keep their typed `added_by` text as-is.
+10. ~~Remarks attribution still uses a `localStorage` per-browser name~~ —
+    **RESOLVED.** `useRemarks.js` no longer writes `added_by` on new
+    remarks at all; `remarks.created_by uuid default auth.uid()` fills
+    itself in, and `RemarksSection.jsx` resolves the display name via a
+    separate `profiles` query on the distinct `created_by` ids present
+    (not a PostgREST embed, since `created_by → profiles` isn't a declared
+    FK), falling back to the old free-text `added_by` for pre-auth rows —
+    so old and new remarks both render correctly in one feed. Also
+    resolved, same file: the level dropdown (`LEVEL_OPTIONS`) now only
+    offers **Provincial** and **Regional** — `pcest`/`rcest` were dropped
+    from the UI. The `remark_level` **enum itself still has all four
+    values** (this was a UI-only restriction, not a migration), so
+    reintroducing the other two options later is a one-line revert, not a
+    schema change.
 11. **`Itinerary.jsx` is orphaned but still in the codebase** — see §6.
     Anyone touching routing or doing cleanup should know it's dead code,
     not a second source of truth for Plan Visit behavior.
 12. **Any signed-in user can currently delete anything**, with no record of
     who did it (only Remarks have any time-boxed accountability, via the
-    15-minute delete window). Fix (decided 2026-09-30): role-aware RLS
-    (§10) restricts deleting projects/beneficiaries to admin and contacts/
-    itineraries to editors+; a `deletion_log` was considered and **dropped**
-    (backups cover recovery).
-14. **`updated_at` coverage (verified 2026-09-30 via `information_schema.triggers`):**
-    self-stamping triggers exist on `beneficiaries`
-    (`trg_beneficiaries_updated_at`), `documents`
-    (`trg_documents_updated_at`) and `project_instances`
-    (`project_instances_set_updated_at`), all `EXECUTE FUNCTION
-    set_updated_at()`. `beneficiary_contacts` has none yet (see §4). The
-    `project_instances.updated_at` *column* was not queried directly, but a
-    trigger that assigns it would make every project save fail if it were
-    missing, so it exists in practice. **Correction:** `ProjectDetail`'s
-    "Last updated" line had been reading `project.created_at` (so it showed
-    the creation time, mislabeled) — now `project.updated_at`, with the exact
-    timestamp as a hover tooltip. Watch out: SQL-editor scripts run as one
-    transaction, so a failing statement (e.g. `CREATE TRIGGER` for a trigger
-    that already exists) rolls back the whole script — write migrations with
-    `if not exists` / `drop trigger if exists`.
+    15-minute delete window). The planned `deletion_log` (§10) is the
+    intended fix.
 13. **`itineraries`/`itinerary_stops` may have never been used in
     production** — both were empty at last check; unconfirmed whether any
     real itinerary was ever saved and lost, or simply never attempted.
@@ -585,166 +554,57 @@ ordered stop list, name/visit-date fields, save/create/delete via
 ## 10. Pending Work — What To Build Next, In Order
 
 ### Immediate
-1. **Run `migrations/beneficiary_contacts_updated_at.sql`** in the Supabase
-   SQL editor (safe to re-run), then confirm a contact edit shows "Updated
-   just now" in the Contacts table/modal. The "Last updated" line on
-   `/projects/:id` is done and now reads `updated_at` (§7 item 14).
-   Optionally add the same trigger pattern to any other table that should
-   show staleness later (e.g. `remarks` doesn't need it — each remark is
-   timestamped).
-2. ~~Decide the fate of Excel import.~~ **Dropped (2026-09-30)** — the
-   legacy spreadsheet is too messy to be worth importing. Not coming back
-   unless the user raises it.
+1. **Build the "Last updated" UI surface for `updated_at`.** Decided
+   placement: a small "Last updated {relative time}" line in
+   `ProjectDetail.jsx`'s header, directly under the title/beneficiary line
+   (not added to Beneficiaries or Remarks — Remarks already timestamp each
+   entry individually, and Beneficiaries doesn't have as strong a case).
+   Data is confirmed live and auto-maintained (§4) — this is now purely a
+   small UI task. `ProjectDetail.jsx`'s header (right after the
+   `<h1>`/back-link block, before the two-column grid starts) is the spot —
+   e.g. a `text-xs text-gray-400` line reading "Last updated {relative
+   time}" using `project.updated_at`, matching the muted styling already
+   used for the `· {year}` suffix next to the title.
+2. **Decide the fate of Excel import.** A 2026-09-07 planning session
+   sequenced: Excel import (top priority) → Remarks UI → raw Excel export
+   → heatmap → responsiveness pass → report template filling. Everything
+   after Excel import has since shipped (Remarks, heatmap/Map,
+   responsiveness) or been superseded by other work (`/projects/:id`, Auth,
+   Dashboard). **Excel import itself was never started** — worth an
+   explicit conversation about whether it's still wanted, given
+   `/projects/:id` and the rest of the roadmap happened instead.
 
-### Then: user-management, session policy, backup (design revised 2026-09-30 — supersedes the earlier Edge-Function / deletion-log design; nothing built yet)
+### Then: user-management build (design fully decided, nothing built yet)
+Roles: **admin / editor / viewer**, no per-office scoping (every editor
+sees/edits everything). Editors may delete, but logged — a `deletion_log`
+(who/what/when/row snapshot), admin-only viewer, modeled loosely on
+Remarks' existing 15-minute delete window as a "limited delete" precedent.
+Accounts are admin-created with a handed-over temporary password (no
+self-serve signup, sidesteps Supabase's rate-limited built-in invite email)
+and a **forced password change on first login**. Creating users needs one
+small Supabase Edge Function (Auth admin API via `service_role` key —
+**must never ship to the browser**). Login/activity history: yes if cheap,
+admin-only. Enforcement lives in **RLS** (`is_admin()`/`can_edit()` helper
+functions); UI hiding is a courtesy layer only, not the real gate.
 
-**Dropped (do not re-propose unless the user does):** dashboard map, personal
-to-do list, Excel import, extra map features, duplicate-project / bulk
-quick-add (only 4–6 projects per year), full audit log, **deletion log**,
-sign-out on tab close, idle timeout, "keep me signed in" checkbox,
-**in-app admin Users page, Supabase Edge Function, forced password change,
-temporary-password handover** (the earlier design).
+**Build sequencing (do not reorder — the RLS lockdown already caused one
+brief lockout incident from running a policy migration before accounts
+existed to use it)**:
+1. `profiles` table + signup trigger; seed the admin's row first; confirm login still works before touching policies.
+2. Replace the current blanket `authenticated`/`ALL`/`true` policies with role-aware ones.
+3. Edge Function + an admin Users page (create, change role, deactivate/reactivate, reset password) + a self-service "change my password" page.
+4. Attribution (`added_by` from `profiles.full_name`, `created_by`/`updated_by`), `deletion_log`, admin activity view, optionally a guarded reference-data admin UI for project types/document types (mind the no-cascade FK on `document_types`, §7 item 9).
 
-**Users and roles.** Three roles: admin, editor, viewer. Expected: mostly
-1–2 people, at most ~5 editors + ~5 viewers, all co-workers; never shown to
-citizens or clients. **Accounts are created manually in the Supabase
-dashboard.** A DB trigger creates a `profiles` row for each new account with
-role **viewer** by default; the admin changes the role in the Supabase Table
-Editor. Only one account exists today → it becomes the sole admin (the setup
-script promotes all *existing* users to admin, once).
-- **Viewers:** read only.
-- **Editors:** create/edit everything, post remarks, delete contacts and
-  itineraries, delete their own remarks within 15 minutes.
-- **Admin:** everything, plus deleting projects and beneficiaries, managing
-  project types and document types, and backup/restore.
-- Projects are **not** deleted in normal use — they're transferred through the
-  existing status values and count as completed. Deleting a project is only an
-  admin fix for one entered by mistake.
-- Existing protections stay: confirm dialogs, DB blocks deleting a beneficiary
-  that has projects, DB blocks deleting a document type in use, 15-minute
-  remark window.
-- Rules are enforced in the **database (RLS)**; hiding buttons is a courtesy.
-- Remarks use `profiles.full_name`; old remarks keep their typed `added_by`.
-
-**Session policy.** Only rule: **max session length 12 hours**; otherwise
-behavior is as now (login survives tab close/refresh). Sign-in time is saved
-in the browser at login; checked on load, on tab focus and about once a
-minute; user is signed out after 12 h. A **toast warns 10 minutes before**
-sign-out so unsaved project edits aren't lost. Browser-only check — protects
-against an unattended computer, not a technical attacker (server-side
-enforcement needs a paid Supabase plan). Not doing: idle timeout, tab-close
-logout, keep-me-signed-in, two-factor (**OPEN:** reconsider 2FA for the admin
-account later — free in Supabase, protects the one all-powerful account).
-
-**Backup and restore (admin only).** One button downloads a single JSON file
-with every table (with IDs and a version number, **never passwords**), stored
-manually in Google Drive. Restore **adds and repairs by ID, never deletes
-rows**, runs as one DB function that fully applies or not at all, with a
-preview step first. Show "last backup: N days ago" once older than a week.
-Also keep a **separate schema dump** (JSON has no structure/triggers/access
-rules) — the previously uploaded `database.sql` was empty, so generate it
-properly once (**OPEN**). Per-table CSV exports remain for Excel reading only —
-not backups.
-
-**Reports (last, lowest priority).** Word report templates will **not** be
-automated; reports are filled by hand. Wanted: a printable/copyable **"project
-profile"** compiling project, beneficiary, contacts, document status and
-remarks into one view. **OPEN:** which fields to include. Later options if
-ever wanted: tagged Word templates filled in the browser, or Word mail merge
-from a CSV.
-
-**Build order (do not reorder — the RLS lockdown already caused one brief
-lockout by running a policy migration before accounts existed):**
-1. ✅ **DONE (2026-09-30)** — `migrations/01_profiles.sql` run; `profiles`
-   table + new-user trigger exist; the existing account is admin with its
-   full name set; sign-in confirmed working.
-2. ✅ **DONE (ran successfully, 2026-09-30)** — `migrations/02_role_policies.sql`
-   (+ `02_rollback.sql` to return to "any signed-in user can do everything").
-   One transaction; aborts if no admin exists. Adds `is_member()` /
-   `can_edit()` / `is_admin()`; replaces the blanket policy on all 10 tables:
-   everyone with a profile reads; editors insert/update everything (and may
-   add project types, which the Add Project modal does) and delete contacts,
-   project-contact links, itineraries and stops; admin alone deletes
-   projects/beneficiaries/documents and edits `project_types`/`document_types`;
-   remarks are append-only (`remarks.created_by uuid default auth.uid()` added;
-   editors delete only their own within 15 min, admin any; old remarks have
-   NULL → admin only). Caveat: PostgREST silently affects 0 rows on a denied
-   UPDATE/DELETE (no error) — step 3 must hide those buttons.
-3. ⏳ **DELIVERED, not yet applied/tested (2026-09-30):**
-   - `lib/AuthContext.jsx`: loads `profiles` (role + full name) per user id (not
-     per session, so hourly token refreshes don't reload); exposes `profile`,
-     `role`, `isAdmin`, `canEdit`; holds the app on its loading screen until
-     the profile is read; re-reads the profile on tab focus (role changes in the
-     dashboard take effect without re-login). **12-hour session limit:** sign-in
-     time saved in localStorage key `cest_signed_in_at` by `signIn()` only
-     (falls back to Supabase `last_sign_in_at` for pre-existing sessions);
-     checked on load/focus/every minute; warning toast 10 min before; signs out
-     at 12 h. Browser-only enforcement.
-   - Hooks `useProjects`/`useBeneficiaries`/`useContacts`/`useItineraries`:
-     mutations return `{ error }` immediately if the role is insufficient
-     (editor for add/update, admin for deleting projects/beneficiaries), which
-     closes the "denied UPDATE/DELETE silently affects 0 rows" gap for these.
-     Hooks NOT yet guarded (not uploaded): `useDocuments`, `useAllDocuments`,
-     `useProjectContacts`, `useRemarks`, `useFormData`, Map/itinerary page code.
-   - UI: viewers get read-only forms (`Section locked` → `<fieldset disabled>` in
-     `ProjectDetail`/`editPanel`; `readOnly` prop on Beneficiary/Contact modals),
-     no Add buttons, no Save bar, read-only document checklist, no remark
-     compose box, no contact add/remove; Danger Zone (delete project) shown to
-     admin only; beneficiary delete admin only; remark Delete = admin any, editor
-     own-within-15-min (needs `remark.created_by` from `useRemarks`' select).
-     `Topbar` user menu shows full name, email and role. Also folded in the two
-     earlier manual mobile edits (`editPanel` `h-dvh`/`px-4 sm:px-6`,
-     `ProjectDetail` `grid-cols-1 sm:grid-cols-3`).
-   - Still to gate: Map / Plan Visit itinerary buttons (`Map.jsx` not seen).
-4. ⏳ **DELIVERED, not yet run/applied (2026-09-30):** backup + restore.
-   - `migrations/03_backup_restore.sql`: `backup_status` (one row: last
-     backup/restore time, admin-read-only), `backup_export()` (one JSON document
-     of all 11 public tables incl. IDs, `app:'cest-mis'`, `version:1`; no
-     passwords/emails; stamps last_backup_at) and `backup_restore(payload,
-     apply, overwrite)` (adds rows missing by ID; `overwrite=true` also
-     overwrites rows that differ; **never deletes**; `apply=false` = preview;
-     one transaction = all-or-nothing; resets id sequences; `profiles` is
-     exported but NOT restored; `remarks.created_by` pointing at a missing
-     login is nulled). Both functions check `is_admin()` themselves.
-     **Tested for real** (steps 1–3 + the new file run on a throwaway Postgres
-     with a mock of the schema): export, preview changes nothing, add-missing
-     leaves newer edits alone, overwrite reverts them, serial AND identity
-     sequences stay ahead, rows absent from the file survive, viewer/anon
-     denied, wrong file rejected, FK-violating file rolls back completely.
-   - App: `pages/backup/Backup.jsx` (route `/backup`, admin only: download,
-     choose file, preview table, optional overwrite checkbox, confirm,
-     schema-dump reminder), `components/layout/BackupReminder.jsx` (admin banner
-     when never/\>7 days), Topbar account menu gets an admin-only
-     "Backup & restore" link. **Two small manual edits:** `App.jsx` add
-     `import Backup from './pages/backup/Backup'` and route
-     `{ path: '/backup', element: <Backup /> }` under the Layout children;
-     `AppLayout.jsx` add `import BackupReminder from './BackupReminder'` and
-     `<BackupReminder />` just above `<Outlet />` inside `<main>`.
-   - **OPEN:** the schema dump (`pg_dump --schema=public --schema-only
-     --no-owner --no-privileges`) still has to be generated by the user once;
-     the sign-up trigger is in `migrations/01_profiles.sql`, not in that dump.
-5. Remarks use the real name.
-6. Report support (project profile view).
-
-### UI work done outside the user-management order (2026-09-30)
-- **Filter chips on Projects** (replaces the dropdown `FilterBar`): `components/common/FilterChips.jsx`
-  (reusable), `lib/filterEngine.js` (pure logic), `hooks/useSessionState.js`, `pages/projects/filterFields.js`
-  (26 fields = every Projects column), `Projects.jsx` patched. "+ Filter" → searchable field list → value editor
-  (select with live faceted counts / text contains / number min–max / date range / has-link). Values in one chip are
-  OR'd, chips are AND'd; filters persist per browser tab (sessionStorage `projectsFilters`); bottom sheets on phones.
-  Tested with a simulated browser (31 checks). `pages/projects/filterBar.jsx` is now unused by Projects (delete when
-  convenient; `documents/filterBar.jsx` is a different component). **Not yet applied elsewhere** — Beneficiaries,
-  Contacts, Documents and Map can reuse `FilterChips` by defining their own `fields`.
-- **Decided in another thread (not built here):** patch `bg-white text-gray-800` onto every unstyled `<select>`
-  (~26 across ~15 files) rather than a shared `<Select>` wrapper; **custom small SVG map icon per project type**
-  (e.g. a tray for Portasol) — still to do.
+Also proposed but not yet decided on: email reminders/digest, scheduled
+backups, an error boundary, and a test suite — deprioritized in favor of
+the mobile/responsiveness pass, which is now done.
 
 ### Lower priority / opportunistic
 - Housekeeping: dedupe `PaginationBar`/`VisibilityPanel`, remove dead `documents/columns.jsx`, delete orphaned `Navbar.jsx` and `Itinerary.jsx` (+ its `App.jsx` import) once nobody needs them as reference.
 - Consider rendering Plan Visit's stops on the actual Leaflet map (numbered pins + route line) instead of staying list-only (§8/§9) — deferred, not rejected.
 - Consider whether `Documents.jsx` should also link into `/projects/:id` for triage cases needing more than the document pivot — not requested, purely opportunistic.
-- ~~Raw Excel export of current app data~~ — dropped with Excel import; per-table CSV export already exists.
-- ~~Report template filling~~ — decided against automating; replaced by the printable "project profile" view (see the reports paragraph above).
+- Raw Excel export of current app data — not started, low priority.
+- Report template filling — not started; blocked on the user's actual report templates (never supplied) and on stable real data, so sequenced last deliberately.
 
 ---
 
@@ -808,23 +668,12 @@ the source of truth.
 - **Quality-of-life additions**: toast notifications, an unsaved-changes
   guard on `/projects/:id`, CSV export, and a global command-palette search
   (Ctrl/Cmd+K).
-- **Timestamps + Documents cards** (2026-09-30): fixed the header "Last
-  updated" line reading `created_at`; verified which tables have
-  `updated_at` triggers; added `beneficiary_contacts.updated_at` (migration
-  + UI); replaced the Documents phone table with per-project summary cards.
 - **This consolidation pass**: folded a long session-by-session changelog
   into the current-state sections above; confirmed the last few pending
   items (checklist generation for all projects, the `updated_at` migration,
   Beneficiaries delete UI, and the `/projects/:id` Impact-section layout —
   checked against the real breakpoint math and confirmed fine as-is) are
   all resolved. Remaining open items are just §10's Immediate list.
-
-- **Revised brainstorm (2026-09-30)**: user-management simplified to
-  manual account creation in the Supabase dashboard with a `profiles` trigger
-  (no Edge Function, no admin page, no deletion log), a 12-hour browser
-  session cap, admin-only JSON backup/restore, and a printable project-profile
-  view for reports; several earlier ideas dropped (§10). Step 1 script:
-  `migrations/01_profiles.sql`.
 
 ---
 

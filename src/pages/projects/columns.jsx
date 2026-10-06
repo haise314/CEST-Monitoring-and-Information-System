@@ -17,6 +17,26 @@ export function parseAmount(raw) {
   return Number.isNaN(num) ? null : num
 }
 
+// Provincial projects count against the yearly budget; Regional ones don't
+// (see lib/budget.js). Labels are what people see; the values are what's stored.
+export const SCOPE_OPTIONS = [
+  { value: 'Provincial', label: 'Provincial Project' },
+  { value: 'Regional',   label: 'Regional Project' },
+]
+
+function ProjectScopeCell({ getValue }) {
+  const value = getValue()
+  const colors = {
+    Provincial: 'bg-blue-100 text-blue-800',
+    Regional:   'bg-purple-100 text-purple-800',
+  }
+  return (
+    <span className={`px-2 py-1 rounded-full text-xs font-medium whitespace-nowrap ${colors[value] ?? 'bg-gray-100 text-gray-800'}`}>
+      {value ?? '—'}
+    </span>
+  )
+}
+
 // ─── Project Category Cell ────────────────────────────────────────────────────
 
 function ProjectCategoryCell({ getValue }) {
@@ -60,6 +80,7 @@ export const ALL_COLUMNS = [
   { accessorKey: 'title',            header: 'Title',            group: 'Core', size: 280, minSize: 120, cell: ({ getValue }) => getValue() ?? '—' },
   { accessorFn: r => r.project_types?.name, id: 'project_type', header: 'Project Type', group: 'Core', size: 150, minSize: 100, cell: ({ getValue }) => getValue() ?? '—' },
   { accessorKey: 'project_category', header: 'Category',         group: 'Core', size: 130, minSize: 100, cell: ProjectCategoryCell },
+  { accessorKey: 'project_scope',    header: 'Scope',            group: 'Core', size: 110, minSize: 90,  cell: ProjectScopeCell },
   { accessorKey: 'intervention',     header: 'Intervention',     group: 'Core', size: 220, minSize: 120, cell: ({ getValue }) => getValue() ?? '—' },
   { accessorKey: 'property_number',  header: 'Property No.',     group: 'Core', size: 140, minSize: 100, cell: ({ getValue }) => getValue() ?? '—' },
   { accessorKey: 'amount',           header: 'Amount',           group: 'Core', size: 130, minSize: 100, cell: ({ getValue }) => getValue() != null ? `₱${Number(getValue()).toLocaleString()}` : '—' },
@@ -112,6 +133,7 @@ export const DEFAULT_VISIBLE = {
   title: true,
   project_type: true,
   project_category: true,
+  project_scope: true,
   beneficiary: true,
   municipality: true,
   barangay: true,

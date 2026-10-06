@@ -13,6 +13,7 @@ import Documents from './pages/documents/Documents'
 import Overview from './pages/overview/Overview'
 import MapPage from './pages/map/Map'
 import Backup from './pages/backup/Backup'
+import Budget from './pages/budget/Budget'
 
 // Gate for everything under the main Layout. Shows a brief loading state
 // while Supabase checks for an existing session, then either renders the
@@ -50,6 +51,7 @@ const router = createBrowserRouter([
       { path: '/beneficiaries', element: <Beneficiaries /> },
       { path: '/contacts', element: <Contacts /> },
       { path: '/map', element: <MapPage /> },
+      { path: '/budget', element: <Budget /> },
       // Itinerary is now a tab inside /map (Plan Visit mode) rather than its
       // own page. This redirect keeps old bookmarks/links to /itinerary alive.
       { path: '/itinerary', element: <Navigate to="/map?mode=plan" replace /> },

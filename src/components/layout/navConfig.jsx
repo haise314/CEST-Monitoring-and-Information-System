@@ -3,6 +3,17 @@ import {
   ProjectsIcon, DocumentsIcon, BeneficiariesIcon, ContactsIcon,
 } from './icons'
 
+// Defined here (not in icons.jsx) so adding the Budget page doesn't require
+// replacing that file. Same stroke style as the rest of the icon set.
+const BudgetIcon = ({ className = 'w-5 h-5' }) => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"
+    strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden="true">
+    <path d="M3 7a2 2 0 0 1 2-2h12v4" />
+    <path d="M3 7v11a2 2 0 0 0 2 2h14a1 1 0 0 0 1-1v-9a1 1 0 0 0-1-1H5a2 2 0 0 1-2-2z" />
+    <circle cx="16" cy="14" r="1" />
+  </svg>
+)
+
 // Single source of truth for the sidebar and the top bar's breadcrumb.
 export const NAV_GROUPS = [
   {
@@ -11,6 +22,7 @@ export const NAV_GROUPS = [
       { to: '/',         label: 'Dashboard', icon: DashboardIcon, end: true },
       { to: '/overview', label: 'Overview',  icon: OverviewIcon },
       { to: '/map',      label: 'Map',       icon: MapIcon },
+      { to: '/budget',   label: 'Budget',    icon: BudgetIcon },
     ],
   },
   {

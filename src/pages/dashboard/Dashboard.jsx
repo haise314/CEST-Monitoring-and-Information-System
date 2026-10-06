@@ -4,6 +4,9 @@ import { useAllDocuments } from '../../hooks/useAllDocuments'
 import { useProjects } from '../../hooks/useProjects'
 import { useBeneficiaries } from '../../hooks/useBeneficiaries'
 import { useAllRemarks } from '../../hooks/useAllRemarks'
+import { useBudgets } from '../../hooks/useBudgets'
+import { useAuth } from '../../lib/AuthContext'
+import { summarizeYear, formatPeso, budgetBarColor } from '../../lib/budget'
 import { isOverdue, isUpcoming, UPCOMING_WINDOW_DAYS } from '../../lib/documentStatus'
 import { computeProgress, progressBarColor, PHASE_ORDER } from '../../lib/documentProgress'
 
@@ -589,6 +592,81 @@ function GeographicHotspotsSection({ documents }) {
   )
 }
 
+// ─── SECTION: Current-year budget ────────────────────────────────────────────
+// The Provincial CEST office's budget for this year vs. what Provincial
+// projects have committed (rules in lib/budget.js). Fetches its own data so
+// the rest of the Dashboard never waits on it. Details live on /budget.
+
+function BudgetCard({ projects }) {
+  const { isAdmin } = useAuth()
+  const { budgets, loading, error } = useBudgets()
+  const year = new Date().getFullYear()
+
+  const budget = budgets.find(b => Number(b.year) === year) ?? null
+  const summary = useMemo(
+    () => summarizeYear(projects, year, budget ? Number(budget.allocated_amount) : null),
+    [projects, year, budget]
+  )
+  const { allocated, used, remaining, pct, over, missingAmount } = summary
+
+  return (
+    <Card>
+      <div className="flex items-start justify-between gap-3 mb-3">
+        <SectionHeader title={`${year} budget`} hint="Provincial projects only" />
+        <Link to="/budget" className="text-xs text-blue-500 hover:text-blue-700 whitespace-nowrap">
+          View details →
+        </Link>
+      </div>
+
+      {loading ? (
+        <EmptyNote>Loading budget...</EmptyNote>
+      ) : error ? (
+        <p className="text-sm text-red-500">Could not load the budget: {error}</p>
+      ) : allocated == null ? (
+        <p className="text-sm text-gray-400">
+          No budget set for {year} yet.{' '}
+          {isAdmin
+            ? <Link to="/budget" className="text-blue-500 underline">Set it on the Budget page</Link>
+            : 'An admin can set it.'}
+        </p>
+      ) : (
+        <>
+          {over && (
+            <div role="alert" className="mb-3 bg-red-50 border border-red-200 rounded-lg px-3 py-2 text-sm text-red-700">
+              <strong>Over budget by {formatPeso(Math.abs(remaining))}.</strong>
+            </div>
+          )}
+          <div className="grid grid-cols-3 gap-4">
+            <div>
+              <div className="text-xs text-gray-500 mb-1">Budget</div>
+              <div className="text-lg sm:text-xl font-bold text-gray-800 tabular-nums">{formatPeso(allocated)}</div>
+            </div>
+            <div>
+              <div className="text-xs text-gray-500 mb-1">Used</div>
+              <div className="text-lg sm:text-xl font-bold text-gray-800 tabular-nums">{formatPeso(used)}</div>
+            </div>
+            <div>
+              <div className="text-xs text-gray-500 mb-1">Remaining</div>
+              <div className={`text-lg sm:text-xl font-bold tabular-nums ${remaining < 0 ? 'text-red-500' : 'text-gray-800'}`}>
+                {formatPeso(remaining)}
+              </div>
+            </div>
+          </div>
+          <div className="mt-3 h-2 bg-gray-200 rounded-full overflow-hidden">
+            <div className={`h-full rounded-full ${budgetBarColor(pct)}`} style={{ width: `${Math.min(pct ?? 0, 100)}%` }} />
+          </div>
+          {missingAmount.length > 0 && (
+            <p className="text-xs text-amber-600 mt-2">
+              {missingAmount.length} Provincial project{missingAmount.length === 1 ? ' has' : 's have'} no amount entered and
+              {missingAmount.length === 1 ? ' is' : ' are'} not counted.
+            </p>
+          )}
+        </>
+      )}
+    </Card>
+  )
+}
+
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 export default function Dashboard() {
@@ -636,6 +714,9 @@ export default function Dashboard() {
         progress={progress}
         totalAmount={totalAmount}
       />
+
+      {/* This year's budget (Provincial projects) */}
+      <BudgetCard projects={projects} />
 
       {/* Overdue + Upcoming */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

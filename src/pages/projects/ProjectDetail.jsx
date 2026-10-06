@@ -4,7 +4,7 @@ import { useProjects } from '../../hooks/useProjects'
 import { useBeneficiaries } from '../../hooks/useBeneficiaries'
 import { useFormData } from '../../hooks/useFormData'
 import Select from '../../components/common/Select'
-import { STATIC_OPTIONS, parseAmount } from './columns'
+import { STATIC_OPTIONS, SCOPE_OPTIONS, parseAmount } from './columns'
 import DocumentChecklist from './DocumentChecklist'
 import ProjectContacts from './ProjectContacts'
 import RemarksSection from './RemarksSection'
@@ -48,6 +48,7 @@ function formFromProject(project) {
     title:               project.title               ?? '',
     project_type_id:     project.project_type_id     ?? '',
     project_category:    project.project_category    ?? '',
+    project_scope:       project.project_scope       ?? 'Provincial',
     property_number:     project.property_number     ?? '',
     amount:              project.amount              ?? '',
     date_deployed:       project.date_deployed       ?? '',
@@ -186,6 +187,7 @@ export default function ProjectDetail() {
       title:               form.title                     || null,
       project_type_id:     form.project_type_id !== ''     ? Number(form.project_type_id)     : null,
       project_category:    form.project_category           || null,
+      project_scope:       form.project_scope              || 'Provincial',
       property_number:     form.property_number            || null,
       amount:              parseAmount(form.amount),
       date_deployed:       form.date_deployed              || null,
@@ -328,6 +330,19 @@ export default function ProjectDetail() {
               <option key={c} value={c}>{c}</option>
             ))}
           </Select>
+        </Field>
+
+        <Field label="Project Scope">
+          <Select
+            value={form.project_scope}
+            onChange={e => handleChange('project_scope', e.target.value)}
+            className={selectClass}
+          >
+            {SCOPE_OPTIONS.map(o => (
+              <option key={o.value} value={o.value}>{o.label}</option>
+            ))}
+          </Select>
+          <p className="text-xs text-gray-400 mt-1">Only Provincial projects count against the yearly budget.</p>
         </Field>
 
         <Field label="Property Number">

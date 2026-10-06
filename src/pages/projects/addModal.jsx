@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useFormData } from '../../hooks/useFormData'
 import Select from '../../components/common/Select'
-import { STATIC_OPTIONS, parseAmount } from './columns'
+import { STATIC_OPTIONS, SCOPE_OPTIONS, parseAmount } from './columns'
 
 const EMPTY_FORM = {
   year:             new Date().getFullYear(),
@@ -9,6 +9,7 @@ const EMPTY_FORM = {
   project_type_id:  '',
   beneficiary_id:   '',
   project_category: '',
+  project_scope:    'Provincial',
   overall_status:   'For Deployment',
   amount:           '',
   property_number:  '',
@@ -113,6 +114,7 @@ export default function AddModal({ onClose, onAdd }) {
       project_type_id:  Number(form.project_type_id),
       beneficiary_id:   Number(form.beneficiary_id),
       project_category: form.project_category,
+      project_scope:    form.project_scope || 'Provincial',
       overall_status:   form.overall_status || 'For Deployment',
       amount:           parseAmount(form.amount),
       property_number:  form.property_number || null,
@@ -302,6 +304,20 @@ export default function AddModal({ onClose, onAdd }) {
                   <option key={c} value={c}>{c}</option>
                 ))}
               </Select>
+            </div>
+
+            <div>
+              <label className="block text-sm text-gray-600 mb-1">Project Scope</label>
+              <Select
+                value={form.project_scope}
+                onChange={e => handleChange('project_scope', e.target.value)}
+                className={inputClass}
+              >
+                {SCOPE_OPTIONS.map(o => (
+                  <option key={o.value} value={o.value}>{o.label}</option>
+                ))}
+              </Select>
+              <p className="text-xs text-gray-400 mt-1">Only Provincial projects count against the yearly budget.</p>
             </div>
 
             {/* Optional */}
