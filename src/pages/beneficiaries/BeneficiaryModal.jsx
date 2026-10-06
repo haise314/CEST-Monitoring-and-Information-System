@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import BeneficiaryContacts from './BeneficiaryContacts'
 
 const CATEGORIES = ['LGU', 'Academe', 'SDO', 'NGO', 'Cooperative', 'Others', 'BLGU']
 
@@ -140,6 +141,8 @@ export default function BeneficiaryModal({ beneficiary, linkedProjectCount = 0, 
               {error}
             </div>
           )}
+
+          {beneficiary && <BeneficiaryContacts beneficiary={beneficiary} />}
 
           {/* Danger Zone — only when editing. Delete-guard preserved from
               the old row-level version: disabled with an explanation if

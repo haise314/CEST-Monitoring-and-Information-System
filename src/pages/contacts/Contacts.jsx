@@ -42,7 +42,7 @@ export default function Contacts() {
     const q = search.trim().toLowerCase()
     if (!q) return contacts
     return contacts.filter(c =>
-      [c.name, c.role, c.contact_number, c.beneficiaries?.name, c.beneficiaries?.municipality]
+      [c.name, c.role, c.contact_number, ...(c.beneficiaries ?? []).flatMap(b => [b.name, b.municipality])]
         .filter(Boolean)
         .some(field => field.toLowerCase().includes(q))
     )
@@ -194,7 +194,7 @@ export default function Contacts() {
       >
         {table.getRowModel().rows.map(row => {
           const c = row.original
-          const org = [c.beneficiaries?.name, c.beneficiaries?.municipality].filter(Boolean).join(' · ')
+          const org = (c.beneficiaries ?? []).map(b => b.name).join('; ')
           return (
             <MobileCard key={row.id} onClick={() => openEdit(c)}>
               <div className="text-sm font-semibold text-gray-800 break-words">{c.name}</div>

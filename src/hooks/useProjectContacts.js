@@ -11,14 +11,15 @@ export function useProjectContacts(projectId) {
     fetchContacts()
   }, [projectId])
 
-  async function fetchContacts() {
-    setLoading(true)
+  // silent = refresh without the loading flash (keeps open modals mounted)
+  async function fetchContacts(silent = false) {
+    if (!silent) setLoading(true)
     try {
       const { data, error } = await supabase
         .from('project_contacts')
         .select(`
           id,
-          beneficiary_contacts (id, name, role, contact_number, messenger_link)
+          beneficiary_contacts (id, name, role, contact_number, messenger_link, contact_beneficiaries (beneficiary_id))
         `)
         .eq('project_id', projectId)
 
@@ -26,7 +27,14 @@ export function useProjectContacts(projectId) {
       else {
         // Flatten: linkId is the project_contacts row (needed to remove the
         // link); the rest comes from the linked beneficiary_contacts row.
-        setContacts((data ?? []).map(row => ({ linkId: row.id, ...row.beneficiary_contacts })))
+        setContacts((data ?? []).filter(row => row.beneficiary_contacts).map(row => {
+          const { contact_beneficiaries, ...c } = row.beneficiary_contacts
+          return {
+            linkId: row.id,
+            ...c,
+            beneficiary_ids: (contact_beneficiaries ?? []).map(l => l.beneficiary_id),
+          }
+        }))
       }
     } finally {
       setLoading(false)
@@ -38,7 +46,7 @@ export function useProjectContacts(projectId) {
       .from('project_contacts')
       .insert({ project_id: projectId, contact_id: contactId })
     if (error) return { error: error.message }
-    await fetchContacts()
+    await fetchContacts(true)
     return { error: null }
   }
 
@@ -52,5 +60,5 @@ export function useProjectContacts(projectId) {
     return { error: null }
   }
 
-  return { contacts, loading, error, addContact, removeContact }
+  return { contacts, loading, error, addContact, removeContact, refetch: () => fetchContacts(true) }
 }

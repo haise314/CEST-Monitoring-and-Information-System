@@ -12,12 +12,14 @@ const TABLE_LABELS = {
   document_types:       'Document types',
   beneficiaries:        'Beneficiaries',
   beneficiary_contacts: 'Contacts',
+  contact_beneficiaries: 'Contact–beneficiary links',
   project_instances:    'Projects',
   documents:            'Documents',
   project_contacts:     'Project–contact links',
   remarks:              'Remarks',
   itineraries:          'Itineraries',
   itinerary_stops:      'Itinerary stops',
+  annual_budgets:       'Annual budgets',
 }
 
 function daysAgo(iso) {

@@ -48,8 +48,8 @@ export default function CommandPalette({ onClose }) {
       list.push({
         type: 'contact', id: c.id, to: `/contacts?edit=${c.id}`,
         title: c.name,
-        subtitle: [c.role, c.beneficiaries?.name].filter(Boolean).join(' · '),
-        haystack: [c.name, c.role, c.contact_number, c.beneficiaries?.name, c.beneficiaries?.municipality].filter(Boolean).join(' ').toLowerCase(),
+        subtitle: [c.role, (c.beneficiaries ?? []).map(b => b.name).join('; ')].filter(Boolean).join(' · '),
+        haystack: [c.name, c.role, c.contact_number, ...(c.beneficiaries ?? []).flatMap(b => [b.name, b.municipality])].filter(Boolean).join(' ').toLowerCase(),
       })
     }
     return list
