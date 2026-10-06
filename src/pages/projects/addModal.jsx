@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useFormData } from '../../hooks/useFormData'
+import Select from '../../components/common/Select'
 import { STATIC_OPTIONS, parseAmount } from './columns'
 
 const EMPTY_FORM = {
@@ -186,7 +187,7 @@ export default function AddModal({ onClose, onAdd }) {
                   {typeError && <p className="text-red-500 text-xs mt-1">{typeError}</p>}
                 </div>
               ) : (
-                <select
+                <Select
                   value={form.project_type_id}
                   onChange={e => {
                     if (e.target.value === NEW_TYPE_VALUE) setAddingType(true)
@@ -199,7 +200,7 @@ export default function AddModal({ onClose, onAdd }) {
                     <option key={t.id} value={t.id}>{t.name}</option>
                   ))}
                   <option value={NEW_TYPE_VALUE}>+ Add new project type...</option>
-                </select>
+                </Select>
               )}
             </div>
 
@@ -215,7 +216,7 @@ export default function AddModal({ onClose, onAdd }) {
                     placeholder="Beneficiary name..."
                     className={inputClass}
                   />
-                  <select
+                  <Select
                     value={newBeneficiary.category}
                     onChange={e => setNewBeneficiary(prev => ({ ...prev, category: e.target.value }))}
                     className={inputClass}
@@ -224,7 +225,7 @@ export default function AddModal({ onClose, onAdd }) {
                     {BENEFICIARY_CATEGORIES.map(c => (
                       <option key={c} value={c}>{c}</option>
                     ))}
-                  </select>
+                  </Select>
                   <input
                     type="text"
                     value={newBeneficiary.municipality}
@@ -270,7 +271,7 @@ export default function AddModal({ onClose, onAdd }) {
                   {beneficiaryError && <p className="text-red-500 text-xs">{beneficiaryError}</p>}
                 </div>
               ) : (
-                <select
+                <Select
                   value={form.beneficiary_id}
                   onChange={e => {
                     if (e.target.value === NEW_BENEFICIARY_VALUE) setAddingBeneficiary(true)
@@ -285,13 +286,13 @@ export default function AddModal({ onClose, onAdd }) {
                     </option>
                   ))}
                   <option value={NEW_BENEFICIARY_VALUE}>+ Add new beneficiary...</option>
-                </select>
+                </Select>
               )}
             </div>
 
             <div>
               <label className="block text-sm text-gray-600 mb-1">Project Category</label>
-              <select
+              <Select
                 value={form.project_category}
                 onChange={e => handleChange('project_category', e.target.value)}
                 className={inputClass}
@@ -300,7 +301,7 @@ export default function AddModal({ onClose, onAdd }) {
                 {STATIC_OPTIONS.project_category.map(c => (
                   <option key={c} value={c}>{c}</option>
                 ))}
-              </select>
+              </Select>
             </div>
 
             {/* Optional */}
@@ -319,7 +320,7 @@ export default function AddModal({ onClose, onAdd }) {
 
             <div>
               <label className="block text-sm text-gray-600 mb-1">Overall Status</label>
-              <select
+              <Select
                 value={form.overall_status}
                 onChange={e => handleChange('overall_status', e.target.value)}
                 className={inputClass}
@@ -327,7 +328,7 @@ export default function AddModal({ onClose, onAdd }) {
                 {STATIC_OPTIONS.overall_status.map(s => (
                   <option key={s} value={s}>{s}</option>
                 ))}
-              </select>
+              </Select>
             </div>
 
             <div>
@@ -381,7 +382,7 @@ export default function AddModal({ onClose, onAdd }) {
                   </button>
                 </div>
               ) : (
-                <select
+                <Select
                   value={form.entry_point}
                   onChange={e => {
                     if (e.target.value === NEW_ENTRY_POINT_VALUE) setAddingEntryPoint(true)
@@ -394,7 +395,7 @@ export default function AddModal({ onClose, onAdd }) {
                     <option key={ep} value={ep}>{ep}</option>
                   ))}
                   <option value={NEW_ENTRY_POINT_VALUE}>+ Add new entry point...</option>
-                </select>
+                </Select>
               )}
             </div>
 

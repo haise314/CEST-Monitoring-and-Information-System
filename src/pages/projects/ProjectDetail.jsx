@@ -3,6 +3,7 @@ import { useParams, useNavigate, useBlocker } from 'react-router'
 import { useProjects } from '../../hooks/useProjects'
 import { useBeneficiaries } from '../../hooks/useBeneficiaries'
 import { useFormData } from '../../hooks/useFormData'
+import Select from '../../components/common/Select'
 import { STATIC_OPTIONS, parseAmount } from './columns'
 import DocumentChecklist from './DocumentChecklist'
 import ProjectContacts from './ProjectContacts'
@@ -293,7 +294,7 @@ export default function ProjectDetail() {
             />
           </Field>
           <Field label="Project Type">
-            <select
+            <Select
               value={form.project_type_id}
               onChange={e => handleChange('project_type_id', e.target.value)}
               className={selectClass}
@@ -302,7 +303,7 @@ export default function ProjectDetail() {
               {projectTypes.map(t => (
                 <option key={t.id} value={t.id}>{t.name}</option>
               ))}
-            </select>
+            </Select>
           </Field>
         </div>
 
@@ -317,7 +318,7 @@ export default function ProjectDetail() {
         </Field>
 
         <Field label="Project Category">
-          <select
+          <Select
             value={form.project_category}
             onChange={e => handleChange('project_category', e.target.value)}
             className={selectClass}
@@ -326,7 +327,7 @@ export default function ProjectDetail() {
             {STATIC_OPTIONS.project_category.map(c => (
               <option key={c} value={c}>{c}</option>
             ))}
-          </select>
+          </Select>
         </Field>
 
         <Field label="Property Number">
@@ -387,7 +388,7 @@ export default function ProjectDetail() {
               </button>
             </div>
           ) : (
-            <select
+            <Select
               value={form.entry_point}
               onChange={e => {
                 if (e.target.value === '__new_entry__') setAddingEntryPoint(true)
@@ -400,7 +401,7 @@ export default function ProjectDetail() {
                 <option key={ep} value={ep}>{ep}</option>
               ))}
               <option value="__new_entry__">+ Add new entry point...</option>
-            </select>
+            </Select>
           )}
         </Field>
 
@@ -430,7 +431,7 @@ export default function ProjectDetail() {
             />
           </Field>
           <Field label="Category">
-            <select
+            <Select
               value={benForm.category ?? ''}
               onChange={e => handleBenChange('category', e.target.value)}
               className={selectClass}
@@ -439,7 +440,7 @@ export default function ProjectDetail() {
               {BENEFICIARY_CATEGORIES.map(c => (
                 <option key={c} value={c}>{c}</option>
               ))}
-            </select>
+            </Select>
           </Field>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
@@ -495,7 +496,7 @@ export default function ProjectDetail() {
       <div className="lg:col-span-1 space-y-6">
       <Section title="Status" locked={!canEdit}>
         <Field label="Overall Status">
-          <select
+          <Select
             value={form.overall_status}
             onChange={e => handleChange('overall_status', e.target.value)}
             className={selectClass}
@@ -504,10 +505,10 @@ export default function ProjectDetail() {
             {STATIC_OPTIONS.overall_status.map(s => (
               <option key={s} value={s}>{s}</option>
             ))}
-          </select>
+          </Select>
         </Field>
         <Field label="Operational Status">
-          <select
+          <Select
             value={form.operational_status}
             onChange={e => handleChange('operational_status', e.target.value)}
             className={selectClass}
@@ -516,7 +517,7 @@ export default function ProjectDetail() {
             {STATIC_OPTIONS.operational_status.map(s => (
               <option key={s} value={s}>{s}</option>
             ))}
-          </select>
+          </Select>
         </Field>
       </Section>
 

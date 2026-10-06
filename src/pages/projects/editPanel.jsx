@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { Link } from 'react-router'
 import { useFormData } from '../../hooks/useFormData'
+import Select from '../../components/common/Select'
 import { STATIC_OPTIONS, parseAmount } from './columns'
 import DocumentChecklist from './DocumentChecklist'
 import ProjectContacts from './ProjectContacts'
@@ -257,7 +258,7 @@ export default function EditPanel({ project, onClose, onUpdate, onDelete, onDocu
                     />
                   </Field>
                   <Field label="Project Type">
-                    <select
+                    <Select
                       value={form.project_type_id}
                       onChange={e => handleChange('project_type_id', e.target.value)}
                       className={selectClass}
@@ -266,7 +267,7 @@ export default function EditPanel({ project, onClose, onUpdate, onDelete, onDocu
                       {projectTypes.map(t => (
                         <option key={t.id} value={t.id}>{t.name}</option>
                       ))}
-                    </select>
+                    </Select>
                   </Field>
                 </div>
 
@@ -281,7 +282,7 @@ export default function EditPanel({ project, onClose, onUpdate, onDelete, onDocu
                 </Field>
 
                 <Field label="Project Category">
-                  <select
+                  <Select
                     value={form.project_category}
                     onChange={e => handleChange('project_category', e.target.value)}
                     className={selectClass}
@@ -290,7 +291,7 @@ export default function EditPanel({ project, onClose, onUpdate, onDelete, onDocu
                     {STATIC_OPTIONS.project_category.map(c => (
                       <option key={c} value={c}>{c}</option>
                     ))}
-                  </select>
+                  </Select>
                 </Field>
 
                 <Field label="Property Number">
@@ -353,7 +354,7 @@ export default function EditPanel({ project, onClose, onUpdate, onDelete, onDocu
                       </div>
                     </div>
                   ) : (
-                    <select
+                    <Select
                       value={form.entry_point}
                       onChange={e => {
                         if (e.target.value === '__new_entry__') setAddingEntryPoint(true)
@@ -366,7 +367,7 @@ export default function EditPanel({ project, onClose, onUpdate, onDelete, onDocu
                         <option key={ep} value={ep}>{ep}</option>
                       ))}
                       <option value="__new_entry__">+ Add new entry point...</option>
-                    </select>
+                    </Select>
                   )}
                 </Field>
 
@@ -412,7 +413,7 @@ export default function EditPanel({ project, onClose, onUpdate, onDelete, onDocu
 
               <Section title="Status" locked={!canEdit}>
                 <Field label="Overall Status">
-                  <select
+                  <Select
                     value={form.overall_status}
                     onChange={e => handleChange('overall_status', e.target.value)}
                     className={selectClass}
@@ -421,10 +422,10 @@ export default function EditPanel({ project, onClose, onUpdate, onDelete, onDocu
                     {STATIC_OPTIONS.overall_status.map(s => (
                       <option key={s} value={s}>{s}</option>
                     ))}
-                  </select>
+                  </Select>
                 </Field>
                 <Field label="Operational Status">
-                  <select
+                  <Select
                     value={form.operational_status}
                     onChange={e => handleChange('operational_status', e.target.value)}
                     className={selectClass}
@@ -433,7 +434,7 @@ export default function EditPanel({ project, onClose, onUpdate, onDelete, onDocu
                     {STATIC_OPTIONS.operational_status.map(s => (
                       <option key={s} value={s}>{s}</option>
                     ))}
-                  </select>
+                  </Select>
                 </Field>
               </Section>
 
