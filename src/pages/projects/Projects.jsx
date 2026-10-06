@@ -216,7 +216,7 @@ function Projects() {
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0">
                   <div className="text-sm font-semibold text-gray-800 break-words">
-                    {p.title || p.project_types?.name || 'Untitled project'}
+                    {p.project_types?.name || 'Untitled project'}
                   </div>
                   <div className="text-xs text-gray-500 mt-0.5 break-words">
                     {p.beneficiaries?.name ?? '—'}
