@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import SearchableSelect from '../../components/common/SearchableSelect'
 
 const EMPTY_FORM = {
   beneficiary_id: '',
@@ -81,18 +82,17 @@ export default function ContactModal({ contact, beneficiaries, readOnly = false,
           <fieldset disabled={readOnly} className="space-y-3 min-w-0">
           <div>
             <label className="block text-sm text-gray-600 mb-1">Beneficiary</label>
-            <select
+            <SearchableSelect
               value={form.beneficiary_id}
-              onChange={e => handleChange('beneficiary_id', e.target.value)}
+              onChange={v => handleChange('beneficiary_id', v)}
+              options={beneficiaries.map(b => ({
+                value: b.id,
+                label: `${b.name}${b.municipality ? ` (${b.municipality})` : ''}`,
+              }))}
+              placeholder="Select beneficiary..."
+              searchPlaceholder="Search beneficiaries..."
               className={inputClass}
-            >
-              <option value="">Select beneficiary...</option>
-              {beneficiaries.map(b => (
-                <option key={b.id} value={b.id}>
-                  {b.name}{b.municipality ? ` (${b.municipality})` : ''}
-                </option>
-              ))}
-            </select>
+            />
           </div>
 
           <div>

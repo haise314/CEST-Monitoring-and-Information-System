@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useFormData } from '../../hooks/useFormData'
 import Select from '../../components/common/Select'
+import SearchableSelect from '../../components/common/SearchableSelect'
 import { STATIC_OPTIONS, SCOPE_OPTIONS, parseAmount } from './columns'
 
 const EMPTY_FORM = {
@@ -23,7 +24,6 @@ const EMPTY_NEW_BENEFICIARY = { name: '', category: '', district: '', municipali
 const inputClass = 'w-full border border-gray-300 rounded px-3 py-2.5 sm:py-2 text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-blue-500'
 const NEW_TYPE_VALUE = '__new__'
 const NEW_ENTRY_POINT_VALUE = '__new_entry__'
-const NEW_BENEFICIARY_VALUE = '__new_beneficiary__'
 
 export default function AddModal({ onClose, onAdd }) {
   const { projectTypes, beneficiaries, entryPoints, loading, addProjectType, addBeneficiary } = useFormData()
@@ -273,22 +273,18 @@ export default function AddModal({ onClose, onAdd }) {
                   {beneficiaryError && <p className="text-red-500 text-xs">{beneficiaryError}</p>}
                 </div>
               ) : (
-                <Select
+                <SearchableSelect
                   value={form.beneficiary_id}
-                  onChange={e => {
-                    if (e.target.value === NEW_BENEFICIARY_VALUE) setAddingBeneficiary(true)
-                    else handleChange('beneficiary_id', e.target.value)
-                  }}
+                  onChange={v => handleChange('beneficiary_id', v)}
+                  options={beneficiaries.map(b => ({
+                    value: b.id,
+                    label: `${b.name}${b.municipality ? ` (${b.municipality})` : ''}`,
+                  }))}
+                  placeholder="Select beneficiary..."
+                  searchPlaceholder="Search beneficiaries..."
+                  footerAction={{ label: '+ Add new beneficiary...', onClick: () => setAddingBeneficiary(true) }}
                   className={inputClass}
-                >
-                  <option value="">Select beneficiary...</option>
-                  {beneficiaries.map(b => (
-                    <option key={b.id} value={b.id}>
-                      {b.name}{b.municipality ? ` (${b.municipality})` : ''}
-                    </option>
-                  ))}
-                  <option value={NEW_BENEFICIARY_VALUE}>+ Add new beneficiary...</option>
-                </Select>
+                />
               )}
             </div>
 

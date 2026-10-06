@@ -81,5 +81,13 @@ export function useFormData() {
     return { error: null, data }
   }
 
-  return { projectTypes, beneficiaries, entryPoints, loading, addProjectType, addBeneficiary }
+  // Silent refresh of the project-type list (does NOT touch `loading`, so a
+  // page that gates on it never flashes its loading screen). Used after the
+  // admin manager renames/deletes/adds types.
+  async function refetchProjectTypes() {
+    const { data } = await supabase.from('project_types').select('id, name').order('name')
+    if (data) setProjectTypes(data)
+  }
+
+  return { projectTypes, beneficiaries, entryPoints, loading, addProjectType, addBeneficiary, refetchProjectTypes }
 }

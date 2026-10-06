@@ -8,6 +8,7 @@ import { STATIC_OPTIONS, SCOPE_OPTIONS, parseAmount } from './columns'
 import DocumentChecklist from './DocumentChecklist'
 import ProjectContacts from './ProjectContacts'
 import RemarksSection from './RemarksSection'
+import ProjectTypesManager from './ProjectTypesManager'
 import { useToast } from '../../lib/ToastContext'
 import { useAuth } from '../../lib/AuthContext'
 
@@ -86,7 +87,7 @@ export default function ProjectDetail() {
 
   const { projects, loading, updateProject, deleteProject } = useProjects()
   const { updateBeneficiary } = useBeneficiaries()
-  const { projectTypes, entryPoints, loading: formDataLoading } = useFormData()
+  const { projectTypes, entryPoints, loading: formDataLoading, addProjectType, refetchProjectTypes } = useFormData()
 
   // Same "derive from the live list" pattern as Projects.jsx/Overview.jsx —
   // never a stale snapshot after a refetch.
@@ -101,6 +102,13 @@ export default function ProjectDetail() {
 
   const [addingEntryPoint, setAddingEntryPoint]     = useState(false)
   const [newEntryPointValue, setNewEntryPointValue] = useState('')
+
+  // Inline "add new project type" + admin manager modal
+  const [addingType, setAddingType]             = useState(false)
+  const [newTypeName, setNewTypeName]           = useState('')
+  const [addingTypeSaving, setAddingTypeSaving] = useState(false)
+  const [typeError, setTypeError]               = useState(null)
+  const [showTypeManager, setShowTypeManager]   = useState(false)
 
   // ── Beneficiary form state (separate save, separate table) ──
   const [benForm, setBenForm]     = useState({})
@@ -162,6 +170,17 @@ export default function ProjectDetail() {
     handleChange('entry_point', trimmed)
     setAddingEntryPoint(false)
     setNewEntryPointValue('')
+  }
+
+  async function handleAddType() {
+    setAddingTypeSaving(true)
+    setTypeError(null)
+    const { data, error } = await addProjectType(newTypeName)
+    setAddingTypeSaving(false)
+    if (error) { setTypeError(error); return }
+    handleChange('project_type_id', data.id)
+    setAddingType(false)
+    setNewTypeName('')
   }
 
   const entryPointOptions = form.entry_point && !entryPoints.includes(form.entry_point)
@@ -295,18 +314,67 @@ export default function ProjectDetail() {
               className={inputClass}
             />
           </Field>
+          <div className={addingType ? 'col-span-2' : ''}>
           <Field label="Project Type">
-            <Select
-              value={form.project_type_id}
-              onChange={e => handleChange('project_type_id', e.target.value)}
-              className={selectClass}
-            >
-              <option value="">—</option>
-              {projectTypes.map(t => (
-                <option key={t.id} value={t.id}>{t.name}</option>
-              ))}
-            </Select>
+            {addingType ? (
+              <div>
+                <div className="flex gap-2">
+                  <input
+                    autoFocus
+                    type="text"
+                    value={newTypeName}
+                    onChange={e => setNewTypeName(e.target.value)}
+                    onKeyDown={e => e.key === 'Enter' && handleAddType()}
+                    placeholder="New project type name..."
+                    className={inputClass}
+                  />
+                  <button
+                    type="button"
+                    onClick={handleAddType}
+                    disabled={addingTypeSaving}
+                    className="px-3 rounded bg-blue-600 text-white text-sm font-medium hover:bg-blue-700 disabled:opacity-50 whitespace-nowrap"
+                  >
+                    {addingTypeSaving ? '...' : 'Add'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setAddingType(false); setNewTypeName(''); setTypeError(null) }}
+                    className="px-3 rounded border border-gray-300 text-sm hover:bg-gray-50"
+                  >
+                    Cancel
+                  </button>
+                </div>
+                {typeError && <p className="text-red-500 text-xs mt-1">{typeError}</p>}
+              </div>
+            ) : (
+              <>
+                <Select
+                  value={form.project_type_id}
+                  onChange={e => {
+                    if (e.target.value === '__new_type__') setAddingType(true)
+                    else handleChange('project_type_id', e.target.value)
+                  }}
+                  className={selectClass}
+                >
+                  <option value="">—</option>
+                  {projectTypes.map(t => (
+                    <option key={t.id} value={t.id}>{t.name}</option>
+                  ))}
+                  <option value="__new_type__">+ Add new project type...</option>
+                </Select>
+                {isAdmin && (
+                  <button
+                    type="button"
+                    onClick={() => setShowTypeManager(true)}
+                    className="text-xs text-blue-500 hover:text-blue-700 underline mt-1"
+                  >
+                    Manage project types
+                  </button>
+                )}
+              </>
+            )}
           </Field>
+          </div>
         </div>
 
         <Field label="Title">
@@ -690,6 +758,13 @@ export default function ProjectDetail() {
           Cancel
         </button>
       </div>
+      )}
+
+      {showTypeManager && (
+        <ProjectTypesManager
+          onClose={() => setShowTypeManager(false)}
+          onChanged={refetchProjectTypes}
+        />
       )}
 
       {blocker.state === 'blocked' && (
