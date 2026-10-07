@@ -4,6 +4,7 @@ import { ThemeProvider } from './lib/ThemeContext'
 import { ToastProvider } from './lib/ToastContext'
 import AppLayout from './components/layout/AppLayout'
 import Login from './pages/auth/Login'
+import About from './pages/about/About'
 import Dashboard from './pages/dashboard/Dashboard'
 import Projects from './pages/projects/Projects'
 import ProjectDetail from './pages/projects/ProjectDetail'
@@ -40,6 +41,8 @@ const Layout = () => (
 
 const router = createBrowserRouter([
   { path: '/login', element: <Login /> },
+  // Public info page about CEST 2.0 (linked from the login card).
+  { path: '/about', element: <About /> },
   {
     element: <Layout />,
     children: [

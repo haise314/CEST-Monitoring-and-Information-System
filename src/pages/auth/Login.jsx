@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useNavigate, useLocation } from 'react-router'
+import { useNavigate, useLocation, Link } from 'react-router'
 import { useAuth } from '../../lib/AuthContext'
 import logo from '../../assets/logo.svg'
 
@@ -64,6 +64,12 @@ export default function Login() {
         >
           {submitting ? 'Signing in...' : 'Sign in'}
         </button>
+
+        <div className="pt-3 border-t border-gray-100 text-center">
+          <Link to="/about" className="text-sm text-blue-600 hover:text-blue-700 underline">
+            About DOST CEST 2.0
+          </Link>
+        </div>
       </form>
     </div>
   )

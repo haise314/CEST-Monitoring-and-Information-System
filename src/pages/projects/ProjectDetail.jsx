@@ -4,6 +4,7 @@ import { useProjects } from '../../hooks/useProjects'
 import { useBeneficiaries } from '../../hooks/useBeneficiaries'
 import { useFormData } from '../../hooks/useFormData'
 import Select from '../../components/common/Select'
+import SearchableSelect from '../../components/common/SearchableSelect'
 import { STATIC_OPTIONS, SCOPE_OPTIONS, parseAmount } from './columns'
 import DocumentChecklist from './DocumentChecklist'
 import ProjectContacts from './ProjectContacts'
@@ -85,9 +86,9 @@ export default function ProjectDetail() {
   const navigate = useNavigate()
   const toast = useToast()
 
-  const { projects, loading, updateProject, deleteProject } = useProjects()
+  const { projects, loading, updateProject, deleteProject, reassignBeneficiary } = useProjects()
   const { updateBeneficiary } = useBeneficiaries()
-  const { projectTypes, entryPoints, loading: formDataLoading, addProjectType, refetchProjectTypes } = useFormData()
+  const { projectTypes, beneficiaries, entryPoints, loading: formDataLoading, addProjectType, refetchProjectTypes } = useFormData()
 
   // Same "derive from the live list" pattern as Projects.jsx/Overview.jsx —
   // never a stale snapshot after a refetch.
@@ -118,6 +119,13 @@ export default function ProjectDetail() {
   // isn't refetched, so unsaved project edits aren't clobbered). This holds
   // the just-saved values so the form isn't wrongly flagged as unsaved.
   const [benBaseline, setBenBaseline] = useState(null)
+
+  // ── Change this project's beneficiary (this project only) ──
+  const [swapping, setSwapping]             = useState(false)
+  const [newBenId, setNewBenId]             = useState('')
+  const [unlinkContacts, setUnlinkContacts] = useState(true)
+  const [swapBusy, setSwapBusy]             = useState(false)
+  const [swapError, setSwapError]           = useState(null)
 
   // ── Danger zone ──
   const [deleting, setDeleting]           = useState(false)
@@ -250,6 +258,20 @@ export default function ProjectDetail() {
       setBenBaseline({ ...benForm })
       toast.success('Beneficiary updated')
     }
+  }
+
+  // Moves THIS project to another beneficiary (other projects of the old
+  // beneficiary are untouched). Refetches useProjects, which resets the form,
+  // so the trigger is disabled while there are unsaved edits.
+  async function handleSwapBeneficiary() {
+    setSwapBusy(true)
+    setSwapError(null)
+    const { error } = await reassignBeneficiary(project.id, Number(newBenId), unlinkContacts)
+    setSwapBusy(false)
+    if (error) { setSwapError(error); return }
+    setSwapping(false)
+    setNewBenId('')
+    toast.success('Beneficiary changed')
   }
 
   async function handleDelete() {
@@ -498,11 +520,10 @@ export default function ProjectDetail() {
         </Field>
       </Section>
 
-      {/* Beneficiary — now genuinely editable in place. Note this edits the
-          beneficiary row itself, which is shared by every project under it —
-          not a per-project copy. Reassigning a project to a *different*
-          beneficiary is still not supported here (that's a separate,
-          bigger change from "edit this beneficiary's info"). */}
+      {/* Beneficiary — editable in place. "Save Beneficiary Info" edits the
+          beneficiary row itself, which is shared by every project under it.
+          "Wrong beneficiary?" below instead moves only THIS project to a
+          different beneficiary. */}
       <Section title="Beneficiary" locked={!canEdit}>
         <div className="grid grid-cols-2 gap-3">
           <Field label="Name">
@@ -570,6 +591,72 @@ export default function ProjectDetail() {
           <p className="text-xs text-gray-400">
             Updates this beneficiary everywhere it's referenced, including other projects.
           </p>
+        </div>
+
+        {/* Swap this project to a different beneficiary */}
+        <div className="pt-3 border-t border-gray-100">
+          {!swapping ? (
+            <div>
+              <button
+                type="button"
+                onClick={() => setSwapping(true)}
+                disabled={dirty}
+                className="text-xs text-blue-500 hover:text-blue-700 underline disabled:opacity-40 disabled:no-underline disabled:cursor-not-allowed"
+              >
+                Wrong beneficiary? Change it for this project only
+              </button>
+              {dirty && (
+                <p className="text-xs text-amber-600 mt-1">Save your other changes first.</p>
+              )}
+            </div>
+          ) : (
+            <div className="space-y-2 bg-gray-50 border border-gray-200 rounded p-3">
+              <p className="text-xs text-gray-500">
+                Moves <strong>this project only</strong> to another beneficiary. Other projects of
+                “{project.beneficiaries?.name}” are not affected.
+              </p>
+              <SearchableSelect
+                value={newBenId}
+                onChange={setNewBenId}
+                options={beneficiaries
+                  .filter(b => b.id !== project.beneficiary_id)
+                  .map(b => ({ value: b.id, label: `${b.name}${b.municipality ? ` (${b.municipality})` : ''}` }))}
+                placeholder="Select the correct beneficiary..."
+                searchPlaceholder="Search beneficiaries..."
+                className={selectClass}
+              />
+              <label className="flex items-start gap-2 text-xs text-gray-600 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={unlinkContacts}
+                  onChange={e => setUnlinkContacts(e.target.checked)}
+                  className="mt-0.5 h-4 w-4 rounded"
+                />
+                <span>
+                  Remove this project's contacts that don't belong to the new beneficiary
+                  <span className="block text-gray-400">Only the link is removed; the contacts are kept.</span>
+                </span>
+              </label>
+              {swapError && <p className="text-red-500 text-xs">{swapError}</p>}
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={handleSwapBeneficiary}
+                  disabled={!newBenId || swapBusy}
+                  className="bg-blue-600 text-white rounded px-3 py-1.5 text-xs font-medium hover:bg-blue-700 disabled:opacity-50"
+                >
+                  {swapBusy ? 'Changing...' : 'Change beneficiary'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setSwapping(false); setNewBenId(''); setSwapError(null) }}
+                  className="border border-gray-300 rounded px-3 py-1.5 text-xs hover:bg-gray-50"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       </Section>
       </div>
@@ -646,7 +733,8 @@ export default function ProjectDetail() {
       </Section>
 
       <Section title="Contacts">
-        <ProjectContacts project={project} />
+        {/* key: remount (and refetch) when the project's beneficiary changes */}
+        <ProjectContacts key={project.beneficiary_id} project={project} />
       </Section>
       </div>
       </div>

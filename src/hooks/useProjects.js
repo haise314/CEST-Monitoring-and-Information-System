@@ -55,6 +55,22 @@ export function useProjects() {
     return { error: null }
   }
 
+  // Moves one project to another beneficiary (atomic, via
+  // reassign_project_beneficiary in migrations/04). Also re-points the
+  // project's itinerary stops; optionally unlinks contacts that don't belong
+  // to the new beneficiary (links only, contacts are kept).
+  async function reassignBeneficiary(id, beneficiaryId, unlinkContacts = true) {
+    if (!canEdit) return { error: NO_EDIT }
+    const { error } = await supabase.rpc('reassign_project_beneficiary', {
+      p_project_id:      id,
+      p_beneficiary_id:  beneficiaryId,
+      p_unlink_contacts: unlinkContacts,
+    })
+    if (error) return { error: error.message }
+    await fetchProjects()
+    return { error: null }
+  }
+
   async function deleteProject(id) {
     if (!isAdmin) return { error: NO_ADMIN }
     const { error } = await supabase
@@ -73,6 +89,7 @@ export function useProjects() {
     refetch: fetchProjects,
     addProject,
     updateProject,
+    reassignBeneficiary,
     deleteProject,
   }
 }
