@@ -1,7 +1,8 @@
 import { legDistances, totalRouteDistanceKm, nearestNeighborOrder, estimateMinutes } from '../../lib/geo'
 import { OFFICE_LOCATION } from '../../lib/officeLocation'
+import { siteLabel } from '../../hooks/useMapSites'
 
-// `stops` is the ordered array of beneficiary objects (with lat/lng) making
+// `stops` is the ordered array of sites (one per project, with lat/lng) making
 // up the itinerary currently being edited (not yet necessarily saved).
 export default function StopList({ stops, onReorder, onRemove }) {
   const start = OFFICE_LOCATION
@@ -21,8 +22,7 @@ export default function StopList({ stops, onReorder, onRemove }) {
   }
 
   // Flag a leg as an outlier if it's meaningfully longer than the day's
-  // average leg — just a visual nudge to reconsider that stop's day, not a
-  // rule.
+  // average leg — just a visual nudge, not a rule.
   const validLegs = legs.filter(d => d != null)
   const avgLeg = validLegs.length ? validLegs.reduce((a, b) => a + b, 0) / validLegs.length : 0
 
@@ -50,7 +50,7 @@ export default function StopList({ stops, onReorder, onRemove }) {
 
       {stops.length === 0 ? (
         <p className="text-xs text-gray-400 py-3 text-center">
-          No stops yet — add beneficiaries from the pool on the left.
+          No stops yet — add projects from the pool on the left.
         </p>
       ) : (
         <div className="space-y-1.5">
@@ -66,6 +66,7 @@ export default function StopList({ stops, onReorder, onRemove }) {
                   <span className="text-xs text-gray-400 w-5 text-right">{i + 1}.</span>
                   <div className="min-w-0">
                     <div className="font-medium text-gray-700 truncate">{b.name}</div>
+                    <div className="text-xs text-gray-500 truncate">{siteLabel(b)}</div>
                     <div className="text-xs text-gray-400 truncate">
                       {[b.barangay, b.municipality].filter(Boolean).join(', ') || '—'}
                       {leg != null && (

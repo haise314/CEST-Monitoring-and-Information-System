@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict 5xwHRguJsMo4F1FOx7aNcDGVj8D5L8A4rDJVH0mnqgaK5GqYLlNoJCPetu0QMm0
+\restrict sNhsAJWZFLzJPVGc57xC7O3UaHPznD8XAodWU9fjgv5uJ9x7EMMEfn4iSFomVrk
 
 -- Dumped from database version 17.6
 -- Dumped by pg_dump version 17.11 (Ubuntu 17.11-1.pgdg24.04+2)
@@ -159,6 +159,7 @@ begin
 
   foreach t in array array[
     'project_types','annual_budgets','document_types','beneficiaries','beneficiary_contacts',
+    'contact_beneficiaries',
     'project_instances','documents','project_contacts','remarks',
     'itineraries','itinerary_stops','profiles'
   ] loop
@@ -220,6 +221,7 @@ begin
   -- parents before children so foreign keys are satisfied
   foreach tbl in array array[
     'project_types','annual_budgets','document_types','beneficiaries','beneficiary_contacts',
+    'contact_beneficiaries',
     'project_instances','documents','project_contacts','remarks',
     'itineraries','itinerary_stops'
   ] loop
@@ -249,6 +251,43 @@ begin
                     else e end), '[]'::jsonb)
         into arr
         from jsonb_array_elements(arr) e;
+    end if;
+
+    if tbl = 'contact_beneficiaries' then
+      if p_payload->'tables'->'contact_beneficiaries' is not null then
+        -- Current backup. Skip a link whose contact+beneficiary pair already
+        -- exists under a different id (it would break the unique rule).
+        select coalesce(jsonb_agg(e), '[]'::jsonb)
+          into arr
+          from jsonb_array_elements(arr) e
+         where not exists (
+                 select 1 from public.contact_beneficiaries l
+                  where l.contact_id     = (e->>'contact_id')::int
+                    and l.beneficiary_id = (e->>'beneficiary_id')::int
+                    and l.id is distinct from (e->>'id')::int);
+      else
+        -- Backup made before this table existed: each contact carried one
+        -- beneficiary_id. Rebuild links from that (skipping pairs already
+        -- present and beneficiaries that exist neither now nor in the file).
+        select coalesce(jsonb_agg(r), '[]'::jsonb)
+          into arr
+          from (
+            select jsonb_build_object(
+                     'id', (select coalesce(max(id), 0) from public.contact_beneficiaries)
+                           + row_number() over (order by (c.e->>'id')::int),
+                     'contact_id',     (c.e->>'id')::int,
+                     'beneficiary_id', (c.e->>'beneficiary_id')::int) as r
+              from jsonb_array_elements(coalesce(p_payload->'tables'->'beneficiary_contacts', '[]'::jsonb)) as c(e)
+             where c.e->>'beneficiary_id' is not null
+               and not exists (select 1 from public.contact_beneficiaries l
+                                where l.contact_id = (c.e->>'id')::int
+                                  and l.beneficiary_id = (c.e->>'beneficiary_id')::int)
+               and (exists (select 1 from public.beneficiaries b where b.id = (c.e->>'beneficiary_id')::int)
+                    or exists (select 1
+                                 from jsonb_array_elements(coalesce(p_payload->'tables'->'beneficiaries', '[]'::jsonb)) bb
+                                where (bb->>'id')::int = (c.e->>'beneficiary_id')::int))
+          ) s;
+      end if;
     end if;
 
     execute format($q$
@@ -369,6 +408,45 @@ $$;
 
 
 --
+-- Name: save_contact(integer, text, text, text, text, integer[]); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.save_contact(p_id integer, p_name text, p_role text, p_contact_number text, p_messenger_link text, p_beneficiary_ids integer[]) RETURNS integer
+    LANGUAGE plpgsql
+    SET search_path TO 'public'
+    AS $$
+declare
+  v_id  integer;
+  v_ids integer[] := coalesce(p_beneficiary_ids, '{}');
+begin
+  if p_id is null then
+    insert into public.beneficiary_contacts (name, role, contact_number, messenger_link)
+    values (p_name, p_role, p_contact_number, p_messenger_link)
+    returning id into v_id;
+  else
+    update public.beneficiary_contacts
+       set name = p_name, role = p_role,
+           contact_number = p_contact_number, messenger_link = p_messenger_link
+     where id = p_id
+    returning id into v_id;
+    if v_id is null then
+      raise exception 'Contact not found, or you do not have permission to change it.';
+    end if;
+  end if;
+
+  delete from public.contact_beneficiaries
+   where contact_id = v_id and beneficiary_id <> all (v_ids);
+
+  insert into public.contact_beneficiaries (contact_id, beneficiary_id)
+  select v_id, b from unnest(v_ids) b
+  on conflict (contact_id, beneficiary_id) do nothing;
+
+  return v_id;
+end;
+$$;
+
+
+--
 -- Name: set_updated_at(); Type: FUNCTION; Schema: public; Owner: -
 --
 
@@ -471,7 +549,6 @@ ALTER SEQUENCE public.beneficiaries_id_seq OWNED BY public.beneficiaries.id;
 
 CREATE TABLE public.beneficiary_contacts (
     id integer NOT NULL,
-    beneficiary_id integer NOT NULL,
     name character varying(255) NOT NULL,
     role character varying(100),
     contact_number character varying(50),
@@ -498,6 +575,32 @@ CREATE SEQUENCE public.beneficiary_contacts_id_seq
 --
 
 ALTER SEQUENCE public.beneficiary_contacts_id_seq OWNED BY public.beneficiary_contacts.id;
+
+
+--
+-- Name: contact_beneficiaries; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.contact_beneficiaries (
+    id integer NOT NULL,
+    contact_id integer NOT NULL,
+    beneficiary_id integer NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL
+);
+
+
+--
+-- Name: contact_beneficiaries_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+ALTER TABLE public.contact_beneficiaries ALTER COLUMN id ADD GENERATED BY DEFAULT AS IDENTITY (
+    SEQUENCE NAME public.contact_beneficiaries_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1
+);
 
 
 --
@@ -619,7 +722,8 @@ CREATE TABLE public.itinerary_stops (
     beneficiary_id integer NOT NULL,
     stop_order integer NOT NULL,
     notes text,
-    created_at timestamp with time zone DEFAULT now() NOT NULL
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    project_id integer
 );
 
 
@@ -717,7 +821,9 @@ CREATE TABLE public.project_instances (
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
     project_category public.project_category,
     title character varying(255),
-    project_scope public.project_scope DEFAULT 'Provincial'::public.project_scope NOT NULL
+    project_scope public.project_scope DEFAULT 'Provincial'::public.project_scope NOT NULL,
+    latitude numeric(9,6),
+    longitude numeric(9,6)
 );
 
 
@@ -747,7 +853,9 @@ ALTER SEQUENCE public.project_instances_id_seq OWNED BY public.project_instances
 
 CREATE TABLE public.project_types (
     id integer NOT NULL,
-    name character varying(100) NOT NULL
+    name character varying(100) NOT NULL,
+    icon_svg text,
+    CONSTRAINT project_types_icon_svg_size CHECK (((icon_svg IS NULL) OR (length(icon_svg) <= 60000)))
 );
 
 
@@ -917,6 +1025,22 @@ ALTER TABLE ONLY public.beneficiary_contacts
 
 
 --
+-- Name: contact_beneficiaries contact_beneficiaries_contact_id_beneficiary_id_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.contact_beneficiaries
+    ADD CONSTRAINT contact_beneficiaries_contact_id_beneficiary_id_key UNIQUE (contact_id, beneficiary_id);
+
+
+--
+-- Name: contact_beneficiaries contact_beneficiaries_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.contact_beneficiaries
+    ADD CONSTRAINT contact_beneficiaries_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: document_types document_types_name_phase_key; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -949,11 +1073,11 @@ ALTER TABLE ONLY public.itineraries
 
 
 --
--- Name: itinerary_stops itinerary_stops_itinerary_id_beneficiary_id_key; Type: CONSTRAINT; Schema: public; Owner: -
+-- Name: itinerary_stops itinerary_stops_itinerary_id_project_id_key; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.itinerary_stops
-    ADD CONSTRAINT itinerary_stops_itinerary_id_beneficiary_id_key UNIQUE (itinerary_id, beneficiary_id);
+    ADD CONSTRAINT itinerary_stops_itinerary_id_project_id_key UNIQUE (itinerary_id, project_id);
 
 
 --
@@ -1021,6 +1145,13 @@ ALTER TABLE ONLY public.remarks
 
 
 --
+-- Name: contact_beneficiaries_beneficiary_id_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX contact_beneficiaries_beneficiary_id_idx ON public.contact_beneficiaries USING btree (beneficiary_id);
+
+
+--
 -- Name: project_instances project_instances_set_updated_at; Type: TRIGGER; Schema: public; Owner: -
 --
 
@@ -1072,11 +1203,19 @@ ALTER TABLE ONLY public.backup_status
 
 
 --
--- Name: beneficiary_contacts beneficiary_contacts_beneficiary_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: contact_beneficiaries contact_beneficiaries_beneficiary_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY public.beneficiary_contacts
-    ADD CONSTRAINT beneficiary_contacts_beneficiary_id_fkey FOREIGN KEY (beneficiary_id) REFERENCES public.beneficiaries(id) ON DELETE CASCADE;
+ALTER TABLE ONLY public.contact_beneficiaries
+    ADD CONSTRAINT contact_beneficiaries_beneficiary_id_fkey FOREIGN KEY (beneficiary_id) REFERENCES public.beneficiaries(id) ON DELETE CASCADE;
+
+
+--
+-- Name: contact_beneficiaries contact_beneficiaries_contact_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.contact_beneficiaries
+    ADD CONSTRAINT contact_beneficiaries_contact_id_fkey FOREIGN KEY (contact_id) REFERENCES public.beneficiary_contacts(id) ON DELETE CASCADE;
 
 
 --
@@ -1109,6 +1248,14 @@ ALTER TABLE ONLY public.itinerary_stops
 
 ALTER TABLE ONLY public.itinerary_stops
     ADD CONSTRAINT itinerary_stops_itinerary_id_fkey FOREIGN KEY (itinerary_id) REFERENCES public.itineraries(id) ON DELETE CASCADE;
+
+
+--
+-- Name: itinerary_stops itinerary_stops_project_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.itinerary_stops
+    ADD CONSTRAINT itinerary_stops_project_id_fkey FOREIGN KEY (project_id) REFERENCES public.project_instances(id) ON DELETE CASCADE;
 
 
 --
@@ -1199,6 +1346,12 @@ ALTER TABLE public.beneficiaries ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.beneficiary_contacts ENABLE ROW LEVEL SECURITY;
 
 --
+-- Name: contact_beneficiaries; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.contact_beneficiaries ENABLE ROW LEVEL SECURITY;
+
+--
 -- Name: annual_budgets delete: admin; Type: POLICY; Schema: public; Owner: -
 --
 
@@ -1245,6 +1398,13 @@ CREATE POLICY "delete: admin" ON public.project_types FOR DELETE TO authenticate
 --
 
 CREATE POLICY "delete: editors" ON public.beneficiary_contacts FOR DELETE TO authenticated USING (( SELECT public.can_edit() AS can_edit));
+
+
+--
+-- Name: contact_beneficiaries delete: editors; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "delete: editors" ON public.contact_beneficiaries FOR DELETE TO authenticated USING (( SELECT public.can_edit() AS can_edit));
 
 
 --
@@ -1313,6 +1473,13 @@ CREATE POLICY "insert: editors" ON public.beneficiaries FOR INSERT TO authentica
 --
 
 CREATE POLICY "insert: editors" ON public.beneficiary_contacts FOR INSERT TO authenticated WITH CHECK (( SELECT public.can_edit() AS can_edit));
+
+
+--
+-- Name: contact_beneficiaries insert: editors; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "insert: editors" ON public.contact_beneficiaries FOR INSERT TO authenticated WITH CHECK (( SELECT public.can_edit() AS can_edit));
 
 
 --
@@ -1426,6 +1593,13 @@ CREATE POLICY "read: members" ON public.beneficiaries FOR SELECT TO authenticate
 --
 
 CREATE POLICY "read: members" ON public.beneficiary_contacts FOR SELECT TO authenticated USING (( SELECT public.is_member() AS is_member));
+
+
+--
+-- Name: contact_beneficiaries read: members; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "read: members" ON public.contact_beneficiaries FOR SELECT TO authenticated USING (( SELECT public.is_member() AS is_member));
 
 
 --
@@ -1564,5 +1738,5 @@ CREATE POLICY "update: editors" ON public.project_instances FOR UPDATE TO authen
 -- PostgreSQL database dump complete
 --
 
-\unrestrict 5xwHRguJsMo4F1FOx7aNcDGVj8D5L8A4rDJVH0mnqgaK5GqYLlNoJCPetu0QMm0
+\unrestrict sNhsAJWZFLzJPVGc57xC7O3UaHPznD8XAodWU9fjgv5uJ9x7EMMEfn4iSFomVrk
 

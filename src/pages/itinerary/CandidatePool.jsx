@@ -1,8 +1,9 @@
 import { useMemo, useState } from 'react'
 import { haversineDistanceKm } from '../../lib/geo'
+import { siteLabel } from '../../hooks/useMapSites'
 
-// `all` is the full filtered beneficiary list (from filterBeneficiaries).
-// `excludeIds` are beneficiaries already added to the itinerary being built.
+// `all` is the filtered list of sites (one per project, from useMapSites).
+// `excludeIds` are site ids already added to the itinerary being built.
 // `anchor` (optional) is the last stop added — when set, the pool sorts by
 // distance from it, making "what's nearby" the default view while building
 // a day.
@@ -13,7 +14,7 @@ export default function CandidatePool({ all, excludeIds, anchor, onAdd }) {
     const pool = all.filter(b => !excludeIds.has(b.id) && b.latitude != null && b.longitude != null)
     const q = search.trim().toLowerCase()
     const filtered = q
-      ? pool.filter(b => [b.name, b.municipality, b.barangay].filter(Boolean).some(f => f.toLowerCase().includes(q)))
+      ? pool.filter(b => [b.name, siteLabel(b), b.municipality, b.barangay].filter(Boolean).some(f => f.toLowerCase().includes(q)))
       : pool
 
     if (!anchor) return filtered
@@ -39,7 +40,7 @@ export default function CandidatePool({ all, excludeIds, anchor, onAdd }) {
       <div className="flex-1 overflow-y-auto space-y-1.5">
         {available.length === 0 ? (
           <p className="text-xs text-gray-400 py-4 text-center">
-            No pinned beneficiaries match the current filters.
+            No pinned projects match the current filters.
           </p>
         ) : (
           available.map(b => {
@@ -48,6 +49,7 @@ export default function CandidatePool({ all, excludeIds, anchor, onAdd }) {
               <div key={b.id} className="flex items-center justify-between border border-gray-200 rounded px-2 py-1.5 text-sm bg-white">
                 <div className="min-w-0">
                   <div className="font-medium text-gray-700 truncate">{b.name}</div>
+                  <div className="text-xs text-gray-500 truncate">{siteLabel(b)}</div>
                   <div className="text-xs text-gray-400 truncate">
                     {[b.barangay, b.municipality].filter(Boolean).join(', ') || '—'}
                     {d != null && ` · ${d.toFixed(1)} km away`}

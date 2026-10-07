@@ -5,7 +5,7 @@ import MarkerClusterGroup from 'react-leaflet-cluster'
 import 'leaflet/dist/leaflet.css'
 import 'leaflet.markercluster/dist/MarkerCluster.css' // spiderfy/zoom animations only
 import '../../lib/Leafleticon'
-import { useMergedBeneficiaries } from '../../hooks/useMergedBeneficiaries'
+import { useMapSites, siteLabel } from '../../hooks/useMapSites'
 import { useItineraries } from '../../hooks/useItineraries'
 import { useProjectTypeIcons } from '../../hooks/useProjectTypeIcons'
 import { useAuth } from '../../lib/AuthContext'
@@ -21,6 +21,11 @@ import StopList from '../itinerary/StopList'
 // Rough center of Zambales province — used as the map's starting view.
 const ZAMBALES_CENTER = [15.5, 119.95]
 const DEFAULT_ZOOM = 10
+
+// Pins are one per PROJECT. They only merge into a cluster when they are
+// practically touching: a pin is ~30px tall, so 25px means "overlapping".
+// Zoom in and they separate; pins on the exact same spot fan out on click.
+const CLUSTER_RADIUS_PX = 25
 
 const CATEGORY_COLORS = {
   LGU:         '#3b82f6', // blue
@@ -43,18 +48,14 @@ const STATUS_COLORS = {
   'For Pull Out':       '#ef4444', // red
   Done:                 '#22c55e', // green
 }
-// A beneficiary has one .category, but can have several .projects each with
-// their own .overall_status — so "color by status" has two extra cases.
-const STATUS_COLOR_NONE  = '#9ca3af' // gray — no projects / no status set
-const STATUS_COLOR_MIXED = '#111827' // near-black — projects with different statuses
+const STATUS_COLOR_NONE  = '#9ca3af' // gray — no status set
+const STATUS_COLOR_MIXED = '#111827' // kept for legend compatibility (a pin is one project now)
 const DIMMED_COLOR       = '#9ca3af'
 
-function getBeneficiaryColor(b, colorBy) {
+function getSiteColor(b, colorBy) {
   if (colorBy === 'status') {
-    const statuses = [...new Set(b.projects.map(p => p.overall_status).filter(Boolean))]
-    if (statuses.length === 0) return STATUS_COLOR_NONE
-    if (statuses.length === 1) return STATUS_COLORS[statuses[0]] ?? STATUS_COLOR_NONE
-    return STATUS_COLOR_MIXED
+    const status = b.projects[0]?.overall_status
+    return status ? (STATUS_COLORS[status] ?? STATUS_COLOR_NONE) : STATUS_COLOR_NONE
   }
   return CATEGORY_COLORS[b.category] ?? CATEGORY_COLORS.Others
 }
@@ -64,11 +65,10 @@ const LEGEND_ENTRIES = {
   status: [
     ...Object.entries(STATUS_COLORS),
     ['No status yet', STATUS_COLOR_NONE],
-    ['Mixed statuses', STATUS_COLOR_MIXED],
   ],
 }
 
-// Handles the "click the map to place the selected beneficiary's pin" flow.
+// Handles the "click the map to place the selected project's pin" flow.
 // Must be a child of MapContainer — useMapEvents only works inside one.
 function PlacementListener({ pinningId, onPlace }) {
   useMapEvents({
@@ -80,9 +80,10 @@ function PlacementListener({ pinningId, onPlace }) {
   return null
 }
 
-// One beneficiary pin + its popup. Used for both matching (clustered) and
+// One project pin + its popup. Used for both matching (clustered) and
 // dimmed (unclustered) pins.
-function BeneficiaryMarker({ b, icon, onReposition, onRemove }) {
+function SiteMarker({ b, icon, onReposition, onRemove }) {
+  const p = b.projects[0]
   return (
     <Marker position={[b.latitude, b.longitude]} icon={icon}>
       <Popup>
@@ -93,22 +94,14 @@ function BeneficiaryMarker({ b, icon, onReposition, onRemove }) {
           </div>
           <div className="text-xs text-gray-400 mb-2">{b.category}</div>
 
-          {b.projects.length === 0 ? (
-            <p className="text-xs text-gray-400 italic mb-2">No projects yet.</p>
-          ) : (
-            <ul className="text-xs space-y-1 mb-2" style={{ maxHeight: 128, overflowY: 'auto' }}>
-              {b.projects.map(p => (
-                <li key={p.id}>
-                  <Link to={`/projects/${p.id}`} className="text-blue-500 hover:text-blue-700 underline">
-                    {p.title || `${p.year} project`}
-                  </Link>
-                  <span className="text-gray-400">
-                    {' '}· {p.project_types?.name ?? 'No type'} · {p.year}{p.overall_status ? ` · ${p.overall_status}` : ''}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          )}
+          <div className="text-xs mb-2">
+            <Link to={`/projects/${p.id}`} className="text-blue-500 hover:text-blue-700 underline">
+              {siteLabel(b)}
+            </Link>
+            <span className="text-gray-400">
+              {' '}· {p.project_types?.name ?? 'No type'} · {p.year}{p.overall_status ? ` · ${p.overall_status}` : ''}
+            </span>
+          </div>
 
           <div className="flex gap-2">
             <button onClick={onReposition} className="text-xs text-blue-500 hover:text-blue-700 underline">
@@ -124,7 +117,7 @@ function BeneficiaryMarker({ b, icon, onReposition, onRemove }) {
   )
 }
 
-function BeneficiaryQueueItem({ b, isPinning, onStartPinning, onCancelPinning }) {
+function SiteQueueItem({ b, isPinning, onStartPinning, onCancelPinning }) {
   return (
     <div
       className={`flex items-center justify-between px-3 py-2 rounded border text-sm ${
@@ -133,9 +126,9 @@ function BeneficiaryQueueItem({ b, isPinning, onStartPinning, onCancelPinning })
     >
       <div className="min-w-0">
         <div className="font-medium text-gray-700 truncate">{b.name}</div>
+        <div className="text-xs text-gray-500 truncate">{siteLabel(b)}</div>
         <div className="text-xs text-gray-400 truncate">
           {[b.barangay, b.municipality].filter(Boolean).join(', ') || '—'}
-          {b.projects.length > 0 && ` · ${b.projects.length} project${b.projects.length === 1 ? '' : 's'}`}
         </div>
       </div>
       {isPinning ? (
@@ -164,12 +157,10 @@ export default function MapPage() {
   // `/itinerary` redirects here with ?mode=plan — see App.jsx.
   const [mode, setMode] = useState(searchParams.get('mode') === 'plan' ? 'plan' : 'overview')
 
-  const { merged, documentTypesByPhase, loading: dataLoading, error, setLocation, clearLocation } = useMergedBeneficiaries()
+  // `merged` = one entry per project ("site"); id is the project id.
+  const { sites: merged, documentTypesByPhase, loading: dataLoading, error, setLocation, clearLocation } = useMapSites()
   const { data: itineraries, loading: itinLoading, addItinerary, updateItinerary, deleteItinerary, saveStops } = useItineraries()
 
-  // Custom per-project-type icons. The factory is rebuilt (cache reset) only
-  // when the set of uploaded icons changes. `iconTypes` feeds the legend and
-  // `iconError` surfaces a failed icon query (e.g. missing icon_svg column).
   const { iconsById, types: iconTypes, error: iconError } = useProjectTypeIcons()
   const iconFor = useMemo(() => makeIconFactory(iconsById), [iconsById])
 
@@ -186,7 +177,7 @@ export default function MapPage() {
   const [selectedId, setSelectedId]       = useState('new')
   const [itinName, setItinName]           = useState('')
   const [visitDate, setVisitDate]         = useState('')
-  const [stopIds, setStopIds]             = useState([])
+  const [stopIds, setStopIds]             = useState([]) // project ids, in order
   const [itinFilters, setItinFilters]     = useSessionState('mapPlanFilters', [])
   const [itinSaving, setItinSaving]       = useState(false)
   const [itinSaveMsg, setItinSaveMsg]     = useState(null)
@@ -205,8 +196,6 @@ export default function MapPage() {
   const allPinned   = useMemo(() => merged.filter(b => b.latitude != null && b.longitude != null), [merged])
   const allUnpinned = useMemo(() => merged.filter(b => b.latitude == null || b.longitude == null), [merged])
 
-  // Project types present on pinned beneficiaries — limits the icon legend
-  // to types a viewer can actually see on the map.
   const usedTypeIds = useMemo(
     () => new Set(allPinned.flatMap(typeIdsFor)),
     [allPinned]
@@ -231,24 +220,24 @@ export default function MapPage() {
     const q = search.trim().toLowerCase()
     if (!q) return unpinnedQueue
     return unpinnedQueue.filter(b =>
-      [b.name, b.municipality, b.barangay].filter(Boolean).some(f => f.toLowerCase().includes(q))
+      [b.name, siteLabel(b), b.municipality, b.barangay].filter(Boolean).some(f => f.toLowerCase().includes(q))
     )
   }, [unpinnedQueue, search])
 
-  async function handlePlace(beneficiaryId, lat, lng) {
+  async function handlePlace(projectId, lat, lng) {
     setSaveError(null)
-    const { error } = await setLocation(beneficiaryId, lat, lng)
+    const { error } = await setLocation(projectId, lat, lng)
     if (error) setSaveError(error)
     else setPinningId(null)
   }
 
-  async function handleClear(beneficiaryId) {
+  async function handleClear(projectId) {
     setSaveError(null)
-    const { error } = await clearLocation(beneficiaryId)
+    const { error } = await clearLocation(projectId)
     if (error) setSaveError(error)
   }
 
-  const pinningBeneficiary = merged.find(b => b.id === pinningId)
+  const pinningSite = merged.find(b => b.id === pinningId)
 
   // ── Plan Visit ──
   const selectedItinerary = selectedId === 'new' ? null : itineraries.find(it => it.id === selectedId)
@@ -274,7 +263,7 @@ export default function MapPage() {
       if (!it) return
       setItinName(it.name)
       setVisitDate(it.visit_date ?? '')
-      setStopIds(it.itinerary_stops.map(s => s.beneficiary_id))
+      setStopIds(it.itinerary_stops.map(s => s.project_id).filter(pid => pid != null))
     }
     setItinSaveMsg(null)
   }
@@ -310,7 +299,10 @@ export default function MapPage() {
       await updateItinerary(itineraryId, { name: itinName.trim(), visit_date: visitDate || null })
     }
 
-    const { error } = await saveStops(itineraryId, stopIds)
+    const { error } = await saveStops(
+      itineraryId,
+      stops.map(s => ({ project_id: s.id, beneficiary_id: s.beneficiary_id }))
+    )
     setItinSaving(false)
     if (error) {
       setItinSaveMsg({ error })
@@ -354,7 +346,7 @@ export default function MapPage() {
         <>
           <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
             <span className="text-sm text-gray-400">
-              {merged.length} beneficiaries · {allPinned.length} pinned · {allUnpinned.length} unpinned
+              {merged.length} projects · {allPinned.length} pinned · {allUnpinned.length} unpinned
               {hasActiveOverviewFilter && ` · ${matchedIds.size} match filters`}
             </span>
             <div className="flex items-center gap-2 text-sm">
@@ -377,10 +369,10 @@ export default function MapPage() {
             onChange={setFilters}
           />
 
-          {pinningBeneficiary && (
+          {pinningSite && (
             <div className="mb-3 bg-blue-50 border border-blue-200 rounded px-3 py-2 text-sm text-blue-800 flex items-center justify-between">
               <span>
-                📍 Click the map to place a pin for <strong>{pinningBeneficiary.name}</strong>
+                📍 Click the map to place a pin for <strong>{pinningSite.name}</strong> — {siteLabel(pinningSite)}
               </span>
               <button
                 onClick={() => setPinningId(null)}
@@ -397,8 +389,6 @@ export default function MapPage() {
             </div>
           )}
 
-          {/* Admin-only: a failed icon query (most likely the icon_svg column
-              hasn't been added yet) otherwise just leaves every pin as a dot. */}
           {iconError && isAdmin && (
             <div className="mb-3 bg-amber-50 border border-amber-200 rounded px-3 py-2 text-sm text-amber-800">
               Project type icons couldn't load ({iconError}). Pins will show plain dots.
@@ -421,19 +411,20 @@ export default function MapPage() {
                   />
                   <PlacementListener pinningId={pinningId} onPlace={handlePlace} />
 
-                  {/* Matching pins: icon pills, clustered; overlapping sites fan out (spiderfy) */}
+                  {/* One pin per project. Only pins that practically overlap are
+                      grouped; exact-same-spot pins fan out (spiderfy) on click. */}
                   <MarkerClusterGroup
                     chunkedLoading
-                    maxClusterRadius={50}
+                    maxClusterRadius={CLUSTER_RADIUS_PX}
                     spiderfyOnMaxZoom
                     showCoverageOnHover={false}
                     iconCreateFunction={clusterIcon}
                   >
                     {matchingPinned.map(b => (
-                      <BeneficiaryMarker
+                      <SiteMarker
                         key={b.id}
                         b={b}
-                        icon={iconFor(typeIdsFor(b), getBeneficiaryColor(b, colorBy), false)}
+                        icon={iconFor(typeIdsFor(b), getSiteColor(b, colorBy), false)}
                         onReposition={() => setPinningId(b.id)}
                         onRemove={() => handleClear(b.id)}
                       />
@@ -442,7 +433,7 @@ export default function MapPage() {
 
                   {/* Filtered-out pins: small gray dots, outside the cluster group */}
                   {dimmedPinned.map(b => (
-                    <BeneficiaryMarker
+                    <SiteMarker
                       key={b.id}
                       b={b}
                       icon={iconFor([], DIMMED_COLOR, true)}
@@ -466,7 +457,6 @@ export default function MapPage() {
                 ))}
               </div>
 
-              {/* Legend for project-type icons (only types on pinned beneficiaries) */}
               <IconLegend types={iconTypes} usedTypeIds={usedTypeIds} />
             </div>
 
@@ -475,7 +465,7 @@ export default function MapPage() {
               <div className="mb-2">
                 <input
                   type="text"
-                  placeholder="Search unpinned beneficiaries..."
+                  placeholder="Search unpinned projects..."
                   value={search}
                   onChange={e => setSearch(e.target.value)}
                   className="w-full border border-gray-300 rounded px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -487,11 +477,11 @@ export default function MapPage() {
               <div className="flex-1 overflow-y-auto space-y-1.5 pr-1">
                 {filteredUnpinned.length === 0 ? (
                   <p className="text-xs text-gray-400 py-4 text-center">
-                    {unpinnedQueue.length === 0 ? 'All matching beneficiaries are pinned.' : 'No matches.'}
+                    {unpinnedQueue.length === 0 ? 'All matching projects are pinned.' : 'No matches.'}
                   </p>
                 ) : (
                   filteredUnpinned.map(b => (
-                    <BeneficiaryQueueItem
+                    <SiteQueueItem
                       key={b.id}
                       b={b}
                       isPinning={pinningId === b.id}
