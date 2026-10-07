@@ -1,21 +1,22 @@
 import { useState, useMemo } from 'react'
 import { Link, useSearchParams } from 'react-router'
 import { MapContainer, TileLayer, Marker, Popup, useMapEvents } from 'react-leaflet'
-import L from 'leaflet'
+import MarkerClusterGroup from 'react-leaflet-cluster'
 import 'leaflet/dist/leaflet.css'
+import 'leaflet.markercluster/dist/MarkerCluster.css' // spiderfy/zoom animations only
 import '../../lib/Leafleticon'
 import { useMergedBeneficiaries } from '../../hooks/useMergedBeneficiaries'
 import { useItineraries } from '../../hooks/useItineraries'
+import { useProjectTypeIcons } from '../../hooks/useProjectTypeIcons'
 import FilterChips from '../../components/common/FilterChips'
 import { applyFilters, isEmptyValue } from '../../lib/filterEngine'
 import { useSessionState } from '../../hooks/useSessionState'
 import { buildMapFilterFields } from './mapFilterFields'
+import { makeIconFactory, typeIdsFor, clusterIcon } from './pinIcons'
 import CandidatePool from '../itinerary/CandidatePool'
 import StopList from '../itinerary/StopList'
 
 // Rough center of Zambales province — used as the map's starting view.
-// Individual pins (once placed) are what actually matter; this is just
-// where the map opens before anything's clicked.
 const ZAMBALES_CENTER = [15.5, 119.95]
 const DEFAULT_ZOOM = 10
 
@@ -29,9 +30,7 @@ const CATEGORY_COLORS = {
   Others:      '#6b7280', // gray
 }
 
-// Matches mapFilterFields.jsx's OVERALL_STATUS_OPTIONS exactly. First pass
-// at a categorical palette — easy to retune later, nothing depends on the
-// specific hues.
+// Matches mapFilterFields.jsx's OVERALL_STATUS_OPTIONS exactly.
 const STATUS_COLORS = {
   'For Deployment':     '#f59e0b', // amber
   'For Implementation': '#3b82f6', // blue
@@ -43,10 +42,10 @@ const STATUS_COLORS = {
   Done:                 '#22c55e', // green
 }
 // A beneficiary has one .category, but can have several .projects each with
-// their own .overall_status — so "color by status" has two cases a plain
-// per-category lookup doesn't: no projects yet, or projects that disagree.
+// their own .overall_status — so "color by status" has two extra cases.
 const STATUS_COLOR_NONE  = '#9ca3af' // gray — no projects / no status set
 const STATUS_COLOR_MIXED = '#111827' // near-black — projects with different statuses
+const DIMMED_COLOR       = '#9ca3af'
 
 function getBeneficiaryColor(b, colorBy) {
   if (colorBy === 'status') {
@@ -56,23 +55,6 @@ function getBeneficiaryColor(b, colorBy) {
     return STATUS_COLOR_MIXED
   }
   return CATEGORY_COLORS[b.category] ?? CATEGORY_COLORS.Others
-}
-
-// Small colored-dot marker via a Leaflet divIcon — no image assets needed,
-// and it can represent "dimmed" (filtered out, but still shown) as a
-// distinct gray/faded state rather than just hiding the pin.
-// NOTE: custom per-project-type icons (user-supplied SVGs) are a separate,
-// not-yet-started follow-up — this stays the plain colored dot until then.
-function createDotIcon(color, dimmed) {
-  const size = dimmed ? 14 : 20
-  const fill = dimmed ? '#d1d5db' : color
-  return L.divIcon({
-    className: '',
-    html: `<span style="display:block;width:${size}px;height:${size}px;border-radius:50%;background:${fill};opacity:${dimmed ? 0.6 : 1};border:2px solid white;box-shadow:0 1px 3px rgba(0,0,0,0.35);"></span>`,
-    iconSize: [size, size],
-    iconAnchor: [size / 2, size / 2],
-    popupAnchor: [0, -size / 2],
-  })
 }
 
 const LEGEND_ENTRIES = {
@@ -94,6 +76,50 @@ function PlacementListener({ pinningId, onPlace }) {
     },
   })
   return null
+}
+
+// One beneficiary pin + its popup. Used for both matching (clustered) and
+// dimmed (unclustered) pins.
+function BeneficiaryMarker({ b, icon, onReposition, onRemove }) {
+  return (
+    <Marker position={[b.latitude, b.longitude]} icon={icon}>
+      <Popup>
+        <div className="text-sm" style={{ maxWidth: 220 }}>
+          <div className="font-semibold text-gray-800">{b.name}</div>
+          <div className="text-xs text-gray-500 mb-1">
+            {[b.barangay, b.municipality].filter(Boolean).join(', ') || '—'}
+          </div>
+          <div className="text-xs text-gray-400 mb-2">{b.category}</div>
+
+          {b.projects.length === 0 ? (
+            <p className="text-xs text-gray-400 italic mb-2">No projects yet.</p>
+          ) : (
+            <ul className="text-xs space-y-1 mb-2" style={{ maxHeight: 128, overflowY: 'auto' }}>
+              {b.projects.map(p => (
+                <li key={p.id}>
+                  <Link to={`/projects/${p.id}`} className="text-blue-500 hover:text-blue-700 underline">
+                    {p.title || `${p.year} project`}
+                  </Link>
+                  <span className="text-gray-400">
+                    {' '}· {p.project_types?.name ?? 'No type'} · {p.year}{p.overall_status ? ` · ${p.overall_status}` : ''}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
+
+          <div className="flex gap-2">
+            <button onClick={onReposition} className="text-xs text-blue-500 hover:text-blue-700 underline">
+              Reposition
+            </button>
+            <button onClick={onRemove} className="text-xs text-red-500 hover:text-red-700 underline">
+              Remove pin
+            </button>
+          </div>
+        </div>
+      </Popup>
+    </Marker>
+  )
 }
 
 function BeneficiaryQueueItem({ b, isPinning, onStartPinning, onCancelPinning }) {
@@ -132,34 +158,27 @@ function BeneficiaryQueueItem({ b, isPinning, onStartPinning, onCancelPinning })
 export default function MapPage() {
   const [searchParams] = useSearchParams()
 
-  // `/itinerary` redirects here with ?mode=plan — see App.jsx. Only read
-  // once on mount; switching tabs afterward is plain in-page state, not
-  // reflected back into the URL.
+  // `/itinerary` redirects here with ?mode=plan — see App.jsx.
   const [mode, setMode] = useState(searchParams.get('mode') === 'plan' ? 'plan' : 'overview')
 
-  // Single shared data source for both tabs — was two separate fetches
-  // (Map.jsx's own inline merge + Itinerary.jsx's useMergedBeneficiaries)
-  // before this merge.
   const { merged, documentTypesByPhase, loading: dataLoading, error, setLocation, clearLocation } = useMergedBeneficiaries()
   const { data: itineraries, loading: itinLoading, addItinerary, updateItinerary, deleteItinerary, saveStops } = useItineraries()
 
-  // Same field set for both tabs (Overview's dim-filter and Plan Visit's
-  // candidate-pool filter are conceptually the same "which beneficiaries"
-  // question) — built once, keyed on documentTypesByPhase since the
-  // document-compliance field depends on it.
+  // Custom per-project-type icons. The factory is rebuilt (cache reset) only
+  // when the set of uploaded icons changes.
+  const { iconsById } = useProjectTypeIcons()
+  const iconFor = useMemo(() => makeIconFactory(iconsById), [iconsById])
+
   const mapFields = useMemo(() => buildMapFilterFields(documentTypesByPhase), [documentTypesByPhase])
 
   // ── Overview mode state ──
   const [pinningId, setPinningId] = useState(null)
   const [search, setSearch]       = useState('')
   const [saveError, setSaveError] = useState(null)
-  // Active filter chips — remembered for the browser tab, same pattern as
-  // Projects.jsx, so switching to a project and back keeps your filters.
   const [filters, setFilters]     = useSessionState('mapOverviewFilters', [])
   const [colorBy, setColorBy]     = useState('category')
 
-  // ── Plan Visit mode state (unchanged from the old Itinerary.jsx, except
-  // its filters are now chips too) ──
+  // ── Plan Visit mode state ──
   const [selectedId, setSelectedId]       = useState('new')
   const [itinName, setItinName]           = useState('')
   const [visitDate, setVisitDate]         = useState('')
@@ -168,11 +187,7 @@ export default function MapPage() {
   const [itinSaving, setItinSaving]       = useState(false)
   const [itinSaveMsg, setItinSaveMsg]     = useState(null)
 
-  // ── Overview: filtering (now "dim", not "hide") ──
-  // The unpinned "needs pinning" queue is a task list, not a spatial
-  // overview — it still hides non-matches like before. The map itself
-  // shows every pinned beneficiary always; matches vs. non-matches are a
-  // visual (color/opacity) distinction instead.
+  // ── Overview: filtering ("dim", not "hide") ──
   const filteredForQueue = useMemo(
     () => applyFilters(merged, filters, mapFields),
     [merged, filters, mapFields]
@@ -185,6 +200,18 @@ export default function MapPage() {
 
   const allPinned   = useMemo(() => merged.filter(b => b.latitude != null && b.longitude != null), [merged])
   const allUnpinned = useMemo(() => merged.filter(b => b.latitude == null || b.longitude == null), [merged])
+
+  // Matching pins go in the cluster group; filtered-out pins are drawn as
+  // small gray dots outside it so clusters only reflect matches.
+  const matchingPinned = useMemo(
+    () => allPinned.filter(b => !hasActiveOverviewFilter || matchedIds.has(b.id)),
+    [allPinned, hasActiveOverviewFilter, matchedIds]
+  )
+  const dimmedPinned = useMemo(
+    () => (hasActiveOverviewFilter ? allPinned.filter(b => !matchedIds.has(b.id)) : []),
+    [allPinned, hasActiveOverviewFilter, matchedIds]
+  )
+
   const unpinnedQueue = useMemo(
     () => filteredForQueue.filter(b => b.latitude == null || b.longitude == null),
     [filteredForQueue]
@@ -212,8 +239,7 @@ export default function MapPage() {
 
   const pinningBeneficiary = merged.find(b => b.id === pinningId)
 
-  // ── Plan Visit: same logic as the old Itinerary.jsx, filtering swapped
-  // to FilterChips/filterEngine ──
+  // ── Plan Visit ──
   const selectedItinerary = selectedId === 'new' ? null : itineraries.find(it => it.id === selectedId)
 
   const filteredForPlan = useMemo(
@@ -375,55 +401,35 @@ export default function MapPage() {
                   />
                   <PlacementListener pinningId={pinningId} onPlace={handlePlace} />
 
-                  {allPinned.map(b => {
-                    const isMatch = !hasActiveOverviewFilter || matchedIds.has(b.id)
-                    const icon = createDotIcon(getBeneficiaryColor(b, colorBy), !isMatch)
-                    return (
-                      <Marker key={b.id} position={[b.latitude, b.longitude]} icon={icon}>
-                        <Popup>
-                          <div className="text-sm" style={{ maxWidth: 220 }}>
-                            <div className="font-semibold text-gray-800">{b.name}</div>
-                            <div className="text-xs text-gray-500 mb-1">
-                              {[b.barangay, b.municipality].filter(Boolean).join(', ') || '—'}
-                            </div>
-                            <div className="text-xs text-gray-400 mb-2">{b.category}</div>
+                  {/* Matching pins: icon pills, clustered; overlapping sites fan out (spiderfy) */}
+                  <MarkerClusterGroup
+                    chunkedLoading
+                    maxClusterRadius={50}
+                    spiderfyOnMaxZoom
+                    showCoverageOnHover={false}
+                    iconCreateFunction={clusterIcon}
+                  >
+                    {matchingPinned.map(b => (
+                      <BeneficiaryMarker
+                        key={b.id}
+                        b={b}
+                        icon={iconFor(typeIdsFor(b), getBeneficiaryColor(b, colorBy), false)}
+                        onReposition={() => setPinningId(b.id)}
+                        onRemove={() => handleClear(b.id)}
+                      />
+                    ))}
+                  </MarkerClusterGroup>
 
-                            {b.projects.length === 0 ? (
-                              <p className="text-xs text-gray-400 italic mb-2">No projects yet.</p>
-                            ) : (
-                              <ul className="text-xs space-y-1 mb-2" style={{ maxHeight: 128, overflowY: 'auto' }}>
-                                {b.projects.map(p => (
-                                  <li key={p.id}>
-                                    <Link to={`/projects/${p.id}`} className="text-blue-500 hover:text-blue-700 underline">
-                                      {p.title || `${p.year} project`}
-                                    </Link>
-                                    <span className="text-gray-400">
-                                      {' '}· {p.year}{p.overall_status ? ` · ${p.overall_status}` : ''}
-                                    </span>
-                                  </li>
-                                ))}
-                              </ul>
-                            )}
-
-                            <div className="flex gap-2">
-                              <button
-                                onClick={() => setPinningId(b.id)}
-                                className="text-xs text-blue-500 hover:text-blue-700 underline"
-                              >
-                                Reposition
-                              </button>
-                              <button
-                                onClick={() => handleClear(b.id)}
-                                className="text-xs text-red-500 hover:text-red-700 underline"
-                              >
-                                Remove pin
-                              </button>
-                            </div>
-                          </div>
-                        </Popup>
-                      </Marker>
-                    )
-                  })}
+                  {/* Filtered-out pins: small gray dots, outside the cluster group */}
+                  {dimmedPinned.map(b => (
+                    <BeneficiaryMarker
+                      key={b.id}
+                      b={b}
+                      icon={iconFor([], DIMMED_COLOR, true)}
+                      onReposition={() => setPinningId(b.id)}
+                      onRemove={() => handleClear(b.id)}
+                    />
+                  ))}
                 </MapContainer>
               </div>
 
