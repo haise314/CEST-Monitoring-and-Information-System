@@ -26,8 +26,14 @@ export function useProjectTypeIcons() {
   // svg = null removes the icon.
   async function saveIcon(id, svg) {
     if (!isAdmin) return { error: 'Only an admin can change icons.' }
-    const { error } = await supabase.from('project_types').update({ icon_svg: svg }).eq('id', id)
+    // .select('id') so a silent RLS rejection (0 rows updated) is detectable
+    const { data, error } = await supabase
+      .from('project_types')
+      .update({ icon_svg: svg })
+      .eq('id', id)
+      .select('id')
     if (error) return { error: error.message }
+    if (!data || data.length === 0) return { error: 'Only an admin can change icons.' }
     await refetch()
     return { error: null }
   }

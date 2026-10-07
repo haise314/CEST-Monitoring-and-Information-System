@@ -8,11 +8,13 @@ import '../../lib/Leafleticon'
 import { useMergedBeneficiaries } from '../../hooks/useMergedBeneficiaries'
 import { useItineraries } from '../../hooks/useItineraries'
 import { useProjectTypeIcons } from '../../hooks/useProjectTypeIcons'
+import { useAuth } from '../../lib/AuthContext'
 import FilterChips from '../../components/common/FilterChips'
 import { applyFilters, isEmptyValue } from '../../lib/filterEngine'
 import { useSessionState } from '../../hooks/useSessionState'
 import { buildMapFilterFields } from './mapFilterFields'
 import { makeIconFactory, typeIdsFor, clusterIcon } from './pinIcons'
+import IconLegend from './IconLegend'
 import CandidatePool from '../itinerary/CandidatePool'
 import StopList from '../itinerary/StopList'
 
@@ -157,6 +159,7 @@ function BeneficiaryQueueItem({ b, isPinning, onStartPinning, onCancelPinning })
 
 export default function MapPage() {
   const [searchParams] = useSearchParams()
+  const { isAdmin } = useAuth()
 
   // `/itinerary` redirects here with ?mode=plan — see App.jsx.
   const [mode, setMode] = useState(searchParams.get('mode') === 'plan' ? 'plan' : 'overview')
@@ -165,8 +168,9 @@ export default function MapPage() {
   const { data: itineraries, loading: itinLoading, addItinerary, updateItinerary, deleteItinerary, saveStops } = useItineraries()
 
   // Custom per-project-type icons. The factory is rebuilt (cache reset) only
-  // when the set of uploaded icons changes.
-  const { iconsById } = useProjectTypeIcons()
+  // when the set of uploaded icons changes. `iconTypes` feeds the legend and
+  // `iconError` surfaces a failed icon query (e.g. missing icon_svg column).
+  const { iconsById, types: iconTypes, error: iconError } = useProjectTypeIcons()
   const iconFor = useMemo(() => makeIconFactory(iconsById), [iconsById])
 
   const mapFields = useMemo(() => buildMapFilterFields(documentTypesByPhase), [documentTypesByPhase])
@@ -200,6 +204,13 @@ export default function MapPage() {
 
   const allPinned   = useMemo(() => merged.filter(b => b.latitude != null && b.longitude != null), [merged])
   const allUnpinned = useMemo(() => merged.filter(b => b.latitude == null || b.longitude == null), [merged])
+
+  // Project types present on pinned beneficiaries — limits the icon legend
+  // to types a viewer can actually see on the map.
+  const usedTypeIds = useMemo(
+    () => new Set(allPinned.flatMap(typeIdsFor)),
+    [allPinned]
+  )
 
   // Matching pins go in the cluster group; filtered-out pins are drawn as
   // small gray dots outside it so clusters only reflect matches.
@@ -386,6 +397,15 @@ export default function MapPage() {
             </div>
           )}
 
+          {/* Admin-only: a failed icon query (most likely the icon_svg column
+              hasn't been added yet) otherwise just leaves every pin as a dot. */}
+          {iconError && isAdmin && (
+            <div className="mb-3 bg-amber-50 border border-amber-200 rounded px-3 py-2 text-sm text-amber-800">
+              Project type icons couldn't load ({iconError}). Pins will show plain dots.
+              Run <code>migrations/03_project_type_icons.sql</code> in Supabase.
+            </div>
+          )}
+
           <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-4">
             {/* Map */}
             <div>
@@ -445,6 +465,9 @@ export default function MapPage() {
                   </div>
                 ))}
               </div>
+
+              {/* Legend for project-type icons (only types on pinned beneficiaries) */}
+              <IconLegend types={iconTypes} usedTypeIds={usedTypeIds} />
             </div>
 
             {/* Sidebar: unpinned queue */}
