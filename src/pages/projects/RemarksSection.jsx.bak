@@ -65,7 +65,7 @@ function RemarkRow({ remark, onDelete }) {
         <LevelBadge level={remark.level} />
         <span className="text-xs font-medium text-gray-600">{remark.author_name}</span>
         <span className="text-xs text-gray-500">·</span>
-        <span className="text-xs text-gray-500">{formatTimestamp(remark.created_at)}</span>
+        <span className="text-xs text-gray-400">{formatTimestamp(remark.created_at)}</span>
 
         {canDelete && !confirming && (
           <button
@@ -193,7 +193,7 @@ export default function RemarksSection({ projectId }) {
         )}
 
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between mt-2">
-          <p className="text-xs text-gray-500">
+          <p className="text-xs text-gray-400">
             Remarks can be deleted for {DELETE_WINDOW_MINUTES} minutes after posting. After that, post a correction instead.
           </p>
           <button
@@ -212,11 +212,11 @@ export default function RemarksSection({ projectId }) {
 
       {/* ── History (append-only, newest first) ── */}
       {loading ? (
-        <p className="text-xs text-gray-500">Loading remarks...</p>
+        <p className="text-xs text-gray-400">Loading remarks...</p>
       ) : error ? (
         <p className="text-xs text-red-500">{error}</p>
       ) : remarks.length === 0 ? (
-        <p className="text-xs text-gray-500 text-center py-4">No remarks yet.</p>
+        <p className="text-xs text-gray-400 text-center py-4">No remarks yet.</p>
       ) : (
         <div>
           {remarks.map(r => (

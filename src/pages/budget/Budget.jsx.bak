@@ -36,11 +36,11 @@ function ProjectRow({ p, muted = false }) {
     >
       <div className="min-w-0">
         <div className={`text-sm break-words ${muted ? 'text-gray-500' : 'text-gray-800'}`}>{projectLabel(p)}</div>
-        {sub && <div className="text-xs text-gray-500 break-words">{sub}</div>}
+        {sub && <div className="text-xs text-gray-400 break-words">{sub}</div>}
       </div>
       <div className="text-sm tabular-nums whitespace-nowrap text-right">
         {p.amount != null
-          ? <span className={muted ? 'text-gray-500' : 'text-gray-800'}>{formatPeso(p.amount)}</span>
+          ? <span className={muted ? 'text-gray-400' : 'text-gray-800'}>{formatPeso(p.amount)}</span>
           : <span className="text-amber-600 text-xs">No amount</span>}
       </div>
     </Link>
@@ -121,7 +121,7 @@ export default function Budget() {
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="text-xl font-bold text-gray-800">Budget</h1>
-          <p className="text-sm text-gray-500">
+          <p className="text-sm text-gray-400">
             Budget of the Provincial CEST office for projects implemented in {year}.
           </p>
         </div>
@@ -156,12 +156,12 @@ export default function Budget() {
             <div className="h-2.5 bg-gray-200 rounded-full overflow-hidden">
               <div className={`h-full rounded-full ${budgetBarColor(pct)}`} style={{ width: `${Math.min(pct ?? 0, 100)}%` }} />
             </div>
-            <div className="text-xs text-gray-500 mt-1">
+            <div className="text-xs text-gray-400 mt-1">
               {pct != null ? `${pct.toFixed(1)}% of the budget is committed` : 'Budget is 0'}
             </div>
           </div>
         ) : (
-          <p className="text-sm text-gray-500 mt-4">
+          <p className="text-sm text-gray-400 mt-4">
             No budget has been set for {year} yet.{!isAdmin && ' An admin can set it.'}
           </p>
         )}
@@ -215,7 +215,7 @@ export default function Budget() {
 
       <ListCard title={`Counted projects (Provincial, ${year})`} count={counted.length}>
         {counted.length === 0 ? (
-          <p className="text-sm text-gray-500 text-center py-8">No Provincial projects for {year}.</p>
+          <p className="text-sm text-gray-400 text-center py-8">No Provincial projects for {year}.</p>
         ) : (
           <>
             {counted.map(p => <ProjectRow key={p.id} p={p} />)}

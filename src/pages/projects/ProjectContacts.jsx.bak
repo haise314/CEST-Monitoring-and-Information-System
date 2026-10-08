@@ -58,20 +58,20 @@ export default function ProjectContacts({ project }) {
   // clears) or during a Vite hot-reload edge case.
   if (!project) return null
 
-  if (loading) return <div className="text-xs text-gray-500 py-2">Loading contacts...</div>
+  if (loading) return <div className="text-xs text-gray-400 py-2">Loading contacts...</div>
   if (error)   return <div className="text-xs text-red-500 py-2">{error}</div>
 
   return (
     <div>
       {contacts.length === 0 ? (
-        <p className="text-xs text-gray-500 mb-3">No contacts linked yet.</p>
+        <p className="text-xs text-gray-400 mb-3">No contacts linked yet.</p>
       ) : (
         <div className="space-y-2 mb-3">
           {contacts.map(c => (
             <div key={c.linkId} className="flex items-center justify-between bg-gray-50 rounded px-3 py-2">
               <div className="min-w-0">
                 <div className="text-sm text-gray-700 truncate">{c.name}</div>
-                <div className="text-xs text-gray-500 truncate">
+                <div className="text-xs text-gray-400 truncate">
                   {[c.role, c.contact_number].filter(Boolean).join(' · ') || '—'}
                 </div>
               </div>
@@ -88,13 +88,13 @@ export default function ProjectContacts({ project }) {
 
       {canEdit && (
         !project.beneficiary_id ? (
-          <p className="text-xs text-gray-500">No beneficiary set for this project.</p>
+          <p className="text-xs text-gray-400">No beneficiary set for this project.</p>
         ) : (
           <div className="space-y-2">
             {loadingAvailable ? (
-              <p className="text-xs text-gray-500">Loading available contacts...</p>
+              <p className="text-xs text-gray-400">Loading available contacts...</p>
             ) : options.length === 0 ? (
-              <p className="text-xs text-gray-500">No more contacts for this beneficiary.</p>
+              <p className="text-xs text-gray-400">No more contacts for this beneficiary.</p>
             ) : (
               <div className="flex gap-2 items-start">
                 <div className="flex-1 min-w-0">

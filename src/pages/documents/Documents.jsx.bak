@@ -250,7 +250,7 @@ export default function Documents() {
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-3">
         <h1 className="text-xl font-bold text-gray-800">
           Documents
-          <span className="ml-2 text-sm font-normal text-gray-500">
+          <span className="ml-2 text-sm font-normal text-gray-400">
             {table.getFilteredRowModel().rows.length} of {projects.length} projects
           </span>
         </h1>
@@ -304,7 +304,7 @@ export default function Documents() {
             }`}
           >
             {phase}
-            <span className="ml-1 text-xs text-gray-500">({(documentTypesByPhase[phase] ?? []).length})</span>
+            <span className="ml-1 text-xs text-gray-400">({(documentTypesByPhase[phase] ?? []).length})</span>
           </button>
         ))}
       </div>
@@ -319,11 +319,11 @@ export default function Documents() {
           ['bg-indigo-500', 'Hard copy'],
           ['bg-green-500', 'Submitted'],
         ].map(([dot, label]) => (
-          <span key={label} className="flex items-center gap-1 text-xs text-gray-500">
+          <span key={label} className="flex items-center gap-1 text-xs text-gray-400">
             <span className={`inline-block w-2.5 h-2.5 rounded-full ${dot}`} /> {label}
           </span>
         ))}
-        <span className="flex items-center gap-1 text-xs text-gray-500">
+        <span className="flex items-center gap-1 text-xs text-gray-400">
           <span className="inline-block w-2.5 h-2.5 rounded-full bg-red-400 ring-2 ring-red-500 ring-offset-1" /> + overdue
         </span>
       </div>
@@ -360,7 +360,7 @@ export default function Documents() {
           <tbody className="divide-y divide-gray-100 bg-white">
             {table.getRowModel().rows.length === 0 ? (
               <tr>
-                <td colSpan={table.getVisibleLeafColumns().length} className="px-4 py-8 text-center text-gray-500">
+                <td colSpan={table.getVisibleLeafColumns().length} className="px-4 py-8 text-center text-gray-400">
                   No projects match these filters
                 </td>
               </tr>
