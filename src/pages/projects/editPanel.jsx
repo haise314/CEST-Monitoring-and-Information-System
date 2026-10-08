@@ -1,64 +1,14 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
-import { Link } from 'react-router'
+import { useState, useEffect, useRef, useMemo } from 'react'
+import { Link, useNavigate } from 'react-router'
 import { useFormData } from '../../hooks/useFormData'
 import Select from '../../components/common/Select'
+import ModalShell from '../../components/common/ModalShell'
+import ConfirmDialog from '../../components/common/ConfirmDialog'
 import { STATIC_OPTIONS, SCOPE_OPTIONS, parseAmount } from './columns'
 import DocumentChecklist from './DocumentChecklist'
 import ProjectContacts from './ProjectContacts'
 import { useToast } from '../../lib/ToastContext'
 import { useAuth } from '../../lib/AuthContext'
-
-const MIN_WIDTH = 420
-const MAX_WIDTH = 1100
-const DEFAULT_WIDTH = 512 // matches the old max-w-lg
-const STORAGE_KEY = 'editPanelWidth'
-
-function useResizablePanel() {
-  const [width, setWidth] = useState(() => {
-    const saved = Number(localStorage.getItem(STORAGE_KEY))
-    return saved >= MIN_WIDTH && saved <= MAX_WIDTH ? saved : DEFAULT_WIDTH
-  })
-  const dragging = useRef(false)
-
-  const startDrag = useCallback(e => {
-    dragging.current = true
-    document.body.style.cursor = 'col-resize'
-    document.body.style.userSelect = 'none'
-    e.preventDefault()
-  }, [])
-
-  useEffect(() => {
-    function handleMove(e) {
-      if (!dragging.current) return
-      // Panel is anchored to the right edge, so width = distance from
-      // the cursor to the right side of the viewport.
-      const next = window.innerWidth - e.clientX
-      setWidth(Math.min(MAX_WIDTH, Math.max(MIN_WIDTH, next)))
-    }
-    function handleUp() {
-      if (!dragging.current) return
-      dragging.current = false
-      document.body.style.cursor = ''
-      document.body.style.userSelect = ''
-    }
-    document.addEventListener('mousemove', handleMove)
-    document.addEventListener('mouseup', handleUp)
-    return () => {
-      document.removeEventListener('mousemove', handleMove)
-      document.removeEventListener('mouseup', handleUp)
-    }
-  }, [])
-
-  useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, String(width))
-  }, [width])
-
-  function resetWidth() {
-    setWidth(DEFAULT_WIDTH)
-  }
-
-  return { width, startDrag, resetWidth }
-}
 
 // `locked` disables every input/select/button inside (native <fieldset
 // disabled>) — used to make the form read-only for viewers.
@@ -82,20 +32,53 @@ function Field({ label, children }) {
   )
 }
 
-const inputClass  = 'w-full border border-gray-300 rounded px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500'
-const selectClass = 'w-full border border-gray-300 rounded px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500'
+const inputClass  = 'w-full border border-gray-300 rounded px-3 py-2.5 sm:py-1.5 text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-blue-500'
+const selectClass = inputClass
 
+function formFromProject(project) {
+  return {
+    year:                project.year                ?? '',
+    title:               project.title               ?? '',
+    project_type_id:     project.project_type_id     ?? '',
+    project_category:    project.project_category    ?? '',
+    project_scope:       project.project_scope       ?? 'Provincial',
+    property_number:     project.property_number     ?? '',
+    amount:              project.amount              ?? '',
+    date_deployed:       project.date_deployed       ?? '',
+    entry_point:         project.entry_point         ?? '',
+    intervention:        project.intervention        ?? '',
+    overall_status:      project.overall_status      ?? '',
+    operational_status:  project.operational_status  ?? '',
+    interventions_count: project.interventions_count ?? '',
+    people_trained:      project.people_trained      ?? '',
+    impact_notes:        project.impact_notes        ?? '',
+    gdrive_folder_link:  project.gdrive_folder_link  ?? '',
+  }
+}
+
+// Compared as strings: inputs hand back strings, the DB hands back numbers.
+function isChanged(current, baseline) {
+  return Object.keys(baseline).some(k => String(current[k] ?? '') !== String(baseline[k] ?? ''))
+}
+
+// Quick-edit modal for one project (used by Projects and Documents).
+// Centered on desktop, bottom sheet on phones (ModalShell).
+// Ctrl/Cmd+S saves. Closing or leaving with unsaved edits asks first.
 export default function EditPanel({ project, onClose, onUpdate, onDelete, onDocumentsChanged }) {
   const { canEdit, isAdmin } = useAuth()
   const { projectTypes, entryPoints, loading } = useFormData()
   const toast = useToast()
+  const navigate = useNavigate()
+
   const [form, setForm]                   = useState({})
   const [saving, setSaving]               = useState(false)
   const [deleting, setDeleting]           = useState(false)
-  const [confirmDelete, setConfirmDelete] = useState(false)
-  const [showCategoryWarning, setShowCategoryWarning] = useState(false)
   const [error, setError]                 = useState(null)
-  const { width, startDrag, resetWidth }  = useResizablePanel()
+
+  // Dialogs
+  const [confirmDelete, setConfirmDelete]             = useState(false)
+  const [showCategoryWarning, setShowCategoryWarning] = useState(false)
+  const [confirmLeave, setConfirmLeave]               = useState(null) // null | 'close' | 'open'
 
   // Inline "add new entry point" — same pattern as addModal.jsx.
   const [addingEntryPoint, setAddingEntryPoint]     = useState(false)
@@ -106,30 +89,15 @@ export default function EditPanel({ project, onClose, onUpdate, onDelete, onDocu
 
   useEffect(() => {
     if (!project) return
-    const initial = {
-      year:                project.year                ?? '',
-      title:               project.title               ?? '',
-      project_type_id:     project.project_type_id     ?? '',
-      project_category:    project.project_category    ?? '',
-      project_scope:       project.project_scope       ?? 'Provincial',
-      property_number:     project.property_number     ?? '',
-      amount:              project.amount              ?? '',
-      date_deployed:       project.date_deployed       ?? '',
-      entry_point:         project.entry_point         ?? '',
-      intervention:        project.intervention        ?? '',
-      overall_status:      project.overall_status      ?? '',
-      operational_status:  project.operational_status  ?? '',
-      interventions_count: project.interventions_count ?? '',
-      people_trained:      project.people_trained      ?? '',
-      impact_notes:        project.impact_notes        ?? '',
-      gdrive_folder_link:  project.gdrive_folder_link  ?? '',
-    }
-    setForm(initial)
+    setForm(formFromProject(project))
     originalCategory.current = project.project_category ?? ''
     setError(null)
     setConfirmDelete(false)
     setShowCategoryWarning(false)
   }, [project])
+
+  const initial = useMemo(() => (project ? formFromProject(project) : null), [project])
+  const dirty = canEdit && Boolean(initial) && Object.keys(form).length > 0 && isChanged(form, initial)
 
   function handleChange(key, value) {
     setForm(prev => ({ ...prev, [key]: value }))
@@ -143,19 +111,20 @@ export default function EditPanel({ project, onClose, onUpdate, onDelete, onDocu
     setNewEntryPointValue('')
   }
 
-  // Same reasoning as addModal.jsx: guarantee the current value is always
-  // a selectable option, even if it's a value just typed via "+ Add new"
-  // that isn't (yet) in the fetched distinct list.
+  // Guarantee the current value is always a selectable option, even a value
+  // just typed via "+ Add new" that isn't (yet) in the fetched distinct list.
   const entryPointOptions = form.entry_point && !entryPoints.includes(form.entry_point)
     ? [...entryPoints, form.entry_point].sort()
     : entryPoints
 
-  async function handleSave() {
-    // Category changed and project already has documents — warn first
+  async function handleSave(confirmedCategoryChange = false) {
+    if (!canEdit || saving) return
+
+    // Category changed and project already had one — confirm first
     if (
       form.project_category !== originalCategory.current &&
       originalCategory.current !== '' &&
-      !showCategoryWarning
+      !confirmedCategoryChange
     ) {
       setShowCategoryWarning(true)
       return
@@ -188,7 +157,6 @@ export default function EditPanel({ project, onClose, onUpdate, onDelete, onDocu
     setSaving(false)
     if (error) setError(error)
     else {
-      // Update the ref so re-opening the panel doesn't re-trigger the warning
       originalCategory.current = form.project_category ?? ''
       toast.success('Project saved')
     }
@@ -198,6 +166,7 @@ export default function EditPanel({ project, onClose, onUpdate, onDelete, onDocu
     setDeleting(true)
     const { error } = await onDelete(project.id)
     setDeleting(false)
+    setConfirmDelete(false)
     if (error) setError(error)
     else {
       toast.success('Project deleted')
@@ -205,84 +174,135 @@ export default function EditPanel({ project, onClose, onUpdate, onDelete, onDocu
     }
   }
 
+  // Ctrl/Cmd+S saves (always calls the latest handleSave).
+  const saveRef = useRef(null)
+  saveRef.current = () => { if (dirty && !saving) handleSave() }
+  useEffect(() => {
+    function onKey(e) {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
+        e.preventDefault()
+        saveRef.current?.()
+      }
+    }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [])
+
+  function requestClose() {
+    if (dirty) setConfirmLeave('close')
+    else onClose()
+  }
+
+  function handleOpenFullPage(e) {
+    if (dirty) {
+      e.preventDefault()
+      setConfirmLeave('open')
+    }
+  }
+
+  function confirmLeaveNow() {
+    const action = confirmLeave
+    setConfirmLeave(null)
+    onClose()
+    if (action === 'open') navigate(`/projects/${project.id}`)
+  }
+
   if (!project) return null
 
-  // Merge saved project with current form category for the checklist
-  // so it reflects the saved state, not the unsaved form state
-  const savedProject = {
-    ...project,
-    project_category: project.project_category,
-  }
+  // Checklist uses saved project data, not unsaved form state
+  const savedProject = { ...project, project_category: project.project_category }
+
+  const footer = (
+    <div>
+      {error && (
+        <div role="alert" className="text-red-600 text-sm bg-red-50 border border-red-200 rounded px-3 py-2 mb-3">
+          {error}
+        </div>
+      )}
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+        <Link
+          to={`/projects/${project.id}`}
+          onClick={handleOpenFullPage}
+          title="Open this project's full page"
+          className="text-sm font-medium text-blue-600 hover:text-blue-800 whitespace-nowrap py-1"
+        >
+          Open full page ↗
+        </Link>
+
+        <span className={`text-xs hidden sm:inline ${dirty ? 'text-amber-600' : 'text-gray-500'}`}>
+          {canEdit ? (dirty ? 'Unsaved changes · Ctrl+S to save' : 'All changes saved') : ''}
+        </span>
+
+        <div className="flex gap-2 ml-auto">
+          <button
+            onClick={requestClose}
+            className="border border-gray-300 bg-white rounded px-4 py-2 text-sm hover:bg-gray-50"
+          >
+            {canEdit ? 'Cancel' : 'Close'}
+          </button>
+          {canEdit && (
+            <button
+              onClick={() => handleSave()}
+              disabled={saving || !dirty}
+              className="bg-blue-600 text-white rounded px-5 py-2 text-sm font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {saving ? 'Saving...' : 'Save Changes'}
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  )
 
   return (
     <>
-      <div className="fixed inset-0 z-40 bg-black/30" onClick={onClose} />
-
-      <div
-        className="fixed right-0 top-0 z-50 h-dvh w-full bg-white shadow-xl flex flex-col"
-        style={{ maxWidth: width }}
+      <ModalShell
+        title="Edit Project"
+        subtitle={`${project.beneficiaries?.name ?? '—'} · ${project.year}`}
+        size="lg"
+        dirty={dirty}
+        onClose={onClose}
+        footer={footer}
       >
-        {/* Drag handle — full-height strip on the left edge */}
-        <div
-          onMouseDown={startDrag}
-          onDoubleClick={resetWidth}
-          title="Drag to resize · double-click to reset"
-          className="absolute left-0 top-0 h-full w-1.5 -translate-x-1/2 cursor-col-resize group z-10"
-        >
-          <div className="h-full w-full group-hover:bg-blue-400 transition-colors" />
-        </div>
-
-        {/* Header */}
-        <div className="flex items-center justify-between px-4 sm:px-6 py-4 border-b border-gray-200 flex-shrink-0">
-          <div>
-            <h2 className="text-base font-semibold text-gray-800">Edit Project</h2>
-            <p className="text-xs text-gray-400 mt-0.5">
-              {project.beneficiaries?.name ?? '—'} · {project.year}
-            </p>
-          </div>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-xl leading-none">✕</button>
-        </div>
-
-        {/* Scrollable body */}
-        <div className="flex-1 overflow-y-auto px-4 sm:px-6 py-5">
-          {loading ? (
-            <div className="text-center py-6 text-gray-400 text-sm">Loading...</div>
-          ) : (
-            <>
-              <Section title="Project Info" locked={!canEdit}>
-                <div className="grid grid-cols-2 gap-3">
-                  <Field label="Year">
-                    <input
-                      type="number"
-                      value={form.year}
-                      onChange={e => handleChange('year', e.target.value)}
-                      className={inputClass}
-                    />
-                  </Field>
-                  <Field label="Project Type">
-                    <Select
-                      value={form.project_type_id}
-                      onChange={e => handleChange('project_type_id', e.target.value)}
-                      className={selectClass}
-                    >
-                      <option value="">—</option>
-                      {projectTypes.map(t => (
-                        <option key={t.id} value={t.id}>{t.name}</option>
-                      ))}
-                    </Select>
-                  </Field>
-                </div>
-
-                <Field label="Title">
-                  <textarea
-                    rows={2}
-                    value={form.title}
-                    onChange={e => handleChange('title', e.target.value)}
-                    placeholder="e.g. Portasol Unit for Barangay X Farmers Association"
+        {loading ? (
+          <div className="text-center py-6 text-gray-500 text-sm">Loading...</div>
+        ) : (
+          <>
+            <Section title="Project Info" locked={!canEdit}>
+              <div className="grid grid-cols-2 gap-3">
+                <Field label="Year">
+                  <input
+                    type="number"
+                    value={form.year}
+                    onChange={e => handleChange('year', e.target.value)}
                     className={inputClass}
                   />
                 </Field>
+                <Field label="Project Type">
+                  <Select
+                    value={form.project_type_id}
+                    onChange={e => handleChange('project_type_id', e.target.value)}
+                    className={selectClass}
+                  >
+                    <option value="">—</option>
+                    {projectTypes.map(t => (
+                      <option key={t.id} value={t.id}>{t.name}</option>
+                    ))}
+                  </Select>
+                </Field>
+              </div>
 
+              <Field label="Title">
+                <textarea
+                  rows={2}
+                  value={form.title}
+                  onChange={e => handleChange('title', e.target.value)}
+                  placeholder="e.g. Portasol Unit for Barangay X Farmers Association"
+                  className={inputClass}
+                />
+              </Field>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <Field label="Project Category">
                   <Select
                     value={form.project_category}
@@ -306,9 +326,11 @@ export default function EditPanel({ project, onClose, onUpdate, onDelete, onDocu
                       <option key={o.value} value={o.value}>{o.label}</option>
                     ))}
                   </Select>
-                  <p className="text-xs text-gray-400 mt-1">Only Provincial projects count against the yearly budget.</p>
                 </Field>
+              </div>
+              <p className="text-xs text-gray-500 -mt-1">Only Provincial projects count against the yearly budget.</p>
 
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <Field label="Property Number">
                   <input
                     type="text"
@@ -317,56 +339,57 @@ export default function EditPanel({ project, onClose, onUpdate, onDelete, onDocu
                     className={inputClass}
                   />
                 </Field>
+                <Field label="Amount (₱)">
+                  <input
+                    type="text"
+                    inputMode="decimal"
+                    value={form.amount}
+                    onChange={e => handleChange('amount', e.target.value)}
+                    placeholder="e.g. 285,000"
+                    className={inputClass}
+                  />
+                </Field>
+              </div>
 
-                <div className="grid grid-cols-2 gap-3">
-                  <Field label="Amount (₱)">
-                    <input
-                      type="text"
-                      inputMode="decimal"
-                      value={form.amount}
-                      onChange={e => handleChange('amount', e.target.value)}
-                      placeholder="e.g. 285,000"
-                      className={inputClass}
-                    />
-                  </Field>
-                  <Field label="Date Deployed">
-                    <input
-                      type="date"
-                      value={form.date_deployed}
-                      onChange={e => handleChange('date_deployed', e.target.value)}
-                      className={inputClass}
-                    />
-                  </Field>
-                </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <Field label="Date Deployed">
+                  <input
+                    type="date"
+                    value={form.date_deployed}
+                    onChange={e => handleChange('date_deployed', e.target.value)}
+                    className={inputClass}
+                  />
+                </Field>
 
                 <Field label="Entry Point">
                   {addingEntryPoint ? (
-                    <div>
-                      <div className="flex gap-2">
-                        <input
-                          autoFocus
-                          type="text"
-                          value={newEntryPointValue}
-                          onChange={e => setNewEntryPointValue(e.target.value)}
-                          onKeyDown={e => e.key === 'Enter' && handleAddEntryPoint()}
-                          placeholder="New entry point..."
-                          className={inputClass}
-                        />
-                        <button
-                          type="button"
-                          onClick={handleAddEntryPoint}
-                          className="px-3 rounded bg-blue-600 text-white text-sm font-medium hover:bg-blue-700 whitespace-nowrap"
-                        >
-                          Add
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => { setAddingEntryPoint(false); setNewEntryPointValue('') }}
-                          className="px-3 rounded border border-gray-300 text-sm hover:bg-gray-50"
-                        >
-                          Cancel
-                        </button>
-                      </div>
+                    <div className="flex gap-2">
+                      <input
+                        autoFocus
+                        type="text"
+                        value={newEntryPointValue}
+                        onChange={e => setNewEntryPointValue(e.target.value)}
+                        onKeyDown={e => {
+                          if (e.key === 'Enter') handleAddEntryPoint()
+                          if (e.key === 'Escape') { e.stopPropagation(); setAddingEntryPoint(false); setNewEntryPointValue('') }
+                        }}
+                        placeholder="New entry point..."
+                        className={inputClass}
+                      />
+                      <button
+                        type="button"
+                        onClick={handleAddEntryPoint}
+                        className="px-3 rounded bg-blue-600 text-white text-sm font-medium hover:bg-blue-700 whitespace-nowrap"
+                      >
+                        Add
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => { setAddingEntryPoint(false); setNewEntryPointValue('') }}
+                        className="px-3 rounded border border-gray-300 text-sm hover:bg-gray-50"
+                      >
+                        Cancel
+                      </button>
                     </div>
                   ) : (
                     <Select
@@ -385,47 +408,47 @@ export default function EditPanel({ project, onClose, onUpdate, onDelete, onDocu
                     </Select>
                   )}
                 </Field>
+              </div>
 
-                <Field label="Intervention">
-                  <textarea
-                    rows={2}
-                    value={form.intervention}
-                    onChange={e => handleChange('intervention', e.target.value)}
-                    className={inputClass}
-                  />
-                </Field>
-              </Section>
+              <Field label="Intervention">
+                <textarea
+                  rows={2}
+                  value={form.intervention}
+                  onChange={e => handleChange('intervention', e.target.value)}
+                  className={inputClass}
+                />
+              </Field>
+            </Section>
 
-              <Section title="Beneficiary" locked={!canEdit}>
-                <div className="bg-gray-50 rounded px-3 py-2.5 text-sm">
-                  <div className="font-medium text-gray-700">
-                    {project.beneficiaries?.name ?? '—'}
-                  </div>
-                  <div className="text-gray-400 text-xs mt-0.5">
-                    {[project.beneficiaries?.barangay, project.beneficiaries?.municipality]
-                      .filter(Boolean).join(', ')}
-                  </div>
+            <Section title="Beneficiary" locked={!canEdit}>
+              <div className="bg-gray-50 rounded px-3 py-2.5 text-sm">
+                <div className="font-medium text-gray-700">
+                  {project.beneficiaries?.name ?? '—'}
                 </div>
-                {project.beneficiary_id && (
-                  <Link
-                    to={`/beneficiaries?edit=${project.beneficiary_id}`}
-                    className="text-xs text-blue-500 hover:text-blue-700 underline"
-                  >
-                    View / edit this beneficiary's info →
-                  </Link>
-                )}
-                <p className="text-xs text-gray-400">
-                  A project's beneficiary is fixed at creation and isn't reassigned here.
-                </p>
-              </Section>
+                <div className="text-gray-500 text-xs mt-0.5">
+                  {[project.beneficiaries?.barangay, project.beneficiaries?.municipality]
+                    .filter(Boolean).join(', ')}
+                </div>
+              </div>
+              {project.beneficiary_id && (
+                <Link
+                  to={`/beneficiaries?edit=${project.beneficiary_id}`}
+                  className="text-xs text-blue-500 hover:text-blue-700 underline"
+                >
+                  View / edit this beneficiary's info →
+                </Link>
+              )}
+              <p className="text-xs text-gray-500">
+                To change a project's beneficiary, use the full page.
+              </p>
+            </Section>
 
-              {/* Contacts — linked from this beneficiary's existing contacts.
-                  Editing a contact's info elsewhere reflects here automatically,
-                  since this only stores a link (contact_id), never a copy. */}
-              <Section title="Contacts">
-                <ProjectContacts project={project} />
-              </Section>
+            {/* Contacts — linked from this beneficiary's existing contacts. */}
+            <Section title="Contacts">
+              <ProjectContacts project={project} />
+            </Section>
 
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4">
               <Section title="Status" locked={!canEdit}>
                 <Field label="Overall Status">
                   <Select
@@ -472,18 +495,20 @@ export default function EditPanel({ project, onClose, onUpdate, onDelete, onDocu
                     />
                   </Field>
                 </div>
-                <Field label="Impact Notes / Accomplishments">
-                  <textarea
-                    rows={3}
-                    value={form.impact_notes}
-                    onChange={e => handleChange('impact_notes', e.target.value)}
-                    className={inputClass}
-                  />
-                </Field>
               </Section>
+            </div>
 
-              <Section title="Links" locked={!canEdit}>
-                <Field label="Google Drive Folder Link">
+            <Section title="Impact Notes & Links" locked={!canEdit}>
+              <Field label="Impact Notes / Accomplishments">
+                <textarea
+                  rows={3}
+                  value={form.impact_notes}
+                  onChange={e => handleChange('impact_notes', e.target.value)}
+                  className={inputClass}
+                />
+              </Field>
+              <Field label="Google Drive Folder Link">
+                <div className="flex gap-2">
                   <input
                     type="url"
                     value={form.gdrive_folder_link}
@@ -491,113 +516,78 @@ export default function EditPanel({ project, onClose, onUpdate, onDelete, onDocu
                     placeholder="https://drive.google.com/..."
                     className={inputClass}
                   />
-                </Field>
-              </Section>
-
-              {/* Document Checklist — uses saved project data, not form state */}
-              <Section title="Document Checklist">
-                {!project.project_category ? (
-                  <p className="text-xs text-gray-400">
-                    Save a Project Category first to generate the document checklist.
-                  </p>
-                ) : (
-                  <DocumentChecklist project={savedProject} onChanged={onDocumentsChanged} />
-                )}
-              </Section>
-
-              {/* Error */}
-              {error && (
-                <div className="text-red-500 text-sm bg-red-50 border border-red-200 rounded px-3 py-2 mb-4">
-                  {error}
-                </div>
-              )}
-
-              {/* Category change warning */}
-              {showCategoryWarning && (
-                <div className="bg-yellow-50 border border-yellow-300 rounded p-3 mb-4">
-                  <p className="text-sm text-yellow-800 font-medium mb-1">
-                    Project category changed
-                  </p>
-                  <p className="text-xs text-yellow-700 mb-3">
-                    Changing from <strong>{originalCategory.current}</strong> to{' '}
-                    <strong>{form.project_category}</strong>. New required documents will be
-                    added to the checklist. Existing documents will not be removed — please
-                    review and mark any that no longer apply as N/A.
-                  </p>
-                  <div className="flex gap-2">
-                    <button
-                      onClick={handleSave}
-                      className="bg-yellow-600 text-white rounded px-3 py-1.5 text-xs hover:bg-yellow-700"
+                  {form.gdrive_folder_link && (
+                    <a
+                      href={form.gdrive_folder_link}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="px-3 rounded border border-gray-300 text-sm hover:bg-gray-50 whitespace-nowrap flex items-center"
                     >
-                      Confirm & Save
-                    </button>
-                    <button
-                      onClick={() => setShowCategoryWarning(false)}
-                      className="border border-gray-300 rounded px-3 py-1.5 text-xs hover:bg-gray-50"
-                    >
-                      Cancel
-                    </button>
-                  </div>
+                      Open ↗
+                    </a>
+                  )}
                 </div>
-              )}
+              </Field>
+            </Section>
 
-              {isAdmin && (
-<Section title="Danger Zone">
-                {!confirmDelete ? (
-                  <button
-                    onClick={() => setConfirmDelete(true)}
-                    className="text-sm text-red-500 hover:text-red-700 underline"
-                  >
-                    Delete this project
-                  </button>
-                ) : (
-                  <div className="bg-red-50 border border-red-200 rounded p-3">
-                    <p className="text-sm text-red-700 mb-3 font-medium">
-                      Are you sure? This cannot be undone.
-                    </p>
-                    <div className="flex gap-2">
-                      <button
-                        onClick={handleDelete}
-                        disabled={deleting}
-                        className="bg-red-600 text-white rounded px-3 py-1.5 text-sm hover:bg-red-700 disabled:opacity-50"
-                      >
-                        {deleting ? 'Deleting...' : 'Yes, Delete'}
-                      </button>
-                      <button
-                        onClick={() => setConfirmDelete(false)}
-                        className="border border-gray-300 rounded px-3 py-1.5 text-sm hover:bg-gray-50"
-                      >
-                        Cancel
-                      </button>
-                    </div>
-                  </div>
-                )}
+            {/* Document Checklist — uses saved project data, not form state */}
+            <Section title="Document Checklist">
+              {!project.project_category ? (
+                <p className="text-xs text-gray-500">
+                  Save a Project Category first to generate the document checklist.
+                </p>
+              ) : (
+                <DocumentChecklist project={savedProject} onChanged={onDocumentsChanged} />
+              )}
+            </Section>
+
+            {isAdmin && (
+              <Section title="Danger Zone">
+                <button
+                  onClick={() => setConfirmDelete(true)}
+                  className="text-sm text-red-600 hover:text-red-800 underline"
+                >
+                  Delete this project
+                </button>
               </Section>
-              )}
-            </>
-          )}
-        </div>
+            )}
+          </>
+        )}
+      </ModalShell>
 
-        {/* Sticky footer */}
-        <div className="px-4 sm:px-6 py-4 border-t border-gray-200 flex gap-2 flex-shrink-0">
-          {canEdit && (
-<button
-            onClick={handleSave}
-            disabled={saving}
-            className="flex-1 bg-blue-600 text-white rounded px-4 py-2 text-sm font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {saving ? 'Saving...' : 'Save Changes'}
-          </button>
-          )}
-          <button
-            onClick={onClose}
-            className="flex-1 border border-gray-300 rounded px-4 py-2 text-sm hover:bg-gray-50"
-          >
-            {canEdit ? 'Cancel' : 'Close'}
-          </button>
-        </div>
+      {showCategoryWarning && (
+        <ConfirmDialog
+          tone="primary"
+          title="Project category changed"
+          message={`Changing from ${originalCategory.current} to ${form.project_category || '(none)'}. New required documents will be added to the checklist. Existing documents are not removed, so review and mark any that no longer apply as N/A.`}
+          confirmLabel="Confirm & save"
+          busy={saving}
+          onCancel={() => setShowCategoryWarning(false)}
+          onConfirm={() => handleSave(true)}
+        />
+      )}
 
-      </div>
+      {confirmDelete && (
+        <ConfirmDialog
+          title="Delete this project?"
+          message="Its documents, remarks and contact links will be deleted too. This cannot be undone."
+          confirmLabel="Yes, delete"
+          busy={deleting}
+          onCancel={() => setConfirmDelete(false)}
+          onConfirm={handleDelete}
+        />
+      )}
+
+      {confirmLeave && (
+        <ConfirmDialog
+          title="Discard unsaved changes?"
+          message="You've edited this project but haven't saved. Leaving now will lose those edits."
+          confirmLabel="Discard changes"
+          cancelLabel="Keep editing"
+          onCancel={() => setConfirmLeave(null)}
+          onConfirm={confirmLeaveNow}
+        />
+      )}
     </>
   )
 }
