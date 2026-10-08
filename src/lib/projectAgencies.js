@@ -6,3 +6,7 @@ export const implementingAgency = p =>
 
 export const cooperatingAgencies = p =>
   (p.project_agencies ?? []).filter(a => a.role === 'cooperating').map(a => a.agencies?.name).filter(Boolean)
+
+// Names of the ADDITIONAL beneficiaries (project_beneficiaries); the primary one is on the project itself.
+export const additionalBeneficiaries = p =>
+  (p.project_beneficiaries ?? []).map(b => b.beneficiaries?.name).filter(Boolean)

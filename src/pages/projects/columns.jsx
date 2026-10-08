@@ -1,6 +1,6 @@
 import { Link } from 'react-router'
 import StatusCell, { OperationalCell } from './statusCell'
-import { implementingAgency, cooperatingAgencies } from '../../lib/projectAgencies'
+import { implementingAgency, cooperatingAgencies, additionalBeneficiaries } from '../../lib/projectAgencies'
 
 // Strips currency symbols, commas, and stray spaces before parsing —
 // so typing "285,000" or "₱285,000" works the same as "285000". Returns
@@ -96,6 +96,7 @@ export const ALL_COLUMNS = [
   { accessorFn: r => r.beneficiaries?.district,     id: 'district',     header: 'District',     group: 'Beneficiary', size: 130, minSize: 90,  cell: ({ getValue }) => getValue() ?? '—' },
   { accessorFn: r => r.beneficiaries?.municipality, id: 'municipality', header: 'Municipality', group: 'Beneficiary', size: 150, minSize: 100, cell: ({ getValue }) => getValue() ?? '—' },
   { accessorFn: r => r.beneficiaries?.barangay,     id: 'barangay',     header: 'Barangay',     group: 'Beneficiary', size: 150, minSize: 100, cell: ({ getValue }) => getValue() ?? '—' },
+  { accessorFn: r => additionalBeneficiaries(r).join('; '), id: 'additional_beneficiaries', header: 'Additional Beneficiaries', group: 'Beneficiary', size: 220, minSize: 120, cell: ({ getValue }) => getValue() || '—' },
   { accessorKey: 'members_male',    header: 'Male Members',   group: 'Beneficiary', size: 110, minSize: 90, cell: ({ getValue }) => getValue() ?? '—' },
   { accessorKey: 'members_female',  header: 'Female Members', group: 'Beneficiary', size: 120, minSize: 90, cell: ({ getValue }) => getValue() ?? '—' },
   { accessorKey: 'senior_citizen',  header: 'Senior Citizen', group: 'Beneficiary', size: 120, minSize: 90, cell: ({ getValue }) => getValue() ?? '—' },
@@ -139,6 +140,7 @@ export const DEFAULT_VISIBLE = {
   project_scope: true,
   implementing_agency: true,
   cooperating_agencies: false,
+  additional_beneficiaries: false,
   beneficiary: true,
   municipality: true,
   barangay: true,

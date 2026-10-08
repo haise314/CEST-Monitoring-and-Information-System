@@ -99,6 +99,7 @@ export default function ProjectParties({ project, beneficiaries }) {
           {/* Implementing agency */}
           <div>
             <Label>Implementing Agency</Label>
+            {!ia && <p className="text-xs text-amber-600 mb-1">No implementing agency set yet.</p>}
             {canEdit ? (
               <div className="flex gap-2 items-start">
                 <div className="flex-1 min-w-0">

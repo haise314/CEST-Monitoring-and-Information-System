@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { useSearchParams } from 'react-router'
 import { useAgencies } from '../../hooks/useAgencies'
 import { useAuth } from '../../lib/AuthContext'
 import { useToast } from '../../lib/ToastContext'
@@ -84,7 +85,8 @@ export default function Agencies() {
   const toast = useToast()
   const { agencies, loading, error, addAgency, updateAgency, deleteAgency } = useAgencies()
 
-  const [search, setSearch]   = useState('')
+  const [searchParams] = useSearchParams()
+  const [search, setSearch] = useState(searchParams.get('q') ?? '')
   const [newName, setNewName] = useState('')
   const [newType, setNewType] = useState('')
   const [adding, setAdding]   = useState(false)

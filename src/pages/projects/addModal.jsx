@@ -79,6 +79,9 @@ export default function AddModal({ onClose, onAdd }) {
   const [addingBeneficiarySaving, setAddingBeneficiarySaving] = useState(false)
   const [beneficiaryError, setBeneficiaryError]               = useState(null)
 
+  // Additional beneficiaries (project_beneficiaries), saved after the project is created.
+  const [extraBenIds, setExtraBenIds] = useState([])
+
   function handleChange(key, value) {
     setForm(prev => ({ ...prev, [key]: value }))
   }
@@ -146,6 +149,14 @@ export default function AddModal({ onClose, onAdd }) {
       await supabase.from('project_agencies').insert({
         project_id: id, agency_id: Number(form.implementing_agency_id), role: 'implementing',
       })
+    }
+    if (!error && id != null) {
+      const extras = extraBenIds.filter(b => b !== Number(form.beneficiary_id))
+      if (extras.length > 0) {
+        await supabase.from('project_beneficiaries').insert(
+          extras.map(b => ({ project_id: id, beneficiary_id: b }))
+        )
+      }
     }
     setSaving(null)
     if (error) { setError(error); return }
@@ -373,6 +384,32 @@ export default function AddModal({ onClose, onAdd }) {
                   className={inputClass}
                 />
               )}
+            </Field>
+            <Field label="Additional beneficiaries" className="sm:col-span-2" hint="Optional. Other beneficiaries of the same project.">
+              {extraBenIds.length > 0 && (
+                <div className="flex flex-wrap gap-1.5 mb-2">
+                  {extraBenIds.map(id => {
+                    const b = beneficiaries.find(x => x.id === id)
+                    return (
+                      <span key={id} className="inline-flex items-center gap-1 rounded-full border border-blue-200 bg-blue-50 text-blue-800 text-xs pl-2.5 pr-1.5 py-1 max-w-full">
+                        <span className="truncate">{b ? `${b.name}${b.municipality ? ` (${b.municipality})` : ''}` : `#${id}`}</span>
+                        <button type="button" aria-label="Remove" onClick={() => setExtraBenIds(prev => prev.filter(x => x !== id))} className="text-blue-600 hover:text-blue-900 px-1">✕</button>
+                      </span>
+                    )
+                  })}
+                </div>
+              )}
+              <SearchableSelect
+                value=""
+                onChange={v => setExtraBenIds(prev => (prev.includes(Number(v)) ? prev : [...prev, Number(v)]))}
+                options={beneficiaries
+                  .filter(b => String(b.id) !== String(form.beneficiary_id) && !extraBenIds.includes(b.id))
+                  .map(b => ({ value: b.id, label: `${b.name}${b.municipality ? ` (${b.municipality})` : ''}` }))}
+                placeholder="+ Add another beneficiary..."
+                searchPlaceholder="Search beneficiaries..."
+                emptyText="No more beneficiaries"
+                className={inputClass}
+              />
             </Field>
           </Group>
 

@@ -2,13 +2,14 @@ import { useNavigate } from 'react-router'
 
 // "What needs me today" strip for the top of the Dashboard. Counts are
 // computed by the Dashboard and passed in; this only renders them.
-// The overdue tile pre-applies the Documents page's "Has overdue documents"
-// chip by writing its sessionStorage key (same shape useSessionState reads).
+// Tiles that jump to a list pre-apply its filter chip by writing the page's
+// sessionStorage key (same shape useSessionState reads).
 
 const TONES = {
   red:   { box: 'bg-red-50 border-red-200 hover:border-red-300',       num: 'text-red-700',   label: 'text-red-700' },
   amber: { box: 'bg-amber-50 border-amber-200 hover:border-amber-300', num: 'text-amber-700', label: 'text-amber-700' },
   blue:  { box: 'bg-blue-50 border-blue-200 hover:border-blue-300',    num: 'text-blue-700',  label: 'text-blue-700' },
+  gray:  { box: 'bg-gray-50 border-gray-200 hover:border-gray-300',    num: 'text-gray-800',  label: 'text-gray-700' },
 }
 
 function Tile({ tone, value, label, sub, onClick }) {
@@ -27,14 +28,22 @@ function Tile({ tone, value, label, sub, onClick }) {
 
 const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`
 
-export default function AttentionStrip({ overdueDocs, overdueProjects, upcomingDocs, unpinned }) {
+function setSession(key, value) {
+  try { sessionStorage.setItem(key, JSON.stringify(value)) } catch { /* storage unavailable: just navigate */ }
+}
+
+export default function AttentionStrip({ overdueDocs, overdueProjects, upcomingDocs, unpinned, noAgency = 0 }) {
   const navigate = useNavigate()
 
   function openOverdue() {
-    try {
-      sessionStorage.setItem('documentsFilters', JSON.stringify([{ field: 'overdue', value: ['Yes'] }]))
-    } catch { /* storage unavailable: just navigate */ }
+    setSession('documentsFilters', [{ field: 'overdue', value: ['Yes'] }])
     navigate('/documents')
+  }
+
+  // '__blank__' is filterEngine's BLANK sentinel: matches projects with no implementing agency.
+  function openNoAgency() {
+    setSession('projectsFilters', [{ field: 'implementing_agency', value: ['__blank__'] }])
+    navigate('/projects')
   }
 
   const tiles = []
@@ -50,6 +59,12 @@ export default function AttentionStrip({ overdueDocs, overdueProjects, upcomingD
         sub="see the Upcoming list below" onClick={() => navigate('/documents')} />
     )
   }
+  if (noAgency > 0) {
+    tiles.push(
+      <Tile key="noagency" tone="gray" value={noAgency} label="Projects without an implementing agency"
+        sub="open them in Projects" onClick={openNoAgency} />
+    )
+  }
   if (unpinned > 0) {
     tiles.push(
       <Tile key="unpinned" tone="blue" value={unpinned} label="Projects without a map pin"
@@ -60,7 +75,7 @@ export default function AttentionStrip({ overdueDocs, overdueProjects, upcomingD
   if (tiles.length === 0) {
     return (
       <div className="rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">
-        <strong>All clear.</strong> Nothing overdue or due soon, and every project is pinned.
+        <strong>All clear.</strong> Nothing overdue or due soon, every project has an implementing agency, and every project is pinned.
       </div>
     )
   }
@@ -68,7 +83,7 @@ export default function AttentionStrip({ overdueDocs, overdueProjects, upcomingD
   return (
     <section aria-label="Needs attention">
       <h2 className="text-sm font-semibold text-gray-800 mb-2">Needs attention</h2>
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">{tiles}</div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">{tiles}</div>
     </section>
   )
 }

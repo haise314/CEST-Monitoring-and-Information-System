@@ -11,6 +11,7 @@ import { isOverdue, isUpcoming, UPCOMING_WINDOW_DAYS } from '../../lib/documentS
 import { computeProgress, progressBarColor, PHASE_ORDER } from '../../lib/documentProgress'
 import { DashboardSkeleton } from '../../components/common/Skeleton'
 import AttentionStrip from './AttentionStrip'
+import { implementingAgency } from '../../lib/projectAgencies'
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -698,6 +699,7 @@ export default function Dashboard() {
     overdueProjects: new Set(overdue.map(d => d.project_instances?.id).filter(Boolean)).size,
     upcomingDocs: upcoming.length,
     unpinned: projects.filter(p => p.latitude == null || p.longitude == null).length,
+    noAgency: projects.filter(p => !implementingAgency(p)).length,
   }), [overdue, upcoming, projects])
 
   const loading = docsLoading || projLoading || benLoading

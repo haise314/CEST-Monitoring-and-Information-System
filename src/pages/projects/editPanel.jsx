@@ -7,6 +7,7 @@ import ConfirmDialog from '../../components/common/ConfirmDialog'
 import { STATIC_OPTIONS, SCOPE_OPTIONS, parseAmount } from './columns'
 import DocumentChecklist from './DocumentChecklist'
 import ProjectContacts from './ProjectContacts'
+import ProjectParties from './ProjectParties'
 import { useToast } from '../../lib/ToastContext'
 import { useAuth } from '../../lib/AuthContext'
 
@@ -66,7 +67,7 @@ function isChanged(current, baseline) {
 // Ctrl/Cmd+S saves. Closing or leaving with unsaved edits asks first.
 export default function EditPanel({ project, onClose, onUpdate, onDelete, onDocumentsChanged }) {
   const { canEdit, isAdmin } = useAuth()
-  const { projectTypes, entryPoints, loading } = useFormData()
+  const { projectTypes, beneficiaries, entryPoints, loading } = useFormData()
   const toast = useToast()
   const navigate = useNavigate()
 
@@ -442,6 +443,8 @@ export default function EditPanel({ project, onClose, onUpdate, onDelete, onDocu
                 To change a project's beneficiary, use the full page.
               </p>
             </Section>
+
+            <ProjectParties project={project} beneficiaries={beneficiaries} />
 
             {/* Contacts — linked from this beneficiary's existing contacts. */}
             <Section title="Contacts">

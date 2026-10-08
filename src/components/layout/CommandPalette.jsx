@@ -4,11 +4,12 @@ import { useNavigate } from 'react-router'
 import { useProjects } from '../../hooks/useProjects'
 import { useBeneficiaries } from '../../hooks/useBeneficiaries'
 import { useContacts } from '../../hooks/useContacts'
+import { useAgencies } from '../../hooks/useAgencies'
 import { NAV_GROUPS } from './navConfig'
 import { implementingAgency, cooperatingAgencies } from '../../lib/projectAgencies'
 import { SearchIcon } from './icons'
 
-const GROUP_LABEL = { page: 'Go to', project: 'Projects', beneficiary: 'Beneficiaries', contact: 'Contacts' }
+const GROUP_LABEL = { page: 'Go to', project: 'Projects', beneficiary: 'Beneficiaries', contact: 'Contacts', agency: 'Agencies' }
 const PER_GROUP = 6
 
 // Global search. Mounted only while open, so its three hooks fetch fresh data
@@ -20,6 +21,7 @@ export default function CommandPalette({ onClose }) {
   const { projects, loading: pl }      = useProjects()
   const { beneficiaries, loading: bl } = useBeneficiaries()
   const { contacts, loading: cl }      = useContacts()
+  const { agencies, loading: al }      = useAgencies()
 
   const [query, setQuery]   = useState('')
   const [active, setActive] = useState(0)
@@ -53,8 +55,16 @@ export default function CommandPalette({ onClose }) {
         haystack: [c.name, c.role, c.contact_number, ...(c.beneficiaries ?? []).flatMap(b => [b.name, b.municipality])].filter(Boolean).join(' ').toLowerCase(),
       })
     }
+    for (const a of agencies) {
+      list.push({
+        type: 'agency', id: a.id, to: `/agencies?q=${encodeURIComponent(a.name)}`,
+        title: a.name,
+        subtitle: a.type ?? '',
+        haystack: [a.name, a.type].filter(Boolean).join(' ').toLowerCase(),
+      })
+    }
     return list
-  }, [projects, beneficiaries, contacts])
+  }, [projects, beneficiaries, contacts, agencies])
 
   const flat = useMemo(() => {
     const q = query.trim().toLowerCase()
@@ -63,7 +73,7 @@ export default function CommandPalette({ onClose }) {
     }
     const tokens = q.split(/\s+/)
     const matches = items.filter(it => tokens.every(t => it.haystack.includes(t)))
-    return ['project', 'beneficiary', 'contact'].flatMap(type =>
+    return ['project', 'beneficiary', 'contact', 'agency'].flatMap(type =>
       matches.filter(m => m.type === type).slice(0, PER_GROUP)
     )
   }, [query, items])
@@ -87,7 +97,7 @@ export default function CommandPalette({ onClose }) {
     else if (e.key === 'Enter') { e.preventDefault(); go(flat[active]) }
   }
 
-  const loading = pl || bl || cl
+  const loading = pl || bl || cl || al
   const hasQuery = query.trim() !== ''
 
   return createPortal(
