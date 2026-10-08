@@ -10,3 +10,13 @@ export const cooperatingAgencies = p =>
 // Names of the ADDITIONAL beneficiaries (project_beneficiaries); the primary one is on the project itself.
 export const additionalBeneficiaries = p =>
   (p.project_beneficiaries ?? []).map(b => b.beneficiaries?.name).filter(Boolean)
+
+// Who a project is "for": the implementing agency if there is one, otherwise
+// the beneficiary. Null-safe. Use this wherever a project is labelled by its
+// owner (cards, lists, headers); the beneficiaries are shown as secondary text.
+export const projectOwnerName = p =>
+  p ? (implementingAgency(p) ?? p.beneficiaries?.name ?? null) : null
+
+// Every beneficiary of the project, all treated equally (no "primary" in the UI).
+export const allBeneficiaryNames = p =>
+  [p.beneficiaries?.name, ...additionalBeneficiaries(p)].filter(Boolean)

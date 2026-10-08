@@ -4,6 +4,7 @@ import { useAuth } from '../lib/AuthContext'
 import { useProjects } from './useProjects'
 import { useAllDocuments } from './useAllDocuments'
 import { PHASE_ORDER } from '../lib/documentProgress'
+import { projectOwnerName } from '../lib/projectAgencies'
 
 const NO_EDIT = "You don't have permission to make changes."
 
@@ -43,7 +44,7 @@ export function useMapSites() {
       return {
         id: p.id,
         beneficiary_id: p.beneficiary_id,
-        name: b.name ?? '—',
+        name: projectOwnerName(p) ?? b.name ?? '—',
         category: b.category,
         district: b.district,
         municipality: b.municipality,

@@ -22,7 +22,7 @@ import FilterChips from '../../components/common/FilterChips'
 import { buildDocumentFilterFields } from './filterFields'
 import { applyFilters } from '../../lib/filterEngine'
 import { useSessionState } from '../../hooks/useSessionState'
-import { implementingAgency, cooperatingAgencies } from '../../lib/projectAgencies'
+import { implementingAgency, cooperatingAgencies, projectOwnerName, allBeneficiaryNames } from '../../lib/projectAgencies'
 
 // Manually pinned (frozen) columns — fixed widths so their sticky `left`
 // offsets are predictable. Not using TanStack's built-in column pinning
@@ -138,8 +138,8 @@ export default function Documents() {
     const core = [
       {
         id: 'beneficiary',
-        accessorFn: r => r.beneficiaries?.name,
-        header: 'Beneficiary',
+        accessorFn: r => projectOwnerName(r),
+        header: 'Agency / Beneficiary',
         group: 'Project Info',
         enableHiding: false, // always-visible identifying column
         enableGlobalFilter: true,
@@ -207,6 +207,14 @@ export default function Documents() {
     ]
 
     const agencyCols = [
+      {
+        id: 'all_beneficiaries',
+        accessorFn: r => allBeneficiaryNames(r).join('; '),
+        header: 'Beneficiaries',
+        group: 'Project Info',
+        enableGlobalFilter: true,
+        cell: ({ getValue }) => <span className="text-xs">{getValue() || '—'}</span>,
+      },
       {
         id: 'implementing_agency',
         accessorFn: r => implementingAgency(r) ?? '',

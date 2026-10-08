@@ -7,7 +7,7 @@ import ConfirmDialog from '../../components/common/ConfirmDialog'
 import { STATIC_OPTIONS, SCOPE_OPTIONS, parseAmount } from './columns'
 import DocumentChecklist from './DocumentChecklist'
 import ProjectContacts from './ProjectContacts'
-import { implementingAgency, cooperatingAgencies, additionalBeneficiaries } from '../../lib/projectAgencies'
+import { implementingAgency, cooperatingAgencies, additionalBeneficiaries, projectOwnerName } from '../../lib/projectAgencies'
 import { useToast } from '../../lib/ToastContext'
 import { useAuth } from '../../lib/AuthContext'
 
@@ -259,7 +259,7 @@ export default function EditPanel({ project, onClose, onUpdate, onDelete, onDocu
     <>
       <ModalShell
         title="Edit Project"
-        subtitle={`${project.beneficiaries?.name ?? '—'} · ${project.year}`}
+        subtitle={`${projectOwnerName(project) ?? '—'} · ${project.year}`}
         size="lg"
         dirty={dirty}
         onClose={onClose}
@@ -441,7 +441,7 @@ export default function EditPanel({ project, onClose, onUpdate, onDelete, onDocu
                   to={`/beneficiaries?edit=${project.beneficiary_id}`}
                   className="text-xs text-blue-500 hover:text-blue-700 underline"
                 >
-                  View / edit the primary beneficiary's info →
+                  View / edit the beneficiary's info →
                 </Link>
               )}
               <p className="text-xs text-gray-500">

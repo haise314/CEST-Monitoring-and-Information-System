@@ -7,6 +7,7 @@ import { useToast } from '../../lib/ToastContext'
 import Select from '../../components/common/Select'
 import { summarizeYear, formatPeso, budgetBarColor, projectLabel } from '../../lib/budget'
 import { parseAmount } from '../projects/columns'
+import { projectOwnerName } from '../../lib/projectAgencies'
 
 const inputClass = 'w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500'
 
@@ -28,7 +29,7 @@ function Stat({ label, value, tone }) {
 }
 
 function ProjectRow({ p, muted = false }) {
-  const sub = [p.beneficiaries?.name, p.beneficiaries?.municipality, p.project_category].filter(Boolean).join(' · ')
+  const sub = [projectOwnerName(p), p.beneficiaries?.municipality, p.project_category].filter(Boolean).join(' · ')
   return (
     <Link
       to={`/projects/${p.id}`}

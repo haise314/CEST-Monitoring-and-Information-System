@@ -21,6 +21,7 @@ import ResizableTh from '../../components/common/ResizableTh'
 import { useToast } from '../../lib/ToastContext'
 import { useAuth } from '../../lib/AuthContext'
 import { exportTableCsv, todayStamp } from '../../lib/exportCsv'
+import { implementingAgency, allBeneficiaryNames } from '../../lib/projectAgencies'
 import AddModal from './addModal'
 import EditPanel from './editPanel'
 import StatusCell, { OperationalCell } from './statusCell'
@@ -219,8 +220,9 @@ function Projects() {
                     {p.project_types?.name || 'Untitled project'}
                   </div>
                   <div className="text-xs text-gray-500 mt-0.5 break-words">
-                    {p.beneficiaries?.name ?? '—'}
+                    {implementingAgency(p) ?? p.beneficiaries?.name ?? '—'}
                   </div>
+                  {implementingAgency(p) && <div className="text-xs text-gray-400 break-words">For: {allBeneficiaryNames(p).join('; ') || '—'}</div>}
                   {where && <div className="text-xs text-gray-400 break-words">{where}</div>}
                 </div>
                 <span className="text-xs text-gray-400 flex-shrink-0">{p.year}</span>

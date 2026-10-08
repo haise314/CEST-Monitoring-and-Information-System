@@ -11,7 +11,7 @@ import { isOverdue, isUpcoming, UPCOMING_WINDOW_DAYS } from '../../lib/documentS
 import { computeProgress, progressBarColor, PHASE_ORDER } from '../../lib/documentProgress'
 import { DashboardSkeleton } from '../../components/common/Skeleton'
 import AttentionStrip from './AttentionStrip'
-import { implementingAgency } from '../../lib/projectAgencies'
+import { implementingAgency, projectOwnerName } from '../../lib/projectAgencies'
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -167,7 +167,7 @@ function DocRow({ doc, tone }) {
       <div className="min-w-0">
         <div className="text-sm text-gray-700 truncate">{docLabel(doc)}</div>
         <div className="text-xs text-gray-500 truncate">
-          {project?.beneficiaries?.name ?? '—'}
+          {projectOwnerName(project) ?? '—'}
           {project?.beneficiaries?.municipality ? ` · ${project.beneficiaries.municipality}` : ''}
           {project ? ` · ${project.year}` : ''}
         </div>
@@ -216,7 +216,7 @@ function RemarkRow({ remark }) {
         </span>
         <span className="text-xs text-gray-500 truncate">
           {project ? projectLabel(project) : 'Unknown project'}
-          {project?.beneficiaries?.name ? ` · ${project.beneficiaries.name}` : ''}
+          {projectOwnerName(project) ? ` · ${projectOwnerName(project)}` : ''}
         </span>
       </div>
       <p className="text-sm text-gray-700 line-clamp-2">{remark.content}</p>
@@ -271,7 +271,7 @@ function RecentlyUpdatedSection({ projects }) {
               <div className="min-w-0">
                 <div className="text-sm text-gray-700 truncate">{projectLabel(p)}</div>
                 <div className="text-xs text-gray-500 truncate">
-                  {p.beneficiaries?.name ?? '—'} · {p.year}
+                  {projectOwnerName(p) ?? '—'} · {p.year}
                 </div>
               </div>
               <span className="text-xs text-gray-500 whitespace-nowrap ml-3">

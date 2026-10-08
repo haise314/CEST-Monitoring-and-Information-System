@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router'
 import { useProjects } from '../../hooks/useProjects'
 import { useAllDocuments } from '../../hooks/useAllDocuments'
 import { PHASE_ORDER, computeProgress, progressBarColor } from '../../lib/documentProgress'
+import { implementingAgency, allBeneficiaryNames } from '../../lib/projectAgencies'
 
 const PHASE_SHORT = {
   'Pre-Implementation': 'Pre-Impl.',
@@ -54,10 +55,10 @@ function ProjectCard({ project, documents, onClick }) {
       <div className="flex items-start justify-between gap-2 mb-1">
         <div className="min-w-0">
           <div className="text-sm font-medium text-gray-800 truncate">
-            {project.beneficiaries?.name ?? '—'}
+            {implementingAgency(project) ?? project.beneficiaries?.name ?? '—'}
           </div>
           <div className="text-xs text-gray-500 truncate">
-            {[project.beneficiaries?.barangay, project.beneficiaries?.municipality].filter(Boolean).join(', ') || '—'}
+            {(implementingAgency(project) ? allBeneficiaryNames(project).join('; ') : [project.beneficiaries?.barangay, project.beneficiaries?.municipality].filter(Boolean).join(', ')) || '—'}
           </div>
         </div>
         {project.project_category && (

@@ -321,7 +321,7 @@ export default function ProjectParties({ project, beneficiaries, updateBeneficia
       {/* ── Beneficiaries ── */}
       <SubHeading>Beneficiaries</SubHeading>
       <div className="space-y-3">
-        <Card title="Primary beneficiary">{children}</Card>
+        <Card title="Beneficiary">{children}</Card>
 
         {!loading && !error && extraBeneficiaries.map(b => (
           <BeneficiaryCard

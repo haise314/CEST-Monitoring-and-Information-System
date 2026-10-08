@@ -14,6 +14,7 @@ import ProjectTypesManager from './ProjectTypesManager'
 import { useToast } from '../../lib/ToastContext'
 import { useAuth } from '../../lib/AuthContext'
 import SectionNav from '../../components/common/SectionNav'
+import { projectOwnerName } from '../../lib/projectAgencies'
 
 // Not in columns.jsx's STATIC_OPTIONS (that file only covers project-level
 // enums) — sourced from the beneficiary_category enum in the live DB dump.
@@ -324,7 +325,7 @@ export default function ProjectDetail() {
           ← Back
         </button>
         <h1 className="text-xl font-bold text-gray-800">
-          {project.beneficiaries?.name ?? '—'}
+          {projectOwnerName(project) ?? '—'}
           <span className="ml-2 text-sm font-normal text-gray-400">· {project.year}</span>
         </h1>
       </div>
