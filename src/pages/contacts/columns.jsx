@@ -10,6 +10,27 @@ export const ALL_COLUMNS = [
   { accessorFn: names, id: 'beneficiary',  header: 'Beneficiaries', size: 220, minSize: 120, cell: ({ getValue }) => getValue() || '—' },
   { accessorFn: towns, id: 'municipality', header: 'Municipality',  size: 150, minSize: 100, cell: ({ getValue }) => getValue() || '—' },
   { accessorKey: 'contact_number',  header: 'Contact No.', size: 140, minSize: 100, cell: ({ getValue }) => getValue() ?? '—' },
+  // The raw address is what the CSV export writes (it reads getValue(), not
+  // the rendered cell); on screen it is a mailto link.
+  {
+    accessorKey: 'email',
+    header: 'Email',
+    size: 220,
+    minSize: 120,
+    cell: ({ getValue }) => {
+      const v = getValue()
+      return v
+        ? <a
+            href={`mailto:${v}`}
+            onClick={e => e.stopPropagation()}
+            title={v}
+            className="text-blue-600 underline text-xs"
+          >
+            {v}
+          </a>
+        : '—'
+    },
+  },
   {
     accessorKey: 'messenger_link',
     header: 'Messenger',
@@ -21,7 +42,7 @@ export const ALL_COLUMNS = [
           target="_blank"
           rel="noreferrer"
           onClick={e => e.stopPropagation()}
-          className="text-blue-500 underline text-xs"
+          className="text-blue-600 underline text-xs"
         >
           Open
         </a>
@@ -38,7 +59,7 @@ export const ALL_COLUMNS = [
       const v = getValue()
       return v
         ? <span className="text-xs text-gray-500" title={new Date(v).toLocaleString()}>{formatRelativeTime(v)}</span>
-        : <span className="text-gray-300">—</span>
+        : <span className="text-gray-400">—</span>
     },
   },
 ]

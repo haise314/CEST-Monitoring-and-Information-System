@@ -10,10 +10,11 @@ const NO_EDIT = "You don't have permission to make changes."
 // A contact belongs to many beneficiaries through contact_beneficiaries.
 // saveContact() goes through the save_contact() database function so the
 // contact row and its links are written in ONE transaction.
+// (Needs migrations/05_contact_email.sql for the p_email argument.)
 export function useContactMutations() {
   const { canEdit } = useAuth()
 
-  // data: { name, role, contact_number, messenger_link, beneficiary_ids }
+  // data: { name, role, contact_number, email, messenger_link, beneficiary_ids }
   // id null = create. Resolves { error, id }.
   async function saveContact(id, data) {
     if (!canEdit) return { error: NO_EDIT, id: null }
@@ -24,6 +25,7 @@ export function useContactMutations() {
       p_contact_number:  data.contact_number ?? null,
       p_messenger_link:  data.messenger_link ?? null,
       p_beneficiary_ids: (data.beneficiary_ids ?? []).map(Number),
+      p_email:           data.email ?? null,
     })
     if (error) return { error: error.message, id: null }
     return { error: null, id: newId }

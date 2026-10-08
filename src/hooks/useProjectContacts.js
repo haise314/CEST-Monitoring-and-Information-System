@@ -19,7 +19,7 @@ export function useProjectContacts(projectId) {
         .from('project_contacts')
         .select(`
           id,
-          beneficiary_contacts (id, name, role, contact_number, messenger_link, contact_beneficiaries (beneficiary_id))
+          beneficiary_contacts (id, name, role, contact_number, email, messenger_link, contact_beneficiaries (beneficiary_id))
         `)
         .eq('project_id', projectId)
 

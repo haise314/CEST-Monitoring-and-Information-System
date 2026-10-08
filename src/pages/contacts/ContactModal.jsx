@@ -1,9 +1,12 @@
 import { useState, useEffect } from 'react'
 import SearchableSelect from '../../components/common/SearchableSelect'
+import ModalShell from '../../components/common/ModalShell'
 
-const EMPTY_FORM = { name: '', role: '', contact_number: '', messenger_link: '' }
+const EMPTY_FORM = { name: '', role: '', contact_number: '', email: '', messenger_link: '' }
 
 const inputClass = 'w-full border border-gray-300 rounded px-3 py-2.5 sm:py-2 text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-blue-500'
+const labelClass = 'block text-xs font-medium text-gray-600 mb-1'
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
 const benLabel = b => `${b.name}${b.municipality ? ` (${b.municipality})` : ''}`
 
@@ -29,6 +32,7 @@ export default function ContactModal({
         name: contact.name ?? '',
         role: contact.role ?? '',
         contact_number: contact.contact_number ?? '',
+        email: contact.email ?? '',
         messenger_link: contact.messenger_link ?? '',
       })
       setBenIds((contact.beneficiary_ids ?? []).map(Number))
@@ -52,6 +56,11 @@ export default function ContactModal({
       setError('Name and at least one Beneficiary are required.')
       return
     }
+    const email = form.email.trim()
+    if (email && !EMAIL_RE.test(email)) {
+      setError('That email address doesn\'t look right.')
+      return
+    }
     setSaving(true)
     setError(null)
 
@@ -59,6 +68,7 @@ export default function ContactModal({
       name: form.name.trim(),
       role: form.role || null,
       contact_number: form.contact_number || null,
+      email: email || null,
       messenger_link: form.messenger_link || null,
       beneficiary_ids: benIds,
     })
@@ -75,61 +85,80 @@ export default function ContactModal({
     // On success the caller closes the modal
   }
 
+  const footer = (
+    <div>
+      {error && (
+        <div className="text-red-600 text-sm bg-red-50 border border-red-200 rounded px-3 py-2 mb-3">{error}</div>
+      )}
+      <div className="flex gap-2 justify-end">
+        <button onClick={onClose} className="border border-gray-300 bg-white rounded px-4 py-2 text-sm hover:bg-gray-50">
+          {readOnly ? 'Close' : 'Cancel'}
+        </button>
+        {!readOnly && (
+          <button
+            onClick={handleSubmit}
+            disabled={saving}
+            className="bg-blue-600 text-white rounded px-5 py-2 text-sm font-medium hover:bg-blue-700 disabled:opacity-50"
+          >
+            {saving ? 'Saving...' : contact ? 'Save Changes' : 'Add Contact'}
+          </button>
+        )}
+      </div>
+    </div>
+  )
+
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40 sm:p-4">
-      <div className="bg-white rounded-t-2xl sm:rounded-lg shadow-xl w-full max-w-sm p-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] sm:p-6 max-h-[92dvh] overflow-y-auto">
+    <ModalShell
+      title={readOnly ? 'Contact' : contact ? 'Edit Contact' : 'Add Contact'}
+      subtitle={contact?.name}
+      size="md"
+      onClose={onClose}
+      footer={footer}
+    >
+      <div className="space-y-4">
+        <fieldset disabled={readOnly} className="space-y-4 min-w-0">
+          <div>
+            <label className={labelClass}>Beneficiaries</label>
+            {benIds.length > 0 && (
+              <div className="flex flex-wrap gap-1.5 mb-2">
+                {benIds.map(id => {
+                  const b = beneficiaries.find(x => x.id === id)
+                  return (
+                    <span key={id} className="inline-flex items-center gap-1 rounded-full border border-blue-200 bg-blue-50 text-blue-800 text-xs pl-2.5 pr-1.5 py-1 max-w-full">
+                      <span className="truncate">{b ? benLabel(b) : `#${id}`}</span>
+                      {!readOnly && (
+                        <button
+                          type="button"
+                          onClick={() => removeBeneficiary(id)}
+                          aria-label="Remove beneficiary"
+                          className="text-blue-600 hover:text-blue-900 px-1"
+                        >
+                          ✕
+                        </button>
+                      )}
+                    </span>
+                  )
+                })}
+              </div>
+            )}
+            <SearchableSelect
+              value=""
+              onChange={addBeneficiary}
+              options={available.map(b => ({ value: b.id, label: benLabel(b) }))}
+              placeholder={benIds.length ? '+ Add another beneficiary...' : 'Select beneficiary...'}
+              searchPlaceholder="Search beneficiaries..."
+              emptyText="No more beneficiaries"
+              className={inputClass}
+            />
+          </div>
 
-        <div className="flex items-center justify-between mb-5">
-          <h2 className="text-lg font-semibold text-gray-800">
-            {readOnly ? 'Contact' : contact ? 'Edit Contact' : 'Add Contact'}
-          </h2>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-xl leading-none p-2 -m-2">✕</button>
-        </div>
-
-        <div className="space-y-3">
-          <fieldset disabled={readOnly} className="space-y-3 min-w-0">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
-              <label className="block text-sm text-gray-600 mb-1">Beneficiaries</label>
-              {benIds.length > 0 && (
-                <div className="flex flex-wrap gap-1.5 mb-2">
-                  {benIds.map(id => {
-                    const b = beneficiaries.find(x => x.id === id)
-                    return (
-                      <span key={id} className="inline-flex items-center gap-1 rounded-full border border-blue-200 bg-blue-50 text-blue-800 text-xs pl-2.5 pr-1.5 py-1 max-w-full">
-                        <span className="truncate">{b ? benLabel(b) : `#${id}`}</span>
-                        {!readOnly && (
-                          <button
-                            type="button"
-                            onClick={() => removeBeneficiary(id)}
-                            aria-label="Remove beneficiary"
-                            className="text-blue-500 hover:text-blue-900 px-1"
-                          >
-                            ✕
-                          </button>
-                        )}
-                      </span>
-                    )
-                  })}
-                </div>
-              )}
-              <SearchableSelect
-                value=""
-                onChange={addBeneficiary}
-                options={available.map(b => ({ value: b.id, label: benLabel(b) }))}
-                placeholder={benIds.length ? '+ Add another beneficiary...' : 'Select beneficiary...'}
-                searchPlaceholder="Search beneficiaries..."
-                emptyText="No more beneficiaries"
-                className={inputClass}
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm text-gray-600 mb-1">Name</label>
+              <label className={labelClass}>Name</label>
               <input type="text" value={form.name} onChange={e => handleChange('name', e.target.value)} className={inputClass} />
             </div>
-
             <div>
-              <label className="block text-sm text-gray-600 mb-1">Role</label>
+              <label className={labelClass}>Role</label>
               <input
                 type="text"
                 value={form.role}
@@ -138,73 +167,64 @@ export default function ContactModal({
                 className={inputClass}
               />
             </div>
-
             <div>
-              <label className="block text-sm text-gray-600 mb-1">Contact Number</label>
-              <input type="text" value={form.contact_number} onChange={e => handleChange('contact_number', e.target.value)} className={inputClass} />
+              <label className={labelClass}>Contact Number</label>
+              <input type="text" inputMode="tel" value={form.contact_number} onChange={e => handleChange('contact_number', e.target.value)} className={inputClass} />
             </div>
-
             <div>
-              <label className="block text-sm text-gray-600 mb-1">Messenger Link</label>
+              <label className={labelClass}>Email</label>
               <input
-                type="url"
-                value={form.messenger_link}
-                onChange={e => handleChange('messenger_link', e.target.value)}
-                placeholder="https://m.me/..."
+                type="email"
+                inputMode="email"
+                autoComplete="off"
+                value={form.email}
+                onChange={e => handleChange('email', e.target.value)}
+                placeholder="name@example.com"
                 className={inputClass}
               />
             </div>
-          </fieldset>
-
-          {error && (
-            <div className="text-red-500 text-sm bg-red-50 border border-red-200 rounded px-3 py-2">{error}</div>
-          )}
-
-          {contact && onDelete && (
-            <div className="pt-2 border-t border-gray-100">
-              {!confirmDelete ? (
-                <button onClick={() => setConfirmDelete(true)} className="text-xs text-red-500 hover:text-red-700 underline">
-                  Delete this contact
-                </button>
-              ) : (
-                <div className="bg-red-50 border border-red-200 rounded p-2.5 mt-1">
-                  <p className="text-xs text-red-700 mb-2 font-medium">
-                    Delete this contact everywhere — all its beneficiaries and projects? This cannot be undone.
-                  </p>
-                  <div className="flex gap-2">
-                    <button
-                      onClick={handleDelete}
-                      disabled={deleting}
-                      className="bg-red-600 text-white rounded px-2.5 py-1 text-xs hover:bg-red-700 disabled:opacity-50"
-                    >
-                      {deleting ? 'Deleting...' : 'Yes, Delete'}
-                    </button>
-                    <button onClick={() => setConfirmDelete(false)} className="border border-gray-300 rounded px-2.5 py-1 text-xs hover:bg-gray-50">
-                      Cancel
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-
-          <div className="flex gap-2 pt-2">
-            {!readOnly && (
-              <button
-                onClick={handleSubmit}
-                disabled={saving}
-                className="flex-1 bg-blue-600 text-white rounded px-4 py-2 text-sm font-medium hover:bg-blue-700 disabled:opacity-50"
-              >
-                {saving ? 'Saving...' : contact ? 'Save Changes' : 'Add Contact'}
-              </button>
-            )}
-            <button onClick={onClose} className="flex-1 border border-gray-300 rounded px-4 py-2 text-sm hover:bg-gray-50">
-              {readOnly ? 'Close' : 'Cancel'}
-            </button>
           </div>
-        </div>
 
+          <div>
+            <label className={labelClass}>Messenger Link</label>
+            <input
+              type="url"
+              value={form.messenger_link}
+              onChange={e => handleChange('messenger_link', e.target.value)}
+              placeholder="https://m.me/..."
+              className={inputClass}
+            />
+          </div>
+        </fieldset>
+
+        {contact && onDelete && (
+          <div className="pt-3 border-t border-gray-100">
+            {!confirmDelete ? (
+              <button onClick={() => setConfirmDelete(true)} className="text-xs text-red-600 hover:text-red-800 underline">
+                Delete this contact
+              </button>
+            ) : (
+              <div className="bg-red-50 border border-red-200 rounded p-2.5">
+                <p className="text-xs text-red-700 mb-2 font-medium">
+                  Delete this contact everywhere — all its beneficiaries and projects? This cannot be undone.
+                </p>
+                <div className="flex gap-2">
+                  <button
+                    onClick={handleDelete}
+                    disabled={deleting}
+                    className="bg-red-600 text-white rounded px-2.5 py-1 text-xs hover:bg-red-700 disabled:opacity-50"
+                  >
+                    {deleting ? 'Deleting...' : 'Yes, Delete'}
+                  </button>
+                  <button onClick={() => setConfirmDelete(false)} className="border border-gray-300 bg-white rounded px-2.5 py-1 text-xs hover:bg-gray-50">
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
       </div>
-    </div>
+    </ModalShell>
   )
 }

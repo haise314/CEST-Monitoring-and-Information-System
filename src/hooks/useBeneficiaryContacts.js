@@ -21,7 +21,7 @@ export function useBeneficiaryContacts(beneficiaryId) {
       .from('contact_beneficiaries')
       .select(`
         beneficiary_contacts (
-          id, name, role, contact_number, messenger_link,
+          id, name, role, contact_number, email, messenger_link,
           contact_beneficiaries (beneficiary_id)
         )
       `)

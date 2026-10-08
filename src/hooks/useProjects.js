@@ -34,14 +34,18 @@ export function useProjects() {
     }
   }
 
+  // Resolves { error, id } — id is the new project's id, so the Add Project
+  // modal can offer "Add & open full page".
   async function addProject(data) {
-    if (!canEdit) return { error: NO_EDIT }
-    const { error } = await supabase
+    if (!canEdit) return { error: NO_EDIT, id: null }
+    const { data: row, error } = await supabase
       .from('project_instances')
       .insert(data)
-    if (error) return { error: error.message }
+      .select('id')
+      .single()
+    if (error) return { error: error.message, id: null }
     await fetchProjects()
-    return { error: null }
+    return { error: null, id: row.id }
   }
 
   async function updateProject(id, updates) {
