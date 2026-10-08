@@ -1,5 +1,6 @@
 import { Link } from 'react-router'
 import StatusCell, { OperationalCell } from './statusCell'
+import { implementingAgency, cooperatingAgencies } from '../../lib/projectAgencies'
 
 // Strips currency symbols, commas, and stray spaces before parsing —
 // so typing "285,000" or "₱285,000" works the same as "285000". Returns
@@ -81,6 +82,8 @@ export const ALL_COLUMNS = [
   { accessorFn: r => r.project_types?.name, id: 'project_type', header: 'Project Type', group: 'Core', size: 150, minSize: 100, cell: ({ getValue }) => getValue() ?? '—' },
   { accessorKey: 'project_category', header: 'Category',         group: 'Core', size: 130, minSize: 100, cell: ProjectCategoryCell },
   { accessorKey: 'project_scope',    header: 'Scope',            group: 'Core', size: 110, minSize: 90,  cell: ProjectScopeCell },
+  { accessorFn: r => implementingAgency(r), id: 'implementing_agency', header: 'Implementing Agency', group: 'Core', size: 200, minSize: 120, cell: ({ getValue }) => getValue() ?? '—' },
+  { accessorFn: r => cooperatingAgencies(r).join('; '), id: 'cooperating_agencies', header: 'Cooperating Agencies', group: 'Core', size: 220, minSize: 120, cell: ({ getValue }) => getValue() || '—' },
   { accessorKey: 'intervention',     header: 'Intervention',     group: 'Core', size: 220, minSize: 120, cell: ({ getValue }) => getValue() ?? '—' },
   { accessorKey: 'property_number',  header: 'Property No.',     group: 'Core', size: 140, minSize: 100, cell: ({ getValue }) => getValue() ?? '—' },
   { accessorKey: 'amount',           header: 'Amount',           group: 'Core', size: 130, minSize: 100, cell: ({ getValue }) => getValue() != null ? `₱${Number(getValue()).toLocaleString()}` : '—' },
@@ -134,6 +137,8 @@ export const DEFAULT_VISIBLE = {
   project_type: true,
   project_category: true,
   project_scope: true,
+  implementing_agency: true,
+  cooperating_agencies: false,
   beneficiary: true,
   municipality: true,
   barangay: true,

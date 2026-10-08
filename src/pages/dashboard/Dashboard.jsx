@@ -9,6 +9,8 @@ import { useAuth } from '../../lib/AuthContext'
 import { summarizeYear, formatPeso, budgetBarColor } from '../../lib/budget'
 import { isOverdue, isUpcoming, UPCOMING_WINDOW_DAYS } from '../../lib/documentStatus'
 import { computeProgress, progressBarColor, PHASE_ORDER } from '../../lib/documentProgress'
+import { DashboardSkeleton } from '../../components/common/Skeleton'
+import AttentionStrip from './AttentionStrip'
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -691,10 +693,17 @@ export default function Dashboard() {
     [projects]
   )
 
+  const attention = useMemo(() => ({
+    overdueDocs: overdue.length,
+    overdueProjects: new Set(overdue.map(d => d.project_instances?.id).filter(Boolean)).size,
+    upcomingDocs: upcoming.length,
+    unpinned: projects.filter(p => p.latitude == null || p.longitude == null).length,
+  }), [overdue, upcoming, projects])
+
   const loading = docsLoading || projLoading || benLoading
   const error = docsError || projError || benError
 
-  if (loading) return <div className="max-w-6xl mx-auto p-6 text-gray-500 text-sm">Loading dashboard...</div>
+  if (loading) return <DashboardSkeleton />
   if (error)   return <div className="max-w-6xl mx-auto p-6 text-red-500 text-sm">Error: {error}</div>
 
   const today = new Date().toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })
@@ -705,6 +714,8 @@ export default function Dashboard() {
         <h1 className="text-xl font-bold text-gray-800">Dashboard</h1>
         <span className="text-sm text-gray-500">{today}</span>
       </div>
+
+      <AttentionStrip {...attention} />
 
       <QuickActions />
 

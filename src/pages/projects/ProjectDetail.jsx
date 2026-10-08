@@ -9,9 +9,11 @@ import { STATIC_OPTIONS, SCOPE_OPTIONS, parseAmount } from './columns'
 import DocumentChecklist from './DocumentChecklist'
 import ProjectContacts from './ProjectContacts'
 import RemarksSection from './RemarksSection'
+import ProjectParties from './ProjectParties'
 import ProjectTypesManager from './ProjectTypesManager'
 import { useToast } from '../../lib/ToastContext'
 import { useAuth } from '../../lib/AuthContext'
+import SectionNav from '../../components/common/SectionNav'
 
 // Not in columns.jsx's STATIC_OPTIONS (that file only covers project-level
 // enums) — sourced from the beneficiary_category enum in the live DB dump.
@@ -19,9 +21,9 @@ const BENEFICIARY_CATEGORIES = ['LGU', 'Academe', 'SDO', 'NGO', 'Cooperative', '
 
 // `locked` disables every input/select/button inside (native <fieldset
 // disabled>) — used to make the form read-only for viewers.
-function Section({ title, locked = false, children }) {
+function Section({ title, locked = false, id, children }) {
   return (
-    <div className="mb-6">
+    <div id={id} className="mb-6 scroll-mt-28">
       <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3 pb-1 border-b border-gray-100">
         {title}
       </div>
@@ -79,6 +81,13 @@ function benFormFromProject(project) {
 function isChanged(current, baseline) {
   return Object.keys(baseline).some(k => String(current[k] ?? '') !== String(baseline[k] ?? ''))
 }
+
+const SECTION_NAV = [
+  { id: 'sec-info',        label: 'Project info' },
+  { id: 'sec-beneficiary', label: 'Beneficiary' },
+  { id: 'sec-documents',   label: 'Documents' },
+  { id: 'sec-remarks',     label: 'Remarks' },
+]
 
 export default function ProjectDetail() {
   const { canEdit, isAdmin } = useAuth()
@@ -320,13 +329,15 @@ export default function ProjectDetail() {
         </h1>
       </div>
 
+      <SectionNav items={SECTION_NAV} />
+
       {/* Main two-column layout: primary editable details on the left
           (wider — this is meant to be the "close look" at the project),
           lighter-weight status/impact/links/contacts info as a right rail.
           Stacks to a single column below the lg breakpoint. */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-6">
       <div className="lg:col-span-2 space-y-6">
-      <Section title="Project Info" locked={!canEdit}>
+      <Section id="sec-info" title="Project Info" locked={!canEdit}>
         <div className="grid grid-cols-2 gap-3">
           <Field label="Year">
             <input
@@ -524,7 +535,7 @@ export default function ProjectDetail() {
           beneficiary row itself, which is shared by every project under it.
           "Wrong beneficiary?" below instead moves only THIS project to a
           different beneficiary. */}
-      <Section title="Beneficiary" locked={!canEdit}>
+      <Section id="sec-beneficiary" title="Beneficiary" locked={!canEdit}>
         <div className="grid grid-cols-2 gap-3">
           <Field label="Name">
             <input
@@ -664,6 +675,7 @@ export default function ProjectDetail() {
       {/* Right rail — lighter-weight status/impact/links/contacts info,
           stacks below the left column under lg. */}
       <div className="lg:col-span-1 space-y-6">
+      <ProjectParties project={project} beneficiaries={beneficiaries} />
       <Section title="Status" locked={!canEdit}>
         <Field label="Overall Status">
           <Select
@@ -739,7 +751,7 @@ export default function ProjectDetail() {
       </div>
       </div>
 
-      <Section title="Document Checklist">
+      <Section id="sec-documents" title="Document Checklist">
         {!project.project_category ? (
           <p className="text-xs text-gray-400">
             Save a Project Category first to generate the document checklist.
@@ -749,7 +761,7 @@ export default function ProjectDetail() {
         )}
       </Section>
 
-      <Section title="Remarks">
+      <Section id="sec-remarks" title="Remarks">
         <RemarksSection projectId={project.id} />
       </Section>
 

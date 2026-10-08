@@ -4,6 +4,8 @@ import { useFormData } from '../../hooks/useFormData'
 import Select from '../../components/common/Select'
 import SearchableSelect from '../../components/common/SearchableSelect'
 import ModalShell from '../../components/common/ModalShell'
+import { useAgencies } from '../../hooks/useAgencies'
+import { supabase } from '../../lib/supabase'
 import { STATIC_OPTIONS, SCOPE_OPTIONS, parseAmount } from './columns'
 
 const EMPTY_FORM = {
@@ -11,6 +13,7 @@ const EMPTY_FORM = {
   title:            '',
   project_type_id:  '',
   beneficiary_id:   '',
+  implementing_agency_id: '',
   project_category: '',
   project_scope:    'Provincial',
   overall_status:   'For Deployment',
@@ -55,6 +58,7 @@ function Group({ title, children }) {
 export default function AddModal({ onClose, onAdd }) {
   const navigate = useNavigate()
   const { projectTypes, beneficiaries, entryPoints, loading, addProjectType, addBeneficiary } = useFormData()
+  const { agencies } = useAgencies()
   const [form, setForm]     = useState(EMPTY_FORM)
   const [saving, setSaving] = useState(null) // null | 'stay' | 'open'
   const [error, setError]   = useState(null)
@@ -138,6 +142,11 @@ export default function AddModal({ onClose, onAdd }) {
     }
 
     const { error, id } = await onAdd(payload)
+    if (!error && id != null && form.implementing_agency_id) {
+      await supabase.from('project_agencies').insert({
+        project_id: id, agency_id: Number(form.implementing_agency_id), role: 'implementing',
+      })
+    }
     setSaving(null)
     if (error) { setError(error); return }
     onClose()
@@ -364,6 +373,19 @@ export default function AddModal({ onClose, onAdd }) {
                   className={inputClass}
                 />
               )}
+            </Field>
+          </Group>
+
+          <Group title="Implementing agency">
+            <Field label="Implementing Agency" className="sm:col-span-2" hint="Optional. Add cooperating agencies and more beneficiaries on the project's full page.">
+              <SearchableSelect
+                value={form.implementing_agency_id}
+                onChange={v => handleChange('implementing_agency_id', v)}
+                options={agencies.map(a => ({ value: a.id, label: a.type ? `${a.name} (${a.type})` : a.name }))}
+                placeholder="Select implementing agency..."
+                searchPlaceholder="Search agencies..."
+                className={inputClass}
+              />
             </Field>
           </Group>
 

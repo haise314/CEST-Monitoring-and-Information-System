@@ -23,7 +23,8 @@ export function useProjects() {
         .select(`
           *,
           project_types (id, name),
-          beneficiaries (id, name, category, district, municipality, barangay)
+          beneficiaries (id, name, category, district, municipality, barangay),
+          project_agencies (role, agencies (id, name))
         `)
         .order('year', { ascending: false })
 

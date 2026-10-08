@@ -5,6 +5,7 @@ import { useProjects } from '../../hooks/useProjects'
 import { useBeneficiaries } from '../../hooks/useBeneficiaries'
 import { useContacts } from '../../hooks/useContacts'
 import { NAV_GROUPS } from './navConfig'
+import { implementingAgency, cooperatingAgencies } from '../../lib/projectAgencies'
 import { SearchIcon } from './icons'
 
 const GROUP_LABEL = { page: 'Go to', project: 'Projects', beneficiary: 'Beneficiaries', contact: 'Contacts' }
@@ -32,7 +33,7 @@ export default function CommandPalette({ onClose }) {
         type: 'project', id: p.id, to: `/projects/${p.id}`,
         title: p.title || p.project_types?.name || 'Untitled project',
         subtitle: [b?.name, b?.municipality, p.year].filter(Boolean).join(' · '),
-        haystack: [p.title, p.project_types?.name, b?.name, b?.municipality, b?.barangay, p.year, p.property_number, p.entry_point, p.intervention, p.overall_status]
+        haystack: [p.title, p.project_types?.name, b?.name, b?.municipality, b?.barangay, p.year, p.property_number, p.entry_point, p.intervention, p.overall_status, implementingAgency(p), ...cooperatingAgencies(p)]
           .filter(Boolean).join(' ').toLowerCase(),
       })
     }

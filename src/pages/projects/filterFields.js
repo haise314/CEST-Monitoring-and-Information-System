@@ -1,4 +1,5 @@
 import { STATIC_OPTIONS } from './columns'
+import { implementingAgency } from '../../lib/projectAgencies'
 
 // Every column of the Projects table can be filtered. `group` matches the
 // column groups in columns.jsx and is only used to organise the field picker.
@@ -13,6 +14,8 @@ export const PROJECT_FILTER_FIELDS = [
   { id: 'amount',           label: 'Amount',           group: 'Core', type: 'number', format: 'currency', get: p => p.amount },
   { id: 'date_deployed',    label: 'Date deployed',    group: 'Core', type: 'date',   get: p => p.date_deployed },
   { id: 'entry_point',      label: 'Entry point',      group: 'Core', type: 'select', get: p => p.entry_point },
+
+  { id: 'implementing_agency', label: 'Implementing agency', group: 'Core', type: 'select', blankLabel: '(none)', get: p => implementingAgency(p) },
 
   // ── Beneficiary ──
   { id: 'beneficiary',      label: 'Beneficiary',          group: 'Beneficiary', type: 'select', get: p => p.beneficiaries?.name },

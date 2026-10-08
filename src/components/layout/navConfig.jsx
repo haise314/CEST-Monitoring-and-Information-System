@@ -14,6 +14,14 @@ const BudgetIcon = ({ className = 'w-5 h-5' }) => (
   </svg>
 )
 
+const AgenciesIcon = ({ className = 'w-5 h-5' }) => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"
+    strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden="true">
+    <path d="M3 21h18M5 21V8l7-4 7 4v13" />
+    <path d="M9 21v-6h6v6M9 11h.01M15 11h.01" />
+  </svg>
+)
+
 // Single source of truth for the sidebar and the top bar's breadcrumb.
 export const NAV_GROUPS = [
   {
@@ -32,6 +40,7 @@ export const NAV_GROUPS = [
       { to: '/documents',     label: 'Documents',     icon: DocumentsIcon },
       { to: '/beneficiaries', label: 'Beneficiaries', icon: BeneficiariesIcon },
       { to: '/contacts',      label: 'Contacts',      icon: ContactsIcon },
+      { to: '/agencies', label: 'Agencies', icon: AgenciesIcon },
     ],
   },
 ]
