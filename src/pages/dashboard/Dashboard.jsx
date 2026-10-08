@@ -672,6 +672,63 @@ function BudgetCard({ projects }) {
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 
+// ─── SECTION: By implementing agency ────────────────────────────────────────
+
+const NO_AGENCY = '(No implementing agency)'
+
+function AgencyBreakdownSection({ projects, documents }) {
+  const rows = useMemo(() => {
+    const docsByProject = {}
+    documents.forEach(d => { (docsByProject[d.project_id] ??= []).push(d) })
+    const map = new Map()
+    projects.forEach(p => {
+      const name = implementingAgency(p) ?? NO_AGENCY
+      if (!map.has(name)) map.set(name, { name, count: 0, amount: 0, docs: [] })
+      const r = map.get(name)
+      r.count += 1
+      r.amount += Number(p.amount) || 0
+      r.docs.push(...(docsByProject[p.id] ?? []))
+    })
+    return [...map.values()]
+      .map(r => ({ ...r, pct: computeProgress(r.docs).overallPct, hasDocs: r.docs.length > 0, overdue: r.docs.filter(isOverdue).length }))
+      .sort((a, b) => (a.name === NO_AGENCY) - (b.name === NO_AGENCY) || b.count - a.count || a.name.localeCompare(b.name))
+  }, [projects, documents])
+
+  return (
+    <Card flush>
+      <CardBar title="Projects by implementing agency" count={rows.length} />
+      {rows.length === 0 ? (
+        <EmptyNote>No projects yet</EmptyNote>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead className="text-xs text-gray-500">
+              <tr>
+                <th className="text-left font-medium px-4 py-2">Agency</th>
+                <th className="text-right font-medium px-4 py-2">Projects</th>
+                <th className="text-right font-medium px-4 py-2">Amount</th>
+                <th className="text-right font-medium px-4 py-2">Compliance</th>
+                <th className="text-right font-medium px-4 py-2">Overdue docs</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100">
+              {rows.map(r => (
+                <tr key={r.name}>
+                  <td className={`px-4 py-2 ${r.name === NO_AGENCY ? 'text-gray-500 italic' : 'text-gray-800'}`}>{r.name}</td>
+                  <td className="px-4 py-2 text-right tabular-nums">{r.count}</td>
+                  <td className="px-4 py-2 text-right tabular-nums">{peso(r.amount)}</td>
+                  <td className="px-4 py-2 text-right tabular-nums">{r.hasDocs ? `${r.pct}%` : '—'}</td>
+                  <td className={`px-4 py-2 text-right tabular-nums ${r.overdue ? 'text-red-500 font-medium' : 'text-gray-400'}`}>{r.overdue}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </Card>
+  )
+}
+
 export default function Dashboard() {
   const { documents, loading: docsLoading, error: docsError } = useAllDocuments()
   const { projects, loading: projLoading, error: projError } = useProjects()
@@ -766,6 +823,9 @@ export default function Dashboard() {
 
       {/* Budget Rollup */}
       <BudgetRollupSection projects={projects} />
+
+      {/* By implementing agency */}
+      <AgencyBreakdownSection projects={projects} documents={documents} />
 
       {/* Overdue hotspots — full width, bottom */}
       <GeographicHotspotsSection documents={documents} />

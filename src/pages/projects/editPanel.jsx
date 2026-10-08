@@ -7,7 +7,7 @@ import ConfirmDialog from '../../components/common/ConfirmDialog'
 import { STATIC_OPTIONS, SCOPE_OPTIONS, parseAmount } from './columns'
 import DocumentChecklist from './DocumentChecklist'
 import ProjectContacts from './ProjectContacts'
-import ProjectParties from './ProjectParties'
+import { implementingAgency, cooperatingAgencies, additionalBeneficiaries } from '../../lib/projectAgencies'
 import { useToast } from '../../lib/ToastContext'
 import { useAuth } from '../../lib/AuthContext'
 
@@ -67,7 +67,7 @@ function isChanged(current, baseline) {
 // Ctrl/Cmd+S saves. Closing or leaving with unsaved edits asks first.
 export default function EditPanel({ project, onClose, onUpdate, onDelete, onDocumentsChanged }) {
   const { canEdit, isAdmin } = useAuth()
-  const { projectTypes, beneficiaries, entryPoints, loading } = useFormData()
+  const { projectTypes, entryPoints, loading } = useFormData()
   const toast = useToast()
   const navigate = useNavigate()
 
@@ -421,30 +421,33 @@ export default function EditPanel({ project, onClose, onUpdate, onDelete, onDocu
               </Field>
             </Section>
 
-            <Section title="Beneficiary" locked={!canEdit}>
-              <div className="bg-gray-50 rounded px-3 py-2.5 text-sm">
-                <div className="font-medium text-gray-700">
-                  {project.beneficiaries?.name ?? '—'}
-                </div>
-                <div className="text-gray-500 text-xs mt-0.5">
-                  {[project.beneficiaries?.barangay, project.beneficiaries?.municipality]
-                    .filter(Boolean).join(', ')}
-                </div>
-              </div>
+            <Section title="Agencies & Beneficiaries">
+              <Field label="Implementing Agency">
+                <input readOnly value={implementingAgency(project) ?? ''} placeholder="—" className={`${inputClass} bg-gray-50`} />
+              </Field>
+              <Field label="Cooperating Agencies">
+                <input readOnly value={cooperatingAgencies(project).join('; ')} placeholder="—" className={`${inputClass} bg-gray-50`} />
+              </Field>
+              <Field label="Beneficiaries">
+                <input
+                  readOnly
+                  value={[project.beneficiaries?.name, ...additionalBeneficiaries(project)].filter(Boolean).join('; ')}
+                  placeholder="—"
+                  className={`${inputClass} bg-gray-50`}
+                />
+              </Field>
               {project.beneficiary_id && (
                 <Link
                   to={`/beneficiaries?edit=${project.beneficiary_id}`}
                   className="text-xs text-blue-500 hover:text-blue-700 underline"
                 >
-                  View / edit this beneficiary's info →
+                  View / edit the primary beneficiary's info →
                 </Link>
               )}
               <p className="text-xs text-gray-500">
-                To change a project's beneficiary, use the full page.
+                To change agencies or beneficiaries, use the full page.
               </p>
             </Section>
-
-            <ProjectParties project={project} beneficiaries={beneficiaries} />
 
             {/* Contacts — linked from this beneficiary's existing contacts. */}
             <Section title="Contacts">

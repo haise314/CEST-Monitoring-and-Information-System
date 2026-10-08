@@ -22,6 +22,7 @@ import FilterChips from '../../components/common/FilterChips'
 import { buildDocumentFilterFields } from './filterFields'
 import { applyFilters } from '../../lib/filterEngine'
 import { useSessionState } from '../../hooks/useSessionState'
+import { implementingAgency, cooperatingAgencies } from '../../lib/projectAgencies'
 
 // Manually pinned (frozen) columns — fixed widths so their sticky `left`
 // offsets are predictable. Not using TanStack's built-in column pinning
@@ -205,6 +206,25 @@ export default function Documents() {
       },
     ]
 
+    const agencyCols = [
+      {
+        id: 'implementing_agency',
+        accessorFn: r => implementingAgency(r) ?? '',
+        header: 'Implementing Agency',
+        group: 'Project Info',
+        enableGlobalFilter: true,
+        cell: ({ getValue }) => <span className="text-xs">{getValue() || '—'}</span>,
+      },
+      {
+        id: 'cooperating_agencies',
+        accessorFn: r => cooperatingAgencies(r).join('; '),
+        header: 'Cooperating Agencies',
+        group: 'Project Info',
+        enableGlobalFilter: true,
+        cell: ({ getValue }) => <span className="text-xs">{getValue() || '—'}</span>,
+      },
+    ]
+
     const docCols = (documentTypesByPhase[activePhase] ?? []).map(type => ({
       id: `doc_${type.id}`,
       accessorFn: r => docByProjectAndType[`${r.id}-${type.id}`],
@@ -215,7 +235,7 @@ export default function Documents() {
       cell: ({ getValue }) => <DocBadge doc={getValue()} />,
     }))
 
-    return [...core, ...docCols]
+    return [...core, ...agencyCols, ...docCols]
   }, [activePhase, documentTypesByPhase, docsByProject, docByProjectAndType])
 
   const table = useReactTable({

@@ -84,7 +84,7 @@ function isChanged(current, baseline) {
 
 const SECTION_NAV = [
   { id: 'sec-info',        label: 'Project info' },
-  { id: 'sec-beneficiary', label: 'Beneficiary' },
+  { id: 'sec-beneficiary', label: 'Agencies & Beneficiaries' },
   { id: 'sec-documents',   label: 'Documents' },
   { id: 'sec-remarks',     label: 'Remarks' },
 ]
@@ -535,7 +535,8 @@ export default function ProjectDetail() {
           beneficiary row itself, which is shared by every project under it.
           "Wrong beneficiary?" below instead moves only THIS project to a
           different beneficiary. */}
-      <Section id="sec-beneficiary" title="Beneficiary" locked={!canEdit}>
+      <Section id="sec-beneficiary" title="Agencies & Beneficiaries" locked={!canEdit}>
+        <ProjectParties project={project} beneficiaries={beneficiaries} updateBeneficiary={updateBeneficiary}>
         <div className="grid grid-cols-2 gap-3">
           <Field label="Name">
             <input
@@ -669,13 +670,13 @@ export default function ProjectDetail() {
             </div>
           )}
         </div>
+      </ProjectParties>
       </Section>
       </div>
 
       {/* Right rail — lighter-weight status/impact/links/contacts info,
           stacks below the left column under lg. */}
       <div className="lg:col-span-1 space-y-6">
-      <ProjectParties project={project} beneficiaries={beneficiaries} />
       <Section title="Status" locked={!canEdit}>
         <Field label="Overall Status">
           <Select

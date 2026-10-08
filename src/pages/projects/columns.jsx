@@ -139,7 +139,7 @@ export const DEFAULT_VISIBLE = {
   project_category: true,
   project_scope: true,
   implementing_agency: true,
-  cooperating_agencies: false,
+  cooperating_agencies: true,
   additional_beneficiaries: false,
   beneficiary: true,
   municipality: true,

@@ -28,7 +28,7 @@ export function useProjectParties(projectId) {
         .select('id, role, agencies (id, name, type)')
         .eq('project_id', projectId).order('id'),
       supabase.from('project_beneficiaries')
-        .select('id, beneficiaries (id, name, municipality, barangay)')
+        .select('id, beneficiaries (id, name, category, district, municipality, barangay)')
         .eq('project_id', projectId).order('id'),
     ])
     const err = aRes.error || bRes.error
