@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict sNhsAJWZFLzJPVGc57xC7O3UaHPznD8XAodWU9fjgv5uJ9x7EMMEfn4iSFomVrk
+\restrict swbMtDhWjzpYGLPdtOm22GFf0VZSYgeyWF0EbvGqy7ZWcYo0bcXVg4Dnm9nkvmy
 
 -- Dumped from database version 17.6
 -- Dumped by pg_dump version 17.11 (Ubuntu 17.11-1.pgdg24.04+2)
@@ -408,10 +408,45 @@ $$;
 
 
 --
--- Name: save_contact(integer, text, text, text, text, integer[]); Type: FUNCTION; Schema: public; Owner: -
+-- Name: reassign_project_beneficiary(integer, integer, boolean); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION public.save_contact(p_id integer, p_name text, p_role text, p_contact_number text, p_messenger_link text, p_beneficiary_ids integer[]) RETURNS integer
+CREATE FUNCTION public.reassign_project_beneficiary(p_project_id integer, p_beneficiary_id integer, p_unlink_contacts boolean DEFAULT true) RETURNS void
+    LANGUAGE plpgsql
+    SET search_path TO 'public'
+    AS $$
+begin
+  update public.project_instances
+     set beneficiary_id = p_beneficiary_id
+   where id = p_project_id;
+  if not found then
+    raise exception 'Project not found, or you do not have permission to change it.';
+  end if;
+
+  -- itinerary_stops.beneficiary_id is NOT NULL and copied from the project
+  update public.itinerary_stops
+     set beneficiary_id = p_beneficiary_id
+   where project_id = p_project_id;
+
+  -- Removes LINKS only (contacts are kept): project contacts that do not
+  -- belong to the new beneficiary.
+  if p_unlink_contacts then
+    delete from public.project_contacts pc
+     where pc.project_id = p_project_id
+       and not exists (
+         select 1 from public.contact_beneficiaries cb
+          where cb.contact_id = pc.contact_id
+            and cb.beneficiary_id = p_beneficiary_id);
+  end if;
+end;
+$$;
+
+
+--
+-- Name: save_contact(integer, text, text, text, text, integer[], text); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.save_contact(p_id integer, p_name text, p_role text, p_contact_number text, p_messenger_link text, p_beneficiary_ids integer[], p_email text DEFAULT NULL::text) RETURNS integer
     LANGUAGE plpgsql
     SET search_path TO 'public'
     AS $$
@@ -420,13 +455,14 @@ declare
   v_ids integer[] := coalesce(p_beneficiary_ids, '{}');
 begin
   if p_id is null then
-    insert into public.beneficiary_contacts (name, role, contact_number, messenger_link)
-    values (p_name, p_role, p_contact_number, p_messenger_link)
+    insert into public.beneficiary_contacts (name, role, contact_number, messenger_link, email)
+    values (p_name, p_role, p_contact_number, p_messenger_link, p_email)
     returning id into v_id;
   else
     update public.beneficiary_contacts
        set name = p_name, role = p_role,
-           contact_number = p_contact_number, messenger_link = p_messenger_link
+           contact_number = p_contact_number, messenger_link = p_messenger_link,
+           email = p_email
      where id = p_id
     returning id into v_id;
     if v_id is null then
@@ -553,7 +589,8 @@ CREATE TABLE public.beneficiary_contacts (
     role character varying(100),
     contact_number character varying(50),
     messenger_link text,
-    updated_at timestamp with time zone DEFAULT now()
+    updated_at timestamp with time zone DEFAULT now(),
+    email character varying(255)
 );
 
 
@@ -1738,5 +1775,5 @@ CREATE POLICY "update: editors" ON public.project_instances FOR UPDATE TO authen
 -- PostgreSQL database dump complete
 --
 
-\unrestrict sNhsAJWZFLzJPVGc57xC7O3UaHPznD8XAodWU9fjgv5uJ9x7EMMEfn4iSFomVrk
+\unrestrict swbMtDhWjzpYGLPdtOm22GFf0VZSYgeyWF0EbvGqy7ZWcYo0bcXVg4Dnm9nkvmy
 
