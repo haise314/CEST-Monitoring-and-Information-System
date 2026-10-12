@@ -10,6 +10,7 @@ import { useState, useMemo, useEffect } from 'react'
 import { useSearchParams, Link } from 'react-router'
 import { useProjects } from '../../hooks/useProjects'
 import { useColumnSizing } from '../../hooks/useColumnSizing'
+import { useLocalState } from '../../hooks/useLocalState'
 import { ALL_COLUMNS, DEFAULT_VISIBLE } from './columns'
 import FilterChips from '../../components/common/FilterChips'
 import { PROJECT_FILTER_FIELDS } from './filterFields'
@@ -36,7 +37,9 @@ function Projects() {
   // Table state
   const [globalFilter, setGlobalFilter]           = useState('')
   const [sorting, setSorting]                     = useState([])
-  const [columnVisibility, setColumnVisibility]   = useState(DEFAULT_VISIBLE)
+  // Column visibility + order are remembered per device (localStorage).
+  const [columnVisibility, setColumnVisibility] = useLocalState('projectsColumnVisibility', DEFAULT_VISIBLE, v => ({ ...DEFAULT_VISIBLE, ...v }))
+  const [columnOrder, setColumnOrder]           = useLocalState('projectsColumnOrder', [], v => (Array.isArray(v) ? v : []))
   const [columnSizing, setColumnSizing]           = useColumnSizing('projectsColumnSizing')
   // Active filter chips — remembered for the browser tab, so coming back from a
   // project page keeps your filters.
@@ -72,17 +75,18 @@ function Projects() {
   const table = useReactTable({
     data: filtered,
     columns: ALL_COLUMNS,
-    state: { globalFilter, sorting, columnVisibility, columnSizing },
+    state: { globalFilter, sorting, columnVisibility, columnSizing, columnOrder },
     onGlobalFilterChange:     setGlobalFilter,
     onSortingChange:          setSorting,
     onColumnVisibilityChange: setColumnVisibility,
     onColumnSizingChange:     setColumnSizing,
+    onColumnOrderChange:      setColumnOrder,
     columnResizeMode:         'onChange',
     getCoreRowModel:          getCoreRowModel(),
     getFilteredRowModel:      getFilteredRowModel(),
     getSortedRowModel:        getSortedRowModel(),
     getPaginationRowModel:    getPaginationRowModel(),
-    initialState: { pagination: { pageSize: 25 } },
+    initialState: { pagination: { pageSize: 25 }, columnVisibility: DEFAULT_VISIBLE },
   })
 
   function handleExport() {

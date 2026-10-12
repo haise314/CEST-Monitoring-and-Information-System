@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict wtDmFxxb1aIl6P1rCNuScS6SfAR5cK6B9D99NuJIqZAZbx3IwdOKXo15BO8btqQ
+\restrict kvSrPWegUs759DDljLaGhVB6iKdn8G2iypB1Sb4gHQSthQhzXKOTcaZQXSQKBmo
 
 -- Dumped from database version 17.6
 -- Dumped by pg_dump version 17.11 (Ubuntu 17.11-1.pgdg24.04+2)
@@ -945,7 +945,8 @@ CREATE TABLE public.project_instances (
     title character varying(255),
     project_scope public.project_scope DEFAULT 'Provincial'::public.project_scope NOT NULL,
     latitude numeric(9,6),
-    longitude numeric(9,6)
+    longitude numeric(9,6),
+    address text
 );
 
 
@@ -2062,5 +2063,5 @@ CREATE POLICY "update: editors" ON public.project_instances FOR UPDATE TO authen
 -- PostgreSQL database dump complete
 --
 
-\unrestrict wtDmFxxb1aIl6P1rCNuScS6SfAR5cK6B9D99NuJIqZAZbx3IwdOKXo15BO8btqQ
+\unrestrict kvSrPWegUs759DDljLaGhVB6iKdn8G2iypB1Sb4gHQSthQhzXKOTcaZQXSQKBmo
 

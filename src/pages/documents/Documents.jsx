@@ -22,6 +22,7 @@ import FilterChips from '../../components/common/FilterChips'
 import { buildDocumentFilterFields } from './filterFields'
 import { applyFilters } from '../../lib/filterEngine'
 import { useSessionState } from '../../hooks/useSessionState'
+import { useLocalState } from '../../hooks/useLocalState'
 import { implementingAgency, cooperatingAgencies, projectOwnerName, allBeneficiaryNames } from '../../lib/projectAgencies'
 
 // Manually pinned (frozen) columns — fixed widths so their sticky `left`
@@ -92,7 +93,9 @@ export default function Documents() {
   const [activePhase, setActivePhase]           = useState(PHASE_ORDER[0])
   // Active filter chips — remembered for the browser tab (see useSessionState)
   const [filters, setFilters] = useSessionState('documentsFilters', [])
-  const [columnVisibility, setColumnVisibility] = useState({})
+  // Column visibility + order are remembered per device (localStorage).
+  const [columnVisibility, setColumnVisibility] = useLocalState('documentsColumnVisibility', {}, v => (v && typeof v === 'object' ? v : {}))
+  const [columnOrder, setColumnOrder]           = useLocalState('documentsColumnOrder', [], v => (Array.isArray(v) ? v : []))
   const [showVisibilityPanel, setShowVisibilityPanel] = useState(false)
 
   const [selectedProjectId, setSelectedProjectId] = useState(null)
@@ -249,10 +252,11 @@ export default function Documents() {
   const table = useReactTable({
     data: filteredProjects,
     columns,
-    state: { globalFilter, sorting, columnVisibility },
+    state: { globalFilter, sorting, columnVisibility, columnOrder },
     onGlobalFilterChange:     setGlobalFilter,
     onSortingChange:          setSorting,
     onColumnVisibilityChange: setColumnVisibility,
+    onColumnOrderChange:      setColumnOrder,
     getCoreRowModel:       getCoreRowModel(),
     getFilteredRowModel:   getFilteredRowModel(),
     getSortedRowModel:     getSortedRowModel(),
