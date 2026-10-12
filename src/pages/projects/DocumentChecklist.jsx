@@ -167,7 +167,7 @@ function LinkCell({ value, onChange }) {
 
 function DocumentRow({ doc, onUpdate }) {
   const { canEdit } = useAuth()
-  const [showNotes, setShowNotes] = useState(false)
+  const [showNotes, setShowNotes] = useState(Boolean(doc.notes))
   const [notes, setNotes]         = useState(doc.notes ?? '')
   const isNA    = doc.is_not_applicable
   const status  = getDocStatus(doc)
@@ -286,7 +286,7 @@ function DocumentRow({ doc, onUpdate }) {
             onBlur={handleNotesBlur}
             readOnly={!canEdit}
             placeholder="Add notes..."
-            className="w-full border border-gray-300 rounded px-2 py-1.5 text-base sm:text-xs bg-white text-gray-800 focus:outline-none focus:ring-1 focus:ring-blue-400"
+            className={`w-full border rounded px-2 py-1.5 text-base sm:text-xs text-gray-800 focus:outline-none focus:ring-1 focus:ring-blue-400 ${doc.notes ? 'border-amber-300 bg-amber-50' : 'border-gray-300 bg-white'}`}
           />
         </div>
       )}

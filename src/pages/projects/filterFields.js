@@ -17,6 +17,8 @@ export const PROJECT_FILTER_FIELDS = [
 
   { id: 'implementing_agency', label: 'Implementing agency', group: 'Core', type: 'select', blankLabel: '(none)', get: p => implementingAgency(p) },
 
+  { id: 'address', label: 'Address', group: 'Core', type: 'text', get: p => p.address },
+
   // ── Beneficiary ──
   { id: 'additional_beneficiaries', label: 'Additional beneficiaries', group: 'Beneficiary', type: 'text', get: p => additionalBeneficiaries(p).join('; ') },
   { id: 'beneficiary',      label: 'Beneficiary',          group: 'Beneficiary', type: 'select', get: p => p.beneficiaries?.name },

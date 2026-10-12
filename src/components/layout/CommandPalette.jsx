@@ -35,7 +35,7 @@ export default function CommandPalette({ onClose }) {
         type: 'project', id: p.id, to: `/projects/${p.id}`,
         title: p.title || p.project_types?.name || 'Untitled project',
         subtitle: [projectOwnerName(p), b?.municipality, p.year].filter(Boolean).join(' · '),
-        haystack: [p.title, p.project_types?.name, b?.name, b?.municipality, b?.barangay, p.year, p.property_number, p.entry_point, p.intervention, p.overall_status, implementingAgency(p), ...cooperatingAgencies(p)]
+        haystack: [p.title, p.project_types?.name, b?.name, b?.municipality, b?.barangay, p.year, p.property_number, p.address, p.entry_point, p.intervention, p.overall_status, implementingAgency(p), ...cooperatingAgencies(p)]
           .filter(Boolean).join(' ').toLowerCase(),
       })
     }

@@ -55,6 +55,7 @@ function formFromProject(project) {
     project_category:    project.project_category    ?? '',
     project_scope:       project.project_scope       ?? 'Provincial',
     property_number:     project.property_number     ?? '',
+    address:             project.address             ?? '',
     amount:              project.amount              ?? '',
     date_deployed:       project.date_deployed       ?? '',
     entry_point:         project.entry_point         ?? '',
@@ -226,6 +227,7 @@ export default function ProjectDetail() {
       project_category:    form.project_category           || null,
       project_scope:       form.project_scope              || 'Provincial',
       property_number:     form.property_number            || null,
+      address:             form.address.trim()             || null,
       amount:              parseAmount(form.amount),
       date_deployed:       form.date_deployed              || null,
       entry_point:         form.entry_point                || null,
@@ -522,7 +524,17 @@ export default function ProjectDetail() {
           )}
         </Field>
 
-        <Field label="Intervention">
+        <Field label="Address" >
+                <input
+                  type="text"
+                  value={form.address}
+                  onChange={e => handleChange('address', e.target.value)}
+                  placeholder="e.g. Purok 3, Brgy. Poblacion, Iba, Zambales"
+                  className={inputClass}
+                />
+              </Field>
+
+              <Field label="Intervention">
           <textarea
             rows={2}
             value={form.intervention}

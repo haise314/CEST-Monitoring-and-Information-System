@@ -19,6 +19,7 @@ const EMPTY_FORM = {
   overall_status:   'For Deployment',
   amount:           '',
   property_number:  '',
+  address:          '',
   entry_point:      '',
   date_deployed:    '',
 }
@@ -140,6 +141,7 @@ export default function AddModal({ onClose, onAdd }) {
       overall_status:   form.overall_status || 'For Deployment',
       amount:           parseAmount(form.amount),
       property_number:  form.property_number || null,
+      address:          form.address.trim() || null,
       entry_point:      form.entry_point     || null,
       date_deployed:    form.date_deployed   || null,
     }
@@ -455,6 +457,16 @@ export default function AddModal({ onClose, onAdd }) {
                 type="text"
                 value={form.property_number}
                 onChange={e => handleChange('property_number', e.target.value)}
+                className={inputClass}
+              />
+            </Field>
+
+            <Field label="Address" className="sm:col-span-2" hint="Street/purok, barangay, municipality. Used for reports.">
+              <input
+                type="text"
+                value={form.address}
+                onChange={e => handleChange('address', e.target.value)}
+                placeholder="e.g. Purok 3, Brgy. Poblacion, Iba, Zambales"
                 className={inputClass}
               />
             </Field>

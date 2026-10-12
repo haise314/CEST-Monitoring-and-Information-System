@@ -224,6 +224,7 @@ function Projects() {
                   </div>
                   {implementingAgency(p) && <div className="text-xs text-gray-400 break-words">For: {allBeneficiaryNames(p).join('; ') || '—'}</div>}
                   {where && <div className="text-xs text-gray-400 break-words">{where}</div>}
+                  {p.address && <div className="text-xs text-gray-500 break-words">📍 {p.address}</div>}
                 </div>
                 <span className="text-xs text-gray-400 flex-shrink-0">{p.year}</span>
               </div>

@@ -88,6 +88,7 @@ export const ALL_COLUMNS = [
   { accessorKey: 'property_number',  header: 'Property No.',     group: 'Core', size: 140, minSize: 100, cell: ({ getValue }) => getValue() ?? '—' },
   { accessorKey: 'amount',           header: 'Amount',           group: 'Core', size: 130, minSize: 100, cell: ({ getValue }) => getValue() != null ? `₱${Number(getValue()).toLocaleString()}` : '—' },
   { accessorKey: 'date_deployed',    header: 'Date Deployed',    group: 'Core', size: 130, minSize: 100, cell: ({ getValue }) => getValue() ?? '—' },
+  { accessorKey: 'address',          header: 'Address',          group: 'Core', size: 260, minSize: 120, cell: ({ getValue }) => getValue() ?? '—' },
   { accessorKey: 'entry_point',      header: 'Entry Point',      group: 'Core', size: 150, minSize: 100, cell: ({ getValue }) => getValue() ?? '—' },
 
   // BENEFICIARY
@@ -145,6 +146,7 @@ export const DEFAULT_VISIBLE = {
   municipality: true,
   barangay: true,
   property_number: true,
+  address: true,
   amount: true,
   overall_status: true,
   operational_status: true,
