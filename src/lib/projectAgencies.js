@@ -1,4 +1,4 @@
-export const AGENCY_TYPES = ['SUC', 'LGU', 'NGA', 'NGO', 'Cooperative', 'Academe', 'Private', 'Others']
+export const AGENCY_TYPES = ['LGU', 'BLGU', 'SUC', 'NGA', 'SDO', 'Academe', 'NGO', 'Cooperative', 'Private', 'Others']
 
 // p = a project row that embedded `project_agencies (role, agencies (id, name))`
 export const implementingAgency = p =>

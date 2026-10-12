@@ -7,7 +7,7 @@ import SearchableSelect from '../../components/common/SearchableSelect'
 import Select from '../../components/common/Select'
 import { AGENCY_TYPES } from '../../lib/projectAgencies'
 
-const BENEFICIARY_CATEGORIES = ['LGU', 'Academe', 'SDO', 'NGO', 'Cooperative', 'Others', 'BLGU']
+const BENEFICIARY_CATEGORIES = ['LGU', 'BLGU', 'SUC', 'NGA', 'SDO', 'Academe', 'NGO', 'Cooperative', 'Private', 'Others']
 
 const pickerClass = 'w-full border border-gray-300 rounded px-2 py-1.5 text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-blue-500'
 const inputClass  = 'w-full border border-gray-300 rounded px-3 py-1.5 text-sm bg-white text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500'

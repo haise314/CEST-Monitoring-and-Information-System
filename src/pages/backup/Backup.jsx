@@ -20,7 +20,6 @@ const TABLE_LABELS = {
   itineraries:          'Itineraries',
   itinerary_stops:      'Itinerary stops',
   annual_budgets:       'Annual budgets',
-  agencies:             'Agencies',
   project_agencies:     'Project–agency links',
   project_beneficiaries: 'Additional beneficiaries',
 }

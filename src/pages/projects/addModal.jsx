@@ -24,7 +24,7 @@ const EMPTY_FORM = {
   date_deployed:    '',
 }
 
-const BENEFICIARY_CATEGORIES = ['LGU', 'Academe', 'SDO', 'NGO', 'Cooperative', 'Others', 'BLGU']
+const BENEFICIARY_CATEGORIES = ['LGU', 'BLGU', 'SUC', 'NGA', 'SDO', 'Academe', 'NGO', 'Cooperative', 'Private', 'Others']
 const EMPTY_NEW_BENEFICIARY = { name: '', category: '', district: '', municipality: '', barangay: '' }
 
 const inputClass = 'w-full border border-gray-300 rounded px-3 py-2.5 sm:py-2 text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-blue-500'

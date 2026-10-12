@@ -24,7 +24,7 @@ export function useProjects() {
           *,
           project_types (id, name),
           beneficiaries (id, name, category, district, municipality, barangay),
-          project_agencies (role, agencies (id, name)),
+          project_agencies (role, agencies:beneficiaries!agency_id (id, name)),
           project_beneficiaries (beneficiaries (id, name, municipality))
         `)
         .order('year', { ascending: false })

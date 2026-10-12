@@ -18,7 +18,7 @@ import { projectOwnerName } from '../../lib/projectAgencies'
 
 // Not in columns.jsx's STATIC_OPTIONS (that file only covers project-level
 // enums) — sourced from the beneficiary_category enum in the live DB dump.
-const BENEFICIARY_CATEGORIES = ['LGU', 'Academe', 'SDO', 'NGO', 'Cooperative', 'Others', 'BLGU']
+const BENEFICIARY_CATEGORIES = ['LGU', 'BLGU', 'SUC', 'NGA', 'SDO', 'Academe', 'NGO', 'Cooperative', 'Private', 'Others']
 
 // `locked` disables every input/select/button inside (native <fieldset
 // disabled>) — used to make the form read-only for viewers.

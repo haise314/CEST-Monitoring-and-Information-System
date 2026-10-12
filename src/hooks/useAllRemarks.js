@@ -25,7 +25,7 @@ export function useAllRemarks(limit = 10) {
             id, year, title,
             project_types (name),
             beneficiaries (name, municipality),
-            project_agencies (role, agencies (id, name))
+            project_agencies (role, agencies:beneficiaries!agency_id (id, name))
           )
         `)
         .order('created_at', { ascending: false })

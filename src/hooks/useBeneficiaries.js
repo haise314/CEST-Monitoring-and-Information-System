@@ -5,12 +5,11 @@ import { useAuth } from '../lib/AuthContext'
 const NO_EDIT  = "You don't have permission to make changes."
 const NO_ADMIN = 'Only an admin can delete this.'
 
-// Full CRUD on the beneficiaries table. Pulls a count of linked
-// project_instances per beneficiary so the UI can block deletion of
-// any beneficiary that still has projects — beneficiary_id on
-// project_instances is a NO ACTION foreign key (not CASCADE like
-// beneficiary_contacts), so an unguarded delete would just throw a
-// raw Postgres FK-violation error.
+// Full CRUD on the unified organizations table (beneficiaries). An
+// organization can be a beneficiary on some projects and the implementing /
+// cooperating agency on others. We pull counts for all three roles so the UI
+// can block deletion while it's still referenced (both project_instances and
+// project_agencies FKs are NO ACTION).
 export function useBeneficiaries() {
   const { canEdit, isAdmin } = useAuth()
   const [beneficiaries, setBeneficiaries] = useState([])
@@ -28,7 +27,8 @@ export function useBeneficiaries() {
         .from('beneficiaries')
         .select(`
           *,
-          project_instances (count)
+          project_instances (count),
+          project_agencies (role)
         `)
         .order('name')
 
@@ -41,9 +41,7 @@ export function useBeneficiaries() {
 
   async function addBeneficiary(data) {
     if (!canEdit) return { error: NO_EDIT }
-    const { error } = await supabase
-      .from('beneficiaries')
-      .insert(data)
+    const { error } = await supabase.from('beneficiaries').insert(data)
     if (error) return { error: error.message }
     await fetchBeneficiaries()
     return { error: null }
@@ -51,10 +49,7 @@ export function useBeneficiaries() {
 
   async function updateBeneficiary(id, updates) {
     if (!canEdit) return { error: NO_EDIT }
-    const { error } = await supabase
-      .from('beneficiaries')
-      .update(updates)
-      .eq('id', id)
+    const { error } = await supabase.from('beneficiaries').update(updates).eq('id', id)
     if (error) return { error: error.message }
     await fetchBeneficiaries()
     return { error: null }
@@ -62,10 +57,7 @@ export function useBeneficiaries() {
 
   async function deleteBeneficiary(id) {
     if (!isAdmin) return { error: NO_ADMIN }
-    const { error } = await supabase
-      .from('beneficiaries')
-      .delete()
-      .eq('id', id)
+    const { error } = await supabase.from('beneficiaries').delete().eq('id', id)
     if (error) return { error: error.message }
     await fetchBeneficiaries()
     return { error: null }
@@ -83,6 +75,16 @@ export function useBeneficiaries() {
 }
 
 // Supabase returns embedded counts as project_instances: [{ count: N }]
-export function projectCount(beneficiary) {
-  return beneficiary.project_instances?.[0]?.count ?? 0
+export function projectCount(b) {
+  return b.project_instances?.[0]?.count ?? 0
+}
+export function implementingCount(b) {
+  return (b.project_agencies ?? []).filter(l => l.role === 'implementing').length
+}
+export function cooperatingCount(b) {
+  return (b.project_agencies ?? []).filter(l => l.role === 'cooperating').length
+}
+// Everything that blocks deleting this organization.
+export function usageCount(b) {
+  return projectCount(b) + (b.project_agencies?.length ?? 0)
 }

@@ -3,7 +3,7 @@ import ModalShell from '../../components/common/ModalShell'
 import ConfirmDialog from '../../components/common/ConfirmDialog'
 import BeneficiaryContacts from './BeneficiaryContacts'
 
-const CATEGORIES = ['LGU', 'Academe', 'SDO', 'NGO', 'Cooperative', 'Others', 'BLGU']
+const CATEGORIES = ['LGU', 'BLGU', 'SUC', 'NGA', 'SDO', 'Academe', 'NGO', 'Cooperative', 'Private', 'Others']
 
 const EMPTY_FORM = {
   name: '',

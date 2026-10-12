@@ -15,7 +15,7 @@ const SELECT = `
     id, year, project_category, overall_status, gdrive_folder_link,
     project_types (name),
     beneficiaries (name, category, municipality, barangay, district),
-    project_agencies (role, agencies (id, name))
+    project_agencies (role, agencies:beneficiaries!agency_id (id, name))
   )
 `
 

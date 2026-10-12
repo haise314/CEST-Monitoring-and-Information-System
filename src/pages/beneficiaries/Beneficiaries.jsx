@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect } from 'react'
 import { useReactTable, getCoreRowModel, getSortedRowModel, flexRender } from '@tanstack/react-table'
 import { useSearchParams } from 'react-router'
-import { useBeneficiaries, projectCount } from '../../hooks/useBeneficiaries'
+import { useBeneficiaries, projectCount, usageCount, implementingCount, cooperatingCount } from '../../hooks/useBeneficiaries'
 import { useColumnSizing } from '../../hooks/useColumnSizing'
 import ResizableTh from '../../components/common/ResizableTh'
 import { useToast } from '../../lib/ToastContext'
@@ -109,7 +109,7 @@ export default function Beneficiaries() {
       {/* Header */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-4">
         <h1 className="text-xl font-bold text-gray-800">
-          Beneficiaries
+          Organizations
           <span className="ml-2 text-sm font-normal text-gray-400">
             {filtered.length} of {beneficiaries.length}
           </span>
@@ -141,7 +141,7 @@ export default function Beneficiaries() {
             onClick={openAdd}
             className="bg-blue-600 text-white rounded px-3 py-1.5 text-sm font-medium hover:bg-blue-700"
           >
-            + Add Beneficiary
+            + Add Organization
           </button>
           )}
         </div>
@@ -211,7 +211,7 @@ export default function Beneficiaries() {
               </div>
               {where && <div className="text-xs text-gray-500 mt-1 break-words">{where}</div>}
               <div className="text-xs text-gray-400 mt-1.5">
-                {n} project{n === 1 ? '' : 's'}
+                {n} as beneficiary · {implementingCount(b)} implementing · {cooperatingCount(b)} cooperating
               </div>
             </MobileCard>
           )
@@ -222,7 +222,7 @@ export default function Beneficiaries() {
       {showModal && (
         <BeneficiaryModal
           beneficiary={editingBeneficiary}
-          linkedProjectCount={editingBeneficiary ? projectCount(editingBeneficiary) : 0}
+          linkedProjectCount={editingBeneficiary ? usageCount(editingBeneficiary) : 0}
           onClose={() => setShowModal(false)}
           onSave={handleSave}
           readOnly={!canEdit}

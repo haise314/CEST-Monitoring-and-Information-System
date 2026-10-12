@@ -25,7 +25,7 @@ export function useProjectParties(projectId) {
     if (!silent) setLoading(true)
     const [aRes, bRes] = await Promise.all([
       supabase.from('project_agencies')
-        .select('id, role, agencies (id, name, type)')
+        .select('id, role, agencies:beneficiaries!agency_id (id, name, type:category)')
         .eq('project_id', projectId).order('id'),
       supabase.from('project_beneficiaries')
         .select('id, beneficiaries (id, name, category, district, municipality, barangay)')
