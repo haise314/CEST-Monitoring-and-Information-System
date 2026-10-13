@@ -16,7 +16,7 @@ import ConfirmDialog from './ConfirmDialog'
 //   half-filled form).
 // Also: locks page scroll while open, moves focus into the dialog, traps Tab
 // inside it, and gives focus back to whatever opened it on close.
-const SIZES = { sm: 'sm:max-w-sm', md: 'sm:max-w-lg', lg: 'sm:max-w-2xl' }
+const SIZES = { sm: 'sm:max-w-sm', md: 'sm:max-w-lg', lg: 'sm:max-w-2xl', xl: 'sm:max-w-4xl' }
 const FOCUSABLE = 'a[href],button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])'
 
 let idCounter = 0

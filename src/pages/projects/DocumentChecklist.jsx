@@ -162,7 +162,7 @@ function LinkCell({ value, stage, onChange }) {
         value={stage}
         onChange={e => onChange(value, e.target.value)}
         title="Is this link a draft, for checking, for signing, or the final soft copy?"
-        className="px-1 py-0.5 text-xs"
+        className="w-[6.5rem] px-1.5 py-1 text-xs"
       >
         {LINK_STAGES.map(x => <option key={x.id} value={x.id}>{x.label}</option>)}
       </Select>
@@ -197,68 +197,61 @@ function DocumentRow({ doc, onUpdate }) {
   }
 
   return (
+    // @container: the controls sit beside the name only when this row is
+    // wide enough (>= 42rem); otherwise they drop to their own line.
     <div
-      className={`my-1 pl-2 pr-1 py-2 rounded-r border-l-4 ${
+      className={`@container my-1.5 pl-3 pr-2 py-2.5 rounded-r-lg border-l-4 ${
         overdue && !isNA ? 'border-l-red-600 bg-red-50' : ROW_STYLE[status]
       } ${isNA ? 'opacity-60' : ''}`}
     >
-      <div className="flex flex-wrap sm:flex-nowrap items-center gap-x-2 gap-y-2">
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-2.5">
 
-        {/* N/A toggle */}
-        <button
-          onClick={() => handleCheck('is_not_applicable', !isNA)}
-          title={isNA ? 'Mark as applicable' : 'Mark as not applicable'}
-          disabled={!canEdit}
-          className={`text-xs px-2 py-1 sm:px-1.5 sm:py-0.5 rounded border flex-shrink-0 transition-colors ${
-            isNA
-              ? 'bg-gray-200 border-gray-400 text-gray-700'
-              : 'border-gray-300 text-gray-500 hover:border-gray-500 hover:text-gray-700'
-          }`}
-        >
-          N/A
-        </button>
+        {/* Line 1: N/A toggle · name · status pill */}
+        <div className="flex items-center gap-2.5 flex-1 min-w-[14rem]">
+          <button
+            onClick={() => handleCheck('is_not_applicable', !isNA)}
+            title={isNA ? 'Mark as applicable' : 'Mark as not applicable'}
+            disabled={!canEdit}
+            className={`text-xs px-2 py-1 rounded border flex-shrink-0 transition-colors ${
+              isNA
+                ? 'bg-gray-200 border-gray-400 text-gray-700'
+                : 'border-gray-300 text-gray-500 hover:border-gray-500 hover:text-gray-700'
+            }`}
+          >
+            N/A
+          </button>
 
-        {/* Document name */}
-        <span className={`text-xs flex-1 min-w-0 ${isNA ? 'line-through text-gray-500' : 'text-gray-800'}`}>
-          {doc.document_types?.name ?? doc.custom_label ?? '—'}
-          {doc.document_types && !doc.document_types.is_required && !isNA && (
-            <span className="ml-1 text-gray-500 italic">(optional)</span>
-          )}
-        </span>
-
-        {/* Status pill */}
-        {!isNA && (
-          <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full whitespace-nowrap flex-shrink-0 ${
-            overdue ? 'bg-red-100 text-red-700' : PILL_STYLE[status]
-          }`}>
-            {overdue ? 'Overdue' : shortLabel(status)}
+          <span className={`text-sm flex-1 min-w-0 break-words leading-snug ${isNA ? 'line-through text-gray-500' : 'text-gray-800 font-medium'}`}>
+            {doc.document_types?.name ?? doc.custom_label ?? '—'}
+            {doc.document_types && !doc.document_types.is_required && !isNA && (
+              <span className="ml-1.5 text-xs font-normal text-gray-500 italic">(optional)</span>
+            )}
           </span>
-        )}
 
+          {!isNA && (
+            <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full whitespace-nowrap flex-shrink-0 ${
+              overdue ? 'bg-red-100 text-red-700' : PILL_STYLE[status]
+            }`}>
+              {overdue ? 'Overdue' : shortLabel(status)}
+            </span>
+          )}
+        </div>
+
+        {/* Line 2 (or inline when wide): due date · link + stage · checkboxes · notes */}
         {!isNA && (
-          // On phones this group drops to its own line under the name
-          // (w-full, indented past the N/A button); from sm up it sits
-          // inline with the name as before.
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-2 w-full pl-9 sm:w-auto sm:pl-0 sm:flex-nowrap sm:flex-shrink-0">
-            {/* Expected date */}
-            <div className="flex-shrink-0">
-              <ExpectedDateCell
-                doc={doc}
-                onChange={val => handleCheck('expected_date', val)}
-              />
-            </div>
+          <div className="w-full pl-9 @2xl:w-auto @2xl:pl-0 flex flex-wrap items-center gap-x-4 gap-y-2">
+            <ExpectedDateCell
+              doc={doc}
+              onChange={val => handleCheck('expected_date', val)}
+            />
 
-            {/* GDrive link */}
-            <div className="flex-shrink-0">
-              <LinkCell
-                value={doc.gdrive_link}
-                stage={doc.link_stage ?? 'final'}
-                onChange={(link, st) => onUpdate(doc.id, { gdrive_link: link, link_stage: st })}
-              />
-            </div>
+            <LinkCell
+              value={doc.gdrive_link}
+              stage={doc.link_stage ?? 'final'}
+              onChange={(link, st) => onUpdate(doc.id, { gdrive_link: link, link_stage: st })}
+            />
 
-            {/* Checkboxes: each has its own color, label lights up when checked */}
-            <div className="flex items-center gap-3 flex-shrink-0">
+            <div className="flex items-center gap-3">
               {CHECKS.map(([field, short, title, accent, on]) => (
                 <label
                   key={field}
@@ -278,7 +271,6 @@ function DocumentRow({ doc, onUpdate }) {
                 </label>
               ))}
 
-              {/* Notes toggle */}
               <button
                 onClick={() => setShowNotes(v => !v)}
                 className={`text-sm sm:text-xs px-1 transition-colors ${showNotes || doc.notes ? 'text-blue-600' : 'text-gray-500 hover:text-gray-800'}`}
@@ -291,9 +283,8 @@ function DocumentRow({ doc, onUpdate }) {
         )}
       </div>
 
-      {/* Notes input — expands on toggle */}
       {showNotes && !isNA && (
-        <div className="mt-1.5 ml-9 sm:ml-7">
+        <div className="mt-2 pl-9">
           <input
             type="text"
             value={notes}

@@ -273,7 +273,7 @@ export default function EditPanel({ project, onClose, onUpdate, onDelete, onDocu
       <ModalShell
         title="Edit Project"
         subtitle={`${projectOwnerName(project) ?? '—'} · ${project.year}`}
-        size="lg"
+        size="xl"
         dirty={dirty}
         onClose={onClose}
         footer={footer}
