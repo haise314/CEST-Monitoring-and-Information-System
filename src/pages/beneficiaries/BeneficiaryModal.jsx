@@ -221,7 +221,7 @@ export default function BeneficiaryModal({
       {confirmDelete && (
         <ConfirmDialog
           title="Delete this beneficiary?"
-          message={`"${beneficiary.name}" will be deleted, along with its contact links and itinerary stops. This cannot be undone.`}
+          message={`"${beneficiary.name}" will be deleted, along with its contact links. This cannot be undone.`}
           confirmLabel="Yes, delete"
           busy={deleting}
           onCancel={() => setConfirmDelete(false)}

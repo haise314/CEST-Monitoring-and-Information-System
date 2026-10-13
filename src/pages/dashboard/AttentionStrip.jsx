@@ -68,7 +68,7 @@ export default function AttentionStrip({ overdueDocs, overdueProjects, upcomingD
   if (unpinned > 0) {
     tiles.push(
       <Tile key="unpinned" tone="blue" value={unpinned} label="Projects without a map pin"
-        sub="needed for visit planning" onClick={() => navigate('/map')} />
+        sub="place them on the map" onClick={() => navigate('/map')} />
     )
   }
 

@@ -17,9 +17,8 @@ const TABLE_LABELS = {
   documents:            'Documents',
   project_contacts:     'Project–contact links',
   remarks:              'Remarks',
-  itineraries:          'Itineraries',
-  itinerary_stops:      'Itinerary stops',
   annual_budgets:       'Annual budgets',
+  tasks:                'Tasks',
   project_agencies:     'Project–agency links',
   project_beneficiaries: 'Additional beneficiaries',
 }
