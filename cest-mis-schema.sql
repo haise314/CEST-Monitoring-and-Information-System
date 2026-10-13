@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict BTXvjWI5bXKlGh0izshxlVV6LIeWTa42AU6RU1MCmLvtv9dcy7Oys1OjgUa8wJA
+\restrict UptjSOo0bVNzemyXYXNStuNFzK84sOhWNq7v5RZGYm62I2wwKGcc0jYcodUs41K
 
 -- Dumped from database version 17.6
 -- Dumped by pg_dump version 17.11 (Ubuntu 17.11-1.pgdg24.04+2)
@@ -726,7 +726,9 @@ CREATE TABLE public.documents (
     gdrive_link text,
     is_not_applicable boolean DEFAULT false NOT NULL,
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
-    CONSTRAINT document_label_check CHECK (((document_type_id IS NOT NULL) OR (custom_label IS NOT NULL)))
+    link_stage text,
+    CONSTRAINT document_label_check CHECK (((document_type_id IS NOT NULL) OR (custom_label IS NOT NULL))),
+    CONSTRAINT documents_link_stage_check CHECK ((link_stage = ANY (ARRAY['draft'::text, 'checking'::text, 'signing'::text, 'final'::text])))
 );
 
 
@@ -790,7 +792,7 @@ ALTER SEQUENCE public.itineraries_id_seq OWNED BY public.itineraries.id;
 CREATE TABLE public.itinerary_stops (
     id integer NOT NULL,
     itinerary_id integer NOT NULL,
-    beneficiary_id integer NOT NULL,
+    beneficiary_id integer,
     stop_order integer NOT NULL,
     notes text,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
@@ -924,7 +926,7 @@ CREATE TABLE public.project_instances (
     id integer NOT NULL,
     year smallint NOT NULL,
     project_type_id integer NOT NULL,
-    beneficiary_id integer NOT NULL,
+    beneficiary_id integer,
     property_number character varying(100),
     amount numeric(12,2),
     date_deployed date,
@@ -2066,5 +2068,5 @@ CREATE POLICY "update: editors" ON public.project_instances FOR UPDATE TO authen
 -- PostgreSQL database dump complete
 --
 
-\unrestrict BTXvjWI5bXKlGh0izshxlVV6LIeWTa42AU6RU1MCmLvtv9dcy7Oys1OjgUa8wJA
+\unrestrict UptjSOo0bVNzemyXYXNStuNFzK84sOhWNq7v5RZGYm62I2wwKGcc0jYcodUs41K
 

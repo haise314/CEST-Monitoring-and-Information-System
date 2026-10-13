@@ -6,6 +6,7 @@ import { useToast } from '../../lib/ToastContext'
 import SearchableSelect from '../../components/common/SearchableSelect'
 import Select from '../../components/common/Select'
 import { AGENCY_TYPES } from '../../lib/projectAgencies'
+import NewOrganizationForm from './NewOrganizationForm'
 
 const BENEFICIARY_CATEGORIES = ['LGU', 'BLGU', 'SUC', 'NGA', 'SDO', 'Academe', 'NGO', 'Cooperative', 'Private', 'Others']
 
@@ -154,7 +155,7 @@ function BeneficiaryCard({ b, canEdit, onSave, onRemove }) {
 // `children` = the primary beneficiary form (owned by ProjectDetail, which
 // also handles its unsaved-changes guard and "change beneficiary").
 // updateBeneficiary(id, payload) -> { error } comes from useBeneficiaries.
-export default function ProjectParties({ project, beneficiaries, updateBeneficiary, children }) {
+export default function ProjectParties({ project, beneficiaries, updateBeneficiary, createBeneficiary, children }) {
   const { canEdit } = useAuth()
   const toast = useToast()
   const { agencies, addAgency, updateAgency } = useAgencies()
@@ -182,6 +183,19 @@ export default function ProjectParties({ project, beneficiaries, updateBeneficia
   const benOptions = beneficiaries
     .filter(b => b.id !== project.beneficiary_id && !extraIds.has(b.id))
     .map(b => ({ value: b.id, label: benLabel(b) }))
+
+  const [creatingBen, setCreatingBen] = useState(false)
+
+  // Create a new organization, then link it to this project as a beneficiary.
+  async function handleCreateBeneficiary(form) {
+    const created = await createBeneficiary(form)
+    if (created.error) return { error: created.error }
+    const r = await addBeneficiary(created.data.id)
+    if (r.error) return { error: r.error }
+    toast.success('Organization created and added')
+    setCreatingBen(false)
+    return { error: null }
+  }
 
   async function act(fn, okMsg) {
     setMsg(null)
@@ -333,12 +347,21 @@ export default function ProjectParties({ project, beneficiaries, updateBeneficia
           />
         ))}
 
+        {creatingBen && (
+          <NewOrganizationForm
+            submitLabel="Create & add to project"
+            onCreate={handleCreateBeneficiary}
+            onCancel={() => setCreatingBen(false)}
+          />
+        )}
+
         {canEdit && !loading && !error && (
           <SearchableSelect
             value=""
             onChange={v => act(() => addBeneficiary(Number(v)), 'Beneficiary added')}
             options={benOptions}
             placeholder="+ Add another beneficiary..."
+            footerAction={createBeneficiary ? { label: '+ Add new organization...', onClick: () => setCreatingBen(true) } : null}
             searchPlaceholder="Search beneficiaries..."
             emptyText="No more beneficiaries"
             className={pickerClass}

@@ -10,6 +10,10 @@ import { exportTableCsv, todayStamp } from '../../lib/exportCsv'
 import { ALL_COLUMNS } from './columns'
 import BeneficiaryModal from './BeneficiaryModal'
 import { MobileCardList, MobileCard, Pill } from '../../components/common/MobileCards'
+import FilterChips from '../../components/common/FilterChips'
+import { applyFilters } from '../../lib/filterEngine'
+import { useSessionState } from '../../hooks/useSessionState'
+import { BENEFICIARY_FILTER_FIELDS } from './filterFields'
 
 export default function Beneficiaries() {
   const {
@@ -44,15 +48,21 @@ export default function Beneficiaries() {
     setSearchParams({}, { replace: true })
   }, [searchParams, beneficiaries, loading])
 
+  const [filters, setFilters] = useSessionState('beneficiariesFilters', [])
+  const base = useMemo(
+    () => applyFilters(beneficiaries, filters, BENEFICIARY_FILTER_FIELDS),
+    [beneficiaries, filters]
+  )
+
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase()
-    if (!q) return beneficiaries
-    return beneficiaries.filter(b =>
+    if (!q) return base
+    return base.filter(b =>
       [b.name, b.category, b.municipality, b.barangay, b.district]
         .filter(Boolean)
         .some(field => field.toLowerCase().includes(q))
     )
-  }, [beneficiaries, search])
+  }, [base, search])
 
   const table = useReactTable({
     data: filtered,
@@ -146,6 +156,13 @@ export default function Beneficiaries() {
           )}
         </div>
       </div>
+
+      <FilterChips
+        fields={BENEFICIARY_FILTER_FIELDS}
+        rows={beneficiaries}
+        filters={filters}
+        onChange={setFilters}
+      />
 
       {/* Table — click any row to open its edit modal (delete lives inside) */}
       <div className="hidden md:block overflow-auto rounded-xl border border-gray-200 bg-white shadow-sm max-h-[calc(100vh-14rem)]">

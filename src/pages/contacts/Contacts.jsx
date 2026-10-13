@@ -10,6 +10,10 @@ import { exportTableCsv, todayStamp } from '../../lib/exportCsv'
 import { ALL_COLUMNS } from './columns'
 import ContactModal from './ContactModal'
 import { MobileCardList, MobileCard } from '../../components/common/MobileCards'
+import FilterChips from '../../components/common/FilterChips'
+import { applyFilters } from '../../lib/filterEngine'
+import { useSessionState } from '../../hooks/useSessionState'
+import { CONTACT_FILTER_FIELDS } from './filterFields'
 
 export default function Contacts() {
   const { contacts, loading, error, addContact, updateContact, deleteContact } = useContacts()
@@ -36,15 +40,21 @@ export default function Contacts() {
     setSearchParams({}, { replace: true })
   }, [searchParams, contacts, loading]) // eslint-disable-line react-hooks/exhaustive-deps
 
+  const [filters, setFilters] = useSessionState('contactsFilters', [])
+  const base = useMemo(
+    () => applyFilters(contacts, filters, CONTACT_FILTER_FIELDS),
+    [contacts, filters]
+  )
+
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase()
-    if (!q) return contacts
-    return contacts.filter(c =>
+    if (!q) return base
+    return base.filter(c =>
       [c.name, c.role, c.contact_number, c.email]
         .filter(Boolean)
         .some(field => field.toLowerCase().includes(q))
     )
-  }, [contacts, search])
+  }, [base, search])
 
   const table = useReactTable({
     data: filtered,
@@ -136,6 +146,13 @@ export default function Contacts() {
           )}
         </div>
       </div>
+
+      <FilterChips
+        fields={CONTACT_FILTER_FIELDS}
+        rows={contacts}
+        filters={filters}
+        onChange={setFilters}
+      />
 
       {/* Table — click any row to open its edit modal (delete lives inside) */}
       <div className="hidden md:block overflow-auto rounded-xl border border-gray-200 bg-white shadow-sm max-h-[calc(100vh-14rem)]">

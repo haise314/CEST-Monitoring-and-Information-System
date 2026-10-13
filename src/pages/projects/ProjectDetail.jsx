@@ -15,6 +15,7 @@ import { useToast } from '../../lib/ToastContext'
 import { useAuth } from '../../lib/AuthContext'
 import SectionNav from '../../components/common/SectionNav'
 import ConfirmDialog from '../../components/common/ConfirmDialog'
+import NewOrganizationForm from './NewOrganizationForm'
 import { projectOwnerName } from '../../lib/projectAgencies'
 
 // Not in columns.jsx's STATIC_OPTIONS (that file only covers project-level
@@ -100,7 +101,7 @@ export default function ProjectDetail() {
 
   const { projects, loading, updateProject, deleteProject, reassignBeneficiary } = useProjects()
   const { updateBeneficiary } = useBeneficiaries()
-  const { projectTypes, beneficiaries, entryPoints, loading: formDataLoading, addProjectType, refetchProjectTypes } = useFormData()
+  const { projectTypes, beneficiaries, entryPoints, loading: formDataLoading, addProjectType, addBeneficiary, refetchProjectTypes } = useFormData()
 
   // Same "derive from the live list" pattern as Projects.jsx/Overview.jsx —
   // never a stale snapshot after a refetch.
@@ -138,6 +139,7 @@ export default function ProjectDetail() {
   const [swapBusy, setSwapBusy]             = useState(false)
   const [swapError, setSwapError]           = useState(null)
   const [confirmRemoveBen, setConfirmRemoveBen] = useState(false)
+  const [creatingBen, setCreatingBen]     = useState(false)
 
   // ── Danger zone ──
   const [deleting, setDeleting]           = useState(false)
@@ -285,6 +287,16 @@ export default function ProjectDetail() {
     setSwapping(false)
     setNewBenId('')
     toast.success('Beneficiary changed')
+  }
+
+  // Creates a brand-new organization and preselects it in the swap picker.
+  async function handleCreateForSwap(form) {
+    const r = await addBeneficiary(form)
+    if (r.error) return { error: r.error }
+    setNewBenId(String(r.data.id))
+    setCreatingBen(false)
+    toast.success('Organization created — now click "Change beneficiary"')
+    return { error: null }
   }
 
   async function handleRemoveBeneficiary() {
@@ -571,7 +583,7 @@ export default function ProjectDetail() {
           "Wrong beneficiary?" below instead moves only THIS project to a
           different beneficiary. */}
       <Section id="sec-beneficiary" title="Agencies & Beneficiaries" locked={!canEdit}>
-        <ProjectParties project={project} beneficiaries={beneficiaries} updateBeneficiary={updateBeneficiary}>
+        <ProjectParties project={project} beneficiaries={beneficiaries} updateBeneficiary={updateBeneficiary} createBeneficiary={addBeneficiary}>
         {project.beneficiary_id ? (<>
         <div className="grid grid-cols-2 gap-3">
           <Field label="Name">
@@ -684,10 +696,18 @@ export default function ProjectDetail() {
                   .filter(b => b.id !== project.beneficiary_id)
                   .map(b => ({ value: b.id, label: `${b.name}${b.municipality ? ` (${b.municipality})` : ''}` }))}
                 placeholder="Select the correct beneficiary..."
+                footerAction={{ label: '+ Add new organization...', onClick: () => setCreatingBen(true) }}
                 searchPlaceholder="Search beneficiaries..."
                 className={selectClass}
               />
-                            {swapError && <p className="text-red-500 text-xs">{swapError}</p>}
+                            {creatingBen && (
+                <NewOrganizationForm
+                  submitLabel="Create & select"
+                  onCreate={handleCreateForSwap}
+                  onCancel={() => setCreatingBen(false)}
+                />
+              )}
+              {swapError && <p className="text-red-500 text-xs">{swapError}</p>}
               <div className="flex gap-2">
                 <button
                   type="button"
