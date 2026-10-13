@@ -1,17 +1,10 @@
+import { isAccomplished } from './documentStatus'
+
 export const PHASE_ORDER = ['Pre-Implementation', 'Semi-Annual', 'Annual', 'Transfer']
 
-// A document counts as "complete" if anything meaningful is on file:
-// soft copy, hard copy, hard copy claimable (file exists at beneficiary),
-// or submitted. N/A documents are excluded from both numerator and denominator.
-// Matches the isAccomplished() logic in documentStatus.js — keep in sync.
-function isComplete(doc) {
-  return Boolean(
-    doc.gdrive_link ||
-    doc.has_hard_copy ||
-    doc.hard_copy_claimable ||
-    doc.submitted
-  )
-}
+// Complete = same rule as documentStatus.js (final soft copy, hard copy,
+// claimable, or submitted). Draft / for-checking / for-signing links don't count.
+const isComplete = isAccomplished
 
 // documents: flat array of document rows, each with a joined
 // document_types (needs at least { phase }), is_not_applicable,

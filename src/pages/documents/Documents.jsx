@@ -346,8 +346,11 @@ export default function Documents() {
         {[
           ['bg-gray-300', 'N/A'],
           ['bg-red-400', 'Nothing on file'],
+          ['bg-gray-400', 'Draft link'],
+          ['bg-orange-400', 'For checking'],
+          ['bg-purple-400', 'For signing'],
           ['bg-amber-400', 'Claimable'],
-          ['bg-blue-400', 'Soft copy'],
+          ['bg-blue-400', 'Soft copy (final)'],
           ['bg-indigo-500', 'Hard copy'],
           ['bg-green-500', 'Submitted'],
         ].map(([dot, label]) => (

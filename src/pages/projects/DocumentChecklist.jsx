@@ -1,15 +1,19 @@
 import { useState } from 'react'
 import { useDocuments } from '../../hooks/useDocuments'
 import { PHASE_ORDER, computeProgress, progressBarColor } from '../../lib/documentProgress'
-import { getDocStatus, STATUS_META, isOverdue, isUpcoming } from '../../lib/documentStatus'
+import { getDocStatus, STATUS_META, LINK_STAGES, isOverdue, isUpcoming } from '../../lib/documentStatus'
 import { useToast } from '../../lib/ToastContext'
 import { useAuth } from '../../lib/AuthContext'
+import Select from '../../components/common/Select'
 
 // Same status scale as the dots on the Documents page (lib/documentStatus.js),
 // so the two screens always agree.
 const ROW_STYLE = {
   na:        'border-l-gray-300',
   none:      'border-l-red-400 bg-red-50/40',
+  draft:     'border-l-gray-400 bg-gray-50/60',
+  checking:  'border-l-orange-400 bg-orange-50/40',
+  signing:   'border-l-purple-400 bg-purple-50/40',
   claimable: 'border-l-amber-400 bg-amber-50/40',
   soft:      'border-l-blue-400 bg-blue-50/40',
   hard:      'border-l-indigo-500 bg-indigo-50/40',
@@ -18,6 +22,9 @@ const ROW_STYLE = {
 const PILL_STYLE = {
   na:        'bg-gray-100 text-gray-700',
   none:      'bg-red-100 text-red-700',
+  draft:     'bg-gray-200 text-gray-700',
+  checking:  'bg-orange-100 text-orange-800',
+  signing:   'bg-purple-100 text-purple-800',
   claimable: 'bg-amber-100 text-amber-800',
   soft:      'bg-blue-100 text-blue-700',
   hard:      'bg-indigo-100 text-indigo-700',
@@ -104,21 +111,27 @@ function ExpectedDateCell({ doc, onChange }) {
 // ─── Link Cell ────────────────────────────────────────────────────────────────
 // Click to add/edit a GDrive link. Shows "Open" button if link exists.
 
-function LinkCell({ value, onChange }) {
+function LinkCell({ value, stage, onChange }) {
   const [editing, setEditing] = useState(false)
   const [input, setInput]     = useState(value ?? '')
   const { canEdit } = useAuth()
+  const stageLabel = LINK_STAGES.find(x => x.id === stage)?.label ?? 'Final'
 
   if (!canEdit) {
     return value ? (
-      <a href={value} target="_blank" rel="noreferrer" className="text-blue-600 text-xs underline">Open</a>
+      <div className="flex items-center gap-1.5">
+        <a href={value} target="_blank" rel="noreferrer" className="text-blue-600 text-xs underline">Open</a>
+        <span className="text-[10px] text-gray-500">({stageLabel})</span>
+      </div>
     ) : null
   }
 
+  // Adding a brand-new link starts as Draft; clearing the link clears the stage.
   function handleBlur() {
     setEditing(false)
     const trimmed = input.trim()
-    if (trimmed !== (value ?? '')) onChange(trimmed || null)
+    if (trimmed === (value ?? '')) return
+    onChange(trimmed || null, trimmed ? (value ? stage : 'draft') : null)
   }
 
   if (editing) {
@@ -136,15 +149,8 @@ function LinkCell({ value, onChange }) {
   }
 
   return value ? (
-    <div className="flex items-center gap-1">
-      <a
-        href={value}
-        target="_blank"
-        rel="noreferrer"
-        className="text-blue-600 text-xs underline"
-      >
-        Open
-      </a>
+    <div className="flex items-center gap-1.5">
+      <a href={value} target="_blank" rel="noreferrer" className="text-blue-600 text-xs underline">Open</a>
       <button
         onClick={() => { setInput(value); setEditing(true) }}
         className="text-gray-500 text-xs hover:text-gray-800"
@@ -152,6 +158,14 @@ function LinkCell({ value, onChange }) {
       >
         ✎
       </button>
+      <Select
+        value={stage}
+        onChange={e => onChange(value, e.target.value)}
+        title="Is this link a draft, for checking, for signing, or the final soft copy?"
+        className="px-1 py-0.5 text-xs"
+      >
+        {LINK_STAGES.map(x => <option key={x.id} value={x.id}>{x.label}</option>)}
+      </Select>
     </div>
   ) : (
     <button
@@ -238,7 +252,8 @@ function DocumentRow({ doc, onUpdate }) {
             <div className="flex-shrink-0">
               <LinkCell
                 value={doc.gdrive_link}
-                onChange={val => handleCheck('gdrive_link', val)}
+                stage={doc.link_stage ?? 'final'}
+                onChange={(link, st) => onUpdate(doc.id, { gdrive_link: link, link_stage: st })}
               />
             </div>
 
@@ -434,7 +449,7 @@ export default function DocumentChecklist({ project, onChanged }) {
 
       {/* Legend — matches the dots on the Documents page */}
       <div className="flex flex-wrap gap-x-3 gap-y-1 mb-3 px-1 text-xs text-gray-600">
-        {['none', 'claimable', 'soft', 'hard', 'submitted'].map(k => (
+        {['none', 'draft', 'checking', 'signing', 'claimable', 'soft', 'hard', 'submitted'].map(k => (
           <span key={k} className="flex items-center gap-1">
             <span className={`inline-block w-2.5 h-2.5 rounded-full ${STATUS_META[k].dotClass}`} />
             {shortLabel(k)}
