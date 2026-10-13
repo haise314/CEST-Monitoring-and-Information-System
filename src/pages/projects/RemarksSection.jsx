@@ -38,7 +38,7 @@ function formatTimestamp(iso) {
     ' · ' + d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })
 }
 
-function RemarkRow({ remark, onDelete }) {
+function RemarkRow({ remark, onDelete, onPin }) {
   const { user, isAdmin, canEdit } = useAuth()
   const [confirming, setConfirming] = useState(false)
   const [deleting, setDeleting]     = useState(false)
@@ -60,17 +60,28 @@ function RemarkRow({ remark, onDelete }) {
   }
 
   return (
-    <div className="py-3 border-b border-gray-50 last:border-0 group">
+    <div className={`py-3 border-b border-gray-50 last:border-0 group ${remark.pinned_at ? 'bg-blue-50/50 -mx-2 px-2 rounded' : ''}`}>
       <div className="flex flex-wrap items-center gap-x-2 gap-y-1 mb-1">
+        {remark.pinned_at && <span className="text-xs font-medium text-blue-700">📌 Pinned</span>}
         <LevelBadge level={remark.level} />
         <span className="text-xs font-medium text-gray-600">{remark.author_name}</span>
         <span className="text-xs text-gray-500">·</span>
         <span className="text-xs text-gray-500">{formatTimestamp(remark.created_at)}</span>
 
+        {canEdit && (
+          <button
+            onClick={() => onPin(remark.id, !remark.pinned_at)}
+            className="text-xs text-gray-500 hover:text-blue-600 ml-auto py-1"
+            title={remark.pinned_at ? 'Unpin from the Dashboard to-do list' : 'Pin to the Dashboard to-do list'}
+          >
+            {remark.pinned_at ? 'Unpin' : '📌 Pin'}
+          </button>
+        )}
+
         {canDelete && !confirming && (
           <button
             onClick={() => setConfirming(true)}
-            className="text-xs text-gray-500 hover:text-red-600 ml-auto py-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity"
+            className="text-xs text-gray-500 hover:text-red-600 py-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity"
             title={withinWindow ? `You can delete this for ${minutesLeft} more minute${minutesLeft === 1 ? '' : 's'}` : 'Admin: delete this remark'}
           >
             Delete
@@ -106,7 +117,7 @@ const inputClass  = 'w-full border border-gray-300 rounded px-3 py-1.5 text-base
 const selectClass = 'border border-gray-300 rounded px-2 py-1.5 text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-blue-500'
 
 export default function RemarksSection({ projectId }) {
-  const { remarks, loading, error, addRemark, deleteRemark } = useRemarks(projectId)
+  const { remarks, loading, error, addRemark, deleteRemark, setPinned } = useRemarks(projectId)
   const toast = useToast()
   const { canEdit, profile, user } = useAuth()
 
@@ -151,6 +162,12 @@ export default function RemarksSection({ projectId }) {
 
     setContent('')
     toast.success('Remark posted')
+  }
+
+  async function handlePin(id, pinned) {
+    const { error } = await setPinned(id, pinned)
+    if (error) toast.error(error)
+    else toast.success(pinned ? 'Remark pinned to the Dashboard' : 'Remark unpinned')
   }
 
   async function handleDelete(id) {
@@ -219,8 +236,8 @@ export default function RemarksSection({ projectId }) {
         <p className="text-xs text-gray-500 text-center py-4">No remarks yet.</p>
       ) : (
         <div>
-          {remarks.map(r => (
-            <RemarkRow key={r.id} remark={r} onDelete={handleDelete} />
+          {[...remarks].sort((a, b) => Boolean(b.pinned_at) - Boolean(a.pinned_at)).map(r => (
+            <RemarkRow key={r.id} remark={r} onDelete={handleDelete} onPin={handlePin} />
           ))}
         </div>
       )}

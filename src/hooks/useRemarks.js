@@ -80,12 +80,21 @@ export function useRemarks(projectId) {
     return { error: null }
   }
 
+  // Pin/unpin goes through a database function (remarks are otherwise append-only).
+  async function setPinned(id, pinned) {
+    const { error } = await supabase.rpc('set_remark_pinned', { p_id: id, p_pinned: pinned })
+    if (error) return { error: error.message }
+    setRemarks(prev => prev.map(r => (r.id === id ? { ...r, pinned_at: pinned ? new Date().toISOString() : null } : r)))
+    return { error: null }
+  }
+
   return {
     remarks,
     loading,
     error,
     addRemark,
     deleteRemark,
+    setPinned,
     refetch: fetchRemarks,
   }
 }

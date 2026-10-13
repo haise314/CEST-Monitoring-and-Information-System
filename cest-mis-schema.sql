@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict UptjSOo0bVNzemyXYXNStuNFzK84sOhWNq7v5RZGYm62I2wwKGcc0jYcodUs41K
+\restrict qxc4mhcWZRVKXgbF9ztj2yeB8ZL2iXpbCuEdkwqYHvOhiDsFa6xDiz5eNsFQTp4
 
 -- Dumped from database version 17.6
 -- Dumped by pg_dump version 17.11 (Ubuntu 17.11-1.pgdg24.04+2)
@@ -486,6 +486,28 @@ begin
   on conflict (contact_id, beneficiary_id) do nothing;
 
   return v_id;
+end;
+$$;
+
+
+--
+-- Name: set_remark_pinned(integer, boolean); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.set_remark_pinned(p_id integer, p_pinned boolean) RETURNS void
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO 'public'
+    AS $$
+begin
+  if not public.can_edit() then
+    raise exception 'You do not have permission to pin remarks.';
+  end if;
+  update public.remarks
+     set pinned_at = case when p_pinned then now() else null end
+   where id = p_id;
+  if not found then
+    raise exception 'Remark not found.';
+  end if;
 end;
 $$;
 
@@ -1018,7 +1040,8 @@ CREATE TABLE public.remarks (
     content text NOT NULL,
     added_by character varying(255),
     created_at timestamp with time zone DEFAULT now() NOT NULL,
-    created_by uuid DEFAULT auth.uid()
+    created_by uuid DEFAULT auth.uid(),
+    pinned_at timestamp with time zone
 );
 
 
@@ -2068,5 +2091,5 @@ CREATE POLICY "update: editors" ON public.project_instances FOR UPDATE TO authen
 -- PostgreSQL database dump complete
 --
 
-\unrestrict UptjSOo0bVNzemyXYXNStuNFzK84sOhWNq7v5RZGYm62I2wwKGcc0jYcodUs41K
+\unrestrict qxc4mhcWZRVKXgbF9ztj2yeB8ZL2iXpbCuEdkwqYHvOhiDsFa6xDiz5eNsFQTp4
 

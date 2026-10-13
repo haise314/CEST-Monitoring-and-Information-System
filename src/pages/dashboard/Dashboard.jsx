@@ -1,13 +1,15 @@
-import { useMemo } from 'react'
+import { useMemo, useState, useEffect } from 'react'
 import { Link } from 'react-router'
 import { useAllDocuments } from '../../hooks/useAllDocuments'
 import { useProjects } from '../../hooks/useProjects'
 import { useBeneficiaries } from '../../hooks/useBeneficiaries'
 import { useAllRemarks } from '../../hooks/useAllRemarks'
 import { useBudgets } from '../../hooks/useBudgets'
+import { useLocalState } from '../../hooks/useLocalState'
 import { useAuth } from '../../lib/AuthContext'
+import { useToast } from '../../lib/ToastContext'
 import { summarizeYear, formatPeso, budgetBarColor } from '../../lib/budget'
-import { isOverdue, isUpcoming, UPCOMING_WINDOW_DAYS } from '../../lib/documentStatus'
+import { isOverdue, isUpcoming, getDocStatus, UPCOMING_WINDOW_DAYS } from '../../lib/documentStatus'
 import { computeProgress, progressBarColor, PHASE_ORDER } from '../../lib/documentProgress'
 import { DashboardSkeleton } from '../../components/common/Skeleton'
 import AttentionStrip from './AttentionStrip'
@@ -17,39 +19,31 @@ import { implementingAgency, projectOwnerName } from '../../lib/projectAgencies'
 
 function daysBetween(dateStr) {
   const today = new Date(new Date().toDateString())
-  const target = new Date(dateStr)
-  return Math.round((target - today) / (1000 * 60 * 60 * 24))
+  return Math.round((new Date(dateStr) - today) / (1000 * 60 * 60 * 24))
 }
 
-function docLabel(doc) {
-  return doc.document_types?.name ?? doc.custom_label ?? 'Untitled document'
-}
+const docLabel = doc => doc.document_types?.name ?? doc.custom_label ?? 'Untitled document'
+const projectLabel = p => p?.title || p?.project_types?.name || 'Untitled project'
+const peso = n => `₱${Math.round(n).toLocaleString()}`
 
-function projectLabel(p) {
-  return p?.title || p?.project_types?.name || 'Untitled project'
-}
-
-function peso(n) {
-  return `₱${Math.round(n).toLocaleString()}`
-}
-
-// Relative time ("5m ago", "3d ago") — used by Recent Activity and
-// Recently Updated, both of which show a timestamp people should be able
-// to scan at a glance rather than parse a full date string.
 function formatTimeAgo(dateStr) {
-  const diffMs = Date.now() - new Date(dateStr).getTime()
-  const mins = Math.floor(diffMs / 60000)
+  if (!dateStr) return '—'
+  const mins = Math.floor((Date.now() - new Date(dateStr).getTime()) / 60000)
   if (mins < 1) return 'just now'
   if (mins < 60) return `${mins}m ago`
   const hours = Math.floor(mins / 60)
   if (hours < 24) return `${hours}h ago`
   const days = Math.floor(hours / 24)
   if (days < 30) return `${days}d ago`
-  const months = Math.floor(days / 30)
-  return `${months}mo ago`
+  return `${Math.floor(days / 30)}mo ago`
 }
 
-// ─── Section Header ───────────────────────────────────────────────────────────
+function greeting() {
+  const h = new Date().getHours()
+  return h < 12 ? 'Good morning' : h < 18 ? 'Good afternoon' : 'Good evening'
+}
+
+// ─── Building blocks ─────────────────────────────────────────────────────────
 
 function SectionHeader({ title, hint }) {
   return (
@@ -60,9 +54,6 @@ function SectionHeader({ title, hint }) {
   )
 }
 
-// One card surface for the whole page so borders, radius, and shadow never
-// drift between sections. `flush` drops the padding for list-style cards
-// that draw their own header bar and scroll area.
 function Card({ children, flush = false, className = '' }) {
   return (
     <div className={`bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden ${flush ? '' : 'p-5'} ${className}`}>
@@ -71,54 +62,51 @@ function Card({ children, flush = false, className = '' }) {
   )
 }
 
-// Header bar for list-style cards (Overdue, Upcoming, Recent Activity).
 function CardBar({ title, count, tone = 'neutral' }) {
   const tones = {
     overdue:  { bar: 'bg-red-50 border-red-100',     title: 'text-red-700',   pill: 'bg-red-100 text-red-700' },
     upcoming: { bar: 'bg-amber-50 border-amber-100', title: 'text-amber-700', pill: 'bg-amber-100 text-amber-700' },
+    info:     { bar: 'bg-blue-50 border-blue-100',   title: 'text-blue-700',  pill: 'bg-blue-100 text-blue-700' },
     neutral:  { bar: 'bg-gray-50 border-gray-100',   title: 'text-gray-700',  pill: 'bg-gray-200 text-gray-600' },
   }
   const t = tones[tone]
   return (
-    <div className={`px-4 py-2.5 border-b flex items-center justify-between ${t.bar}`}>
+    <div className={`px-4 py-2.5 border-b flex items-center justify-between flex-shrink-0 ${t.bar}`}>
       <span className={`text-sm font-semibold ${t.title}`}>{title}</span>
       <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${t.pill}`}>{count}</span>
     </div>
   )
 }
 
-function EmptyNote({ children }) {
-  return <p className="text-sm text-gray-500 text-center py-8">{children}</p>
+// Fixed-height list card: header + optional toolbar stay put, the list fills
+// the remaining space and scrolls inside it. Every list on the dashboard uses
+// this, so paired cards are always the same height and never leave dead space.
+function ListPanel({ title, count, tone, toolbar, children }) {
+  return (
+    <Card flush className="flex flex-col h-[22rem]">
+      <CardBar title={title} count={count} tone={tone} />
+      {toolbar}
+      <div className="flex-1 min-h-0 overflow-y-auto">{children}</div>
+    </Card>
+  )
 }
 
-// ─── Quick Actions ────────────────────────────────────────────────────────────
-// Simple nav shortcuts rather than deep-linking straight into an open Add
-// modal — that version would need ?add=1 support added to Projects.jsx and
-// Beneficiaries.jsx, deliberately out of scope for this pass.
+function EmptyNote({ children }) {
+  return <p className="text-sm text-gray-500 text-center py-8 px-4">{children}</p>
+}
 
-function QuickActions() {
+function Collapsible({ title, open, onToggle, children }) {
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-      <Link
-        to="/projects"
-        className="bg-white border border-gray-200 rounded-xl p-4 shadow-sm hover:border-blue-300 hover:bg-blue-50/40 transition-colors flex items-center gap-3"
+    <div>
+      <button
+        onClick={onToggle}
+        aria-expanded={open}
+        className="w-full flex items-center gap-2 text-sm font-semibold text-gray-700 hover:text-gray-900 py-2 border-b border-gray-200"
       >
-        <span className="text-2xl" aria-hidden="true">📁</span>
-        <div>
-          <div className="text-sm font-semibold text-gray-800">Add Project</div>
-          <div className="text-xs text-gray-500">Opens Projects, then + Add Project</div>
-        </div>
-      </Link>
-      <Link
-        to="/beneficiaries"
-        className="bg-white border border-gray-200 rounded-xl p-4 shadow-sm hover:border-blue-300 hover:bg-blue-50/40 transition-colors flex items-center gap-3"
-      >
-        <span className="text-2xl" aria-hidden="true">🏘️</span>
-        <div>
-          <div className="text-sm font-semibold text-gray-800">Add Beneficiary</div>
-          <div className="text-xs text-gray-500">Opens Beneficiaries, then + Add Beneficiary</div>
-        </div>
-      </Link>
+        <span className="text-xs text-gray-400 w-3">{open ? '▾' : '▸'}</span>
+        {title}
+      </button>
+      {open && <div className="space-y-5 pt-5">{children}</div>}
     </div>
   )
 }
@@ -139,7 +127,7 @@ function KpiRow({ projects, beneficiaryCount, progress, totalAmount }) {
   return (
     <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
       <KpiCard label="Total projects" value={projects.length} />
-      <KpiCard label="Beneficiaries" value={beneficiaryCount} />
+      <KpiCard label="Organizations" value={beneficiaryCount} />
       <KpiCard
         label="Overall compliance"
         value={`${progress.overallPct}%`}
@@ -150,7 +138,171 @@ function KpiRow({ projects, beneficiaryCount, progress, totalAmount }) {
   )
 }
 
-// ─── SECTION: Overdue & Upcoming ─────────────────────────────────────────────
+// ─── Pinned remarks (to-do list) + Recent activity ───────────────────────────
+
+const LEVEL_COLORS = {
+  provincial: 'bg-blue-100 text-blue-700',
+  regional:   'bg-purple-100 text-purple-700',
+}
+
+function RemarkItem({ remark, canPin, onTogglePin }) {
+  const project = remark.project_instances
+  const pinned = Boolean(remark.pinned_at)
+  const [busy, setBusy] = useState(false)
+
+  async function toggle() {
+    setBusy(true)
+    await onTogglePin(remark.id, !pinned)
+    setBusy(false)
+  }
+
+  return (
+    <div className="flex items-start gap-2 px-4 py-2.5 hover:bg-gray-50 border-b border-gray-100 last:border-0">
+      <Link to={project ? `/projects/${project.id}` : '#'} className="flex-1 min-w-0">
+        <div className="flex items-center gap-2 mb-1">
+          <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full uppercase tracking-wide flex-shrink-0 ${LEVEL_COLORS[remark.level] ?? 'bg-gray-100 text-gray-600'}`}>
+            {remark.level}
+          </span>
+          <span className="text-xs text-gray-500 truncate">
+            {project ? projectLabel(project) : 'Unknown project'}
+            {projectOwnerName(project) ? ` · ${projectOwnerName(project)}` : ''}
+          </span>
+        </div>
+        <p className="text-sm text-gray-700 line-clamp-2 whitespace-pre-wrap">{remark.content}</p>
+        <div className="text-xs text-gray-500 mt-0.5">
+          {remark.author_name} · {formatTimeAgo(remark.created_at)}
+        </div>
+      </Link>
+      {canPin && (
+        <button
+          onClick={toggle}
+          disabled={busy}
+          title={pinned ? 'Unpin (mark as done)' : 'Pin to the to-do list'}
+          className={`text-xs flex-shrink-0 px-2 py-1 rounded border disabled:opacity-50 ${
+            pinned
+              ? 'border-gray-300 text-gray-600 hover:bg-gray-100'
+              : 'border-transparent text-gray-400 hover:text-blue-600 hover:bg-blue-50'
+          }`}
+        >
+          {pinned ? 'Unpin' : '📌 Pin'}
+        </button>
+      )}
+    </div>
+  )
+}
+
+function PinnedRemarksPanel({ pinned, error, canPin, onTogglePin }) {
+  return (
+    <ListPanel title="📌 Pinned remarks (to-do)" count={pinned.length} tone="info">
+      {error ? (
+        <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded m-3 px-3 py-2">
+          Pinning isn't set up yet. Run <code>migrations/07_remark_pinning.sql</code> in Supabase.
+        </p>
+      ) : pinned.length === 0 ? (
+        <EmptyNote>Nothing pinned. Pin a remark (here, or on a project's Remarks section) to keep it on this list until it's done.</EmptyNote>
+      ) : (
+        pinned.map(r => <RemarkItem key={r.id} remark={r} canPin={canPin} onTogglePin={onTogglePin} />)
+      )}
+    </ListPanel>
+  )
+}
+
+function RecentActivityPanel({ remarks, canPin, onTogglePin }) {
+  return (
+    <ListPanel title="Recent activity" count={remarks.length}>
+      {remarks.length === 0 ? (
+        <EmptyNote>No remarks yet. Post one from a project page.</EmptyNote>
+      ) : (
+        remarks.map(r => <RemarkItem key={r.id} remark={r} canPin={canPin} onTogglePin={onTogglePin} />)
+      )}
+    </ListPanel>
+  )
+}
+
+// ─── Documents in progress (links with a draft / checking / signing stage) ───
+
+const STAGES = [
+  { id: 'signing',  label: 'For signing',  pill: 'bg-purple-100 text-purple-800' },
+  { id: 'checking', label: 'For checking', pill: 'bg-orange-100 text-orange-800' },
+  { id: 'draft',    label: 'Draft',        pill: 'bg-gray-200 text-gray-700' },
+]
+const STAGE_BY_ID = Object.fromEntries(STAGES.map(s => [s.id, s]))
+
+function InProgressDocsPanel({ documents }) {
+  const [tab, setTab] = useState('all')
+
+  const byStage = useMemo(() => {
+    const m = { signing: [], checking: [], draft: [] }
+    documents.forEach(d => {
+      const s = getDocStatus(d) // already excludes N/A, submitted, hard copy, final soft copy, claimable
+      if (m[s]) m[s].push(d)
+    })
+    // longest-untouched first
+    Object.values(m).forEach(list => list.sort((a, b) => new Date(a.updated_at) - new Date(b.updated_at)))
+    return m
+  }, [documents])
+
+  const total = byStage.signing.length + byStage.checking.length + byStage.draft.length
+  const shown = tab === 'all' ? [...byStage.signing, ...byStage.checking, ...byStage.draft] : byStage[tab]
+
+  const tabBtn = (id, label, n) => (
+    <button
+      key={id}
+      onClick={() => setTab(id)}
+      className={`px-2.5 py-1 rounded-full text-xs font-medium whitespace-nowrap ${
+        tab === id ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+      }`}
+    >
+      {label} <span className="opacity-75">{n}</span>
+    </button>
+  )
+
+  const toolbar = (
+    <div className="flex gap-1.5 px-3 py-2 border-b border-gray-100 overflow-x-auto flex-shrink-0">
+      {tabBtn('all', 'All', total)}
+      {STAGES.map(s => tabBtn(s.id, s.label, byStage[s.id].length))}
+    </div>
+  )
+
+  return (
+    <ListPanel title="Documents in progress" count={total} toolbar={toolbar}>
+      {shown.length === 0 ? (
+        <EmptyNote>{total === 0 ? 'No documents are being drafted, checked or signed.' : 'Nothing at this stage.'}</EmptyNote>
+      ) : (
+        shown.map(doc => {
+          const project = doc.project_instances
+          const stage = STAGE_BY_ID[getDocStatus(doc)]
+          return (
+            <div key={doc.id} className="flex items-center gap-3 px-4 py-2.5 border-b border-gray-100 last:border-0 hover:bg-gray-50">
+              <Link to={project ? `/projects/${project.id}` : '#'} className="flex-1 min-w-0">
+                <div className="text-sm text-gray-700 truncate">{docLabel(doc)}</div>
+                <div className="text-xs text-gray-500 truncate">
+                  {projectOwnerName(project) ?? '—'}
+                  {project?.beneficiaries?.municipality ? ` · ${project.beneficiaries.municipality}` : ''}
+                  {project ? ` · ${project.year}` : ''}
+                </div>
+              </Link>
+              <div className="flex flex-col items-end gap-1 flex-shrink-0">
+                <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full whitespace-nowrap ${stage.pill}`}>{stage.label}</span>
+                <span className="text-[11px] text-gray-500 whitespace-nowrap" title="Last edited">
+                  {isOverdue(doc) && <span className="text-red-500 font-medium">Overdue · </span>}
+                  {formatTimeAgo(doc.updated_at)}
+                </span>
+              </div>
+              {doc.gdrive_link && (
+                <a href={doc.gdrive_link} target="_blank" rel="noreferrer" className="text-xs text-blue-500 underline flex-shrink-0">
+                  Open
+                </a>
+              )}
+            </div>
+          )
+        })
+      )}
+    </ListPanel>
+  )
+}
+
+// ─── Overdue & Upcoming ──────────────────────────────────────────────────────
 
 function DocRow({ doc, tone }) {
   const project = doc.project_instances
@@ -179,124 +331,55 @@ function DocRow({ doc, tone }) {
   )
 }
 
-function DocListCard({ title, docs, tone, emptyText }) {
+function DocListPanel({ title, docs, tone, emptyText }) {
   return (
-    <Card flush>
-      <CardBar title={title} count={docs.length} tone={tone} />
-      <div className="max-h-72 overflow-y-auto">
-        {docs.length === 0 ? (
-          <EmptyNote>{emptyText}</EmptyNote>
-        ) : (
-          docs.map(doc => <DocRow key={doc.id} doc={doc} tone={tone} />)
-        )}
-      </div>
-    </Card>
+    <ListPanel title={title} count={docs.length} tone={tone}>
+      {docs.length === 0 ? <EmptyNote>{emptyText}</EmptyNote> : docs.map(doc => <DocRow key={doc.id} doc={doc} tone={tone} />)}
+    </ListPanel>
   )
 }
 
-// ─── SECTION: Recent Activity (Remarks) ──────────────────────────────────────
+// ─── Recently updated projects ───────────────────────────────────────────────
 
-const LEVEL_COLORS = {
-  provincial: 'bg-blue-100 text-blue-700',
-  regional:   'bg-purple-100 text-purple-700',
-  pcest:      'bg-teal-100 text-teal-700',
-  rcest:      'bg-indigo-100 text-indigo-700',
-}
-
-function RemarkRow({ remark }) {
-  const project = remark.project_instances
-  return (
-    <Link
-      to={project ? `/projects/${project.id}` : '#'}
-      className="block px-4 py-2.5 hover:bg-gray-50 border-b border-gray-100 last:border-0"
-    >
-      <div className="flex items-center gap-2 mb-1">
-        <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full uppercase tracking-wide flex-shrink-0 ${LEVEL_COLORS[remark.level] ?? 'bg-gray-100 text-gray-600'}`}>
-          {remark.level}
-        </span>
-        <span className="text-xs text-gray-500 truncate">
-          {project ? projectLabel(project) : 'Unknown project'}
-          {projectOwnerName(project) ? ` · ${projectOwnerName(project)}` : ''}
-        </span>
-      </div>
-      <p className="text-sm text-gray-700 line-clamp-2">{remark.content}</p>
-      <div className="text-xs text-gray-500 mt-0.5">
-        {remark.added_by ?? 'Unknown'} · {formatTimeAgo(remark.created_at)}
-      </div>
-    </Link>
-  )
-}
-
-function RecentActivitySection({ remarks }) {
-  return (
-    <Card flush>
-      <CardBar title="Recent activity" count={remarks.length} />
-      <div className="max-h-72 overflow-y-auto">
-        {remarks.length === 0 ? (
-          <EmptyNote>No remarks yet. Post one from a project page.</EmptyNote>
-        ) : (
-          remarks.map(r => <RemarkRow key={r.id} remark={r} />)
-        )}
-      </div>
-    </Card>
-  )
-}
-
-// ─── SECTION: Recently Updated Projects ──────────────────────────────────────
-// Relies on project_instances.updated_at self-stamping via a trigger — if
-// that trigger isn't live yet, this will just reflect insertion time until
-// it is. See the migration note handed off separately.
-
-function RecentlyUpdatedSection({ projects }) {
+function RecentlyUpdatedPanel({ projects }) {
   const recent = useMemo(() =>
     [...projects]
       .filter(p => p.updated_at)
       .sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at))
-      .slice(0, 8)
+      .slice(0, 20)
   , [projects])
 
   return (
-    <Card>
-      <SectionHeader title="Recently updated projects" />
+    <ListPanel title="Recently updated projects" count={recent.length}>
       {recent.length === 0 ? (
         <EmptyNote>No recent updates</EmptyNote>
       ) : (
-        <div>
-          {recent.map(p => (
-            <Link
-              key={p.id}
-              to={`/projects/${p.id}`}
-              className="flex items-center justify-between py-2 border-b border-gray-100 last:border-0 hover:bg-gray-50 -mx-2 px-2 rounded"
-            >
-              <div className="min-w-0">
-                <div className="text-sm text-gray-700 truncate">{projectLabel(p)}</div>
-                <div className="text-xs text-gray-500 truncate">
-                  {projectOwnerName(p) ?? '—'} · {p.year}
-                </div>
-              </div>
-              <span className="text-xs text-gray-500 whitespace-nowrap ml-3">
-                {formatTimeAgo(p.updated_at)}
-              </span>
-            </Link>
-          ))}
-        </div>
+        recent.map(p => (
+          <Link
+            key={p.id}
+            to={`/projects/${p.id}`}
+            className="flex items-center justify-between px-4 py-2.5 border-b border-gray-100 last:border-0 hover:bg-gray-50"
+          >
+            <div className="min-w-0">
+              <div className="text-sm text-gray-700 truncate">{projectLabel(p)}</div>
+              <div className="text-xs text-gray-500 truncate">{projectOwnerName(p) ?? '—'} · {p.year}</div>
+            </div>
+            <span className="text-xs text-gray-500 whitespace-nowrap ml-3">{formatTimeAgo(p.updated_at)}</span>
+          </Link>
+        ))
       )}
-    </Card>
+    </ListPanel>
   )
 }
 
-// ─── SECTION: Status & Compliance Snapshot ───────────────────────────────────
+// ─── Compliance by phase ─────────────────────────────────────────────────────
 
 function ComplianceBar({ label, pct, completeCount, applicableCount }) {
-  const color = progressBarColor(pct)
   return (
     <div className="flex items-center gap-3">
       <span className="text-xs text-gray-500 w-32 flex-shrink-0 truncate">{label}</span>
       <div className="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden">
-        <div
-          className={`h-full rounded-full transition-all ${color}`}
-          style={{ width: `${pct}%` }}
-        />
+        <div className={`h-full rounded-full transition-all ${progressBarColor(pct)}`} style={{ width: `${pct}%` }} />
       </div>
       <span className="text-xs text-gray-500 w-24 text-right flex-shrink-0 tabular-nums">
         {completeCount}/{applicableCount} ({pct}%)
@@ -307,40 +390,24 @@ function ComplianceBar({ label, pct, completeCount, applicableCount }) {
 
 function StatusComplianceSection({ documents }) {
   const progress = useMemo(() => computeProgress(documents), [documents])
-
   return (
     <Card>
       <SectionHeader title="Compliance by phase" />
-
       <div className="mb-4">
-        <ComplianceBar
-          label="Overall"
-          pct={progress.overallPct}
-          completeCount={progress.totalComplete}
-          applicableCount={progress.totalApplicable}
-        />
+        <ComplianceBar label="Overall" pct={progress.overallPct} completeCount={progress.totalComplete} applicableCount={progress.totalApplicable} />
       </div>
-
       <div className="space-y-2">
         {PHASE_ORDER.map(phase => {
           const p = progress.byPhase[phase]
           if (p.applicableCount === 0) return null
-          return (
-            <ComplianceBar
-              key={phase}
-              label={phase}
-              pct={p.pct}
-              completeCount={p.completeCount}
-              applicableCount={p.applicableCount}
-            />
-          )
+          return <ComplianceBar key={phase} label={phase} pct={p.pct} completeCount={p.completeCount} applicableCount={p.applicableCount} />
         })}
       </div>
     </Card>
   )
 }
 
-// ─── SECTION: Attention Flags ─────────────────────────────────────────────────
+// ─── Data checks ─────────────────────────────────────────────────────────────
 
 function FlagRow({ label, count, linkTo, linkLabel }) {
   if (count === 0) return null
@@ -349,80 +416,49 @@ function FlagRow({ label, count, linkTo, linkLabel }) {
       <span className="text-sm text-gray-700">{label}</span>
       <div className="flex items-center gap-3">
         <span className="text-sm font-semibold text-red-500">{count}</span>
-        {linkTo && (
-          <Link to={linkTo} className="text-xs text-blue-500 underline whitespace-nowrap">
-            {linkLabel ?? 'View →'}
-          </Link>
-        )}
+        {linkTo && <Link to={linkTo} className="text-xs text-blue-500 underline whitespace-nowrap">{linkLabel ?? 'View →'}</Link>}
       </div>
     </div>
   )
 }
 
-function AttentionFlagsSection({ projects, documents }) {
+function DataChecksSection({ projects, documents }) {
   const flags = useMemo(() => {
     const noCategory = projects.filter(p => !p.project_category)
-
-    const projectIdsWithDocs = new Set(
-      documents.map(d => d.project_instances?.id).filter(Boolean)
-    )
-    const categoryButNoDocs = projects.filter(
-      p => p.project_category && !projectIdsWithDocs.has(p.id)
-    )
-
-    const thirtyDaysAgo = new Date()
-    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
+    const withDocs = new Set(documents.map(d => d.project_instances?.id).filter(Boolean))
+    const categoryButNoDocs = projects.filter(p => p.project_category && !withDocs.has(p.id))
+    const cutoff = new Date()
+    cutoff.setDate(cutoff.getDate() - 30)
     const staleDeployment = projects.filter(p =>
-      p.overall_status === 'For Deployment' &&
-      p.date_deployed &&
-      new Date(p.date_deployed) < thirtyDaysAgo
+      p.overall_status === 'For Deployment' && p.date_deployed && new Date(p.date_deployed) < cutoff
     )
-
     return { noCategory, categoryButNoDocs, staleDeployment }
   }, [projects, documents])
 
-  const totalFlags = flags.noCategory.length + flags.categoryButNoDocs.length + flags.staleDeployment.length
+  const total = flags.noCategory.length + flags.categoryButNoDocs.length + flags.staleDeployment.length
 
   return (
     <Card>
-      <SectionHeader title="Needs attention" />
-      {totalFlags === 0 ? (
-        <EmptyNote>Nothing flagged. Every project has a category and a checklist.</EmptyNote>
+      <SectionHeader title="Data checks" hint="Records that need tidying up" />
+      {total === 0 ? (
+        <EmptyNote>All clear. Every project has a category and a checklist.</EmptyNote>
       ) : (
         <div>
-          <FlagRow
-            label="Projects missing a category (checklist can't be generated)"
-            count={flags.noCategory.length}
-            linkTo="/projects"
-            linkLabel="Go to Projects →"
-          />
-          <FlagRow
-            label="Projects with a category but no checklist yet"
-            count={flags.categoryButNoDocs.length}
-            linkTo="/projects"
-            linkLabel="Go to Projects →"
-          />
-          <FlagRow
-            label="Still 'For Deployment' 30+ days after deploy date"
-            count={flags.staleDeployment.length}
-            linkTo="/projects"
-            linkLabel="Go to Projects →"
-          />
+          <FlagRow label="Projects missing a category (checklist can't be generated)" count={flags.noCategory.length} linkTo="/projects" linkLabel="Go to Projects →" />
+          <FlagRow label="Projects with a category but no checklist yet" count={flags.categoryButNoDocs.length} linkTo="/projects" linkLabel="Go to Projects →" />
+          <FlagRow label="Still 'For Deployment' 30+ days after deploy date" count={flags.staleDeployment.length} linkTo="/projects" linkLabel="Go to Projects →" />
         </div>
       )}
     </Card>
   )
 }
 
-// ─── SECTION: Charts (status distribution + year trend) ─────────────────────
-// Plain CSS bars, no charting library — consistent with the progress bars
-// already used everywhere else in the app.
+// ─── Charts ──────────────────────────────────────────────────────────────────
 
 const OVERALL_STATUS_ORDER = [
   'For Deployment', 'For Implementation', 'For Monitoring', 'For Transfer',
   'Transfer Ongoing', 'Fully Transferred', 'For Pull Out', 'Done',
 ]
-
 const STATUS_COLORS = {
   'For Deployment':     'bg-yellow-400',
   'For Implementation': 'bg-blue-400',
@@ -442,10 +478,7 @@ function BarChart({ data, colorFor, formatValue }) {
         <div key={d.label} className="flex items-center gap-3">
           <span className="text-xs text-gray-500 w-32 flex-shrink-0 truncate">{d.label}</span>
           <div className="flex-1 h-4 bg-gray-100 rounded overflow-hidden">
-            <div
-              className={`h-full rounded transition-all ${colorFor ? colorFor(d.label) : 'bg-blue-400'}`}
-              style={{ width: `${(d.value / max) * 100}%` }}
-            />
+            <div className={`h-full rounded transition-all ${colorFor ? colorFor(d.label) : 'bg-blue-400'}`} style={{ width: `${(d.value / max) * 100}%` }} />
           </div>
           <span className="text-xs text-gray-600 w-20 text-right flex-shrink-0 tabular-nums">
             {formatValue ? formatValue(d.value) : d.value}
@@ -459,58 +492,37 @@ function BarChart({ data, colorFor, formatValue }) {
 function ChartsSection({ projects }) {
   const statusData = useMemo(() => {
     const counts = {}
-    projects.forEach(p => {
-      const s = p.overall_status ?? 'Unknown'
-      counts[s] = (counts[s] ?? 0) + 1
-    })
+    projects.forEach(p => { const s = p.overall_status ?? 'Unknown'; counts[s] = (counts[s] ?? 0) + 1 })
     return OVERALL_STATUS_ORDER.filter(s => counts[s]).map(s => ({ label: s, value: counts[s] }))
   }, [projects])
 
   const yearData = useMemo(() => {
     const counts = {}
-    projects.forEach(p => {
-      counts[p.year] = (counts[p.year] ?? 0) + 1
-    })
-    return Object.entries(counts)
-      .sort(([a], [b]) => Number(a) - Number(b))
-      .map(([year, value]) => ({ label: year, value }))
+    projects.forEach(p => { counts[p.year] = (counts[p.year] ?? 0) + 1 })
+    return Object.entries(counts).sort(([a], [b]) => Number(a) - Number(b)).map(([year, value]) => ({ label: year, value }))
   }, [projects])
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
       <Card>
         <SectionHeader title="Projects by status" />
-        {statusData.length === 0
-          ? <EmptyNote>No projects yet</EmptyNote>
-          : <BarChart data={statusData} colorFor={s => STATUS_COLORS[s] ?? 'bg-gray-400'} />}
+        {statusData.length === 0 ? <EmptyNote>No projects yet</EmptyNote> : <BarChart data={statusData} colorFor={s => STATUS_COLORS[s] ?? 'bg-gray-400'} />}
       </Card>
       <Card>
         <SectionHeader title="Projects per year" />
-        {yearData.length === 0
-          ? <EmptyNote>No projects yet</EmptyNote>
-          : <BarChart data={yearData} />}
+        {yearData.length === 0 ? <EmptyNote>No projects yet</EmptyNote> : <BarChart data={yearData} />}
       </Card>
     </div>
   )
 }
 
-// ─── SECTION: Budget Rollup ───────────────────────────────────────────────────
+// ─── Budget rollup / current-year budget ─────────────────────────────────────
 
-function BudgetRollupSection({ projects }) {
-  const totalAmount = useMemo(
-    () => projects.reduce((sum, p) => sum + (Number(p.amount) || 0), 0),
-    [projects]
-  )
-
+function BudgetRollupSection({ projects, totalAmount }) {
   const byYear = useMemo(() => {
     const sums = {}
-    projects.forEach(p => {
-      if (p.amount == null) return
-      sums[p.year] = (sums[p.year] ?? 0) + Number(p.amount)
-    })
-    return Object.entries(sums)
-      .sort(([a], [b]) => Number(a) - Number(b))
-      .map(([year, value]) => ({ label: year, value }))
+    projects.forEach(p => { if (p.amount != null) sums[p.year] = (sums[p.year] ?? 0) + Number(p.amount) })
+    return Object.entries(sums).sort(([a], [b]) => Number(a) - Number(b)).map(([year, value]) => ({ label: year, value }))
   }, [projects])
 
   const byCategory = useMemo(() => {
@@ -523,12 +535,11 @@ function BudgetRollupSection({ projects }) {
     return Object.entries(sums).map(([label, value]) => ({ label, value }))
   }, [projects])
 
-  const categoryColor = c =>
-    c === 'In-house' ? 'bg-indigo-400' : c === 'Fund Transfer' ? 'bg-teal-400' : 'bg-gray-400'
+  const categoryColor = c => (c === 'In-house' ? 'bg-indigo-400' : c === 'Fund Transfer' ? 'bg-teal-400' : 'bg-gray-400')
 
   return (
     <Card>
-      <SectionHeader title="Budget rollup" />
+      <SectionHeader title="Budget rollup (all scopes)" />
       <div className="text-2xl font-bold text-gray-800 tabular-nums mb-4">{peso(totalAmount)}</div>
       {totalAmount === 0 ? (
         <EmptyNote>No amounts recorded yet</EmptyNote>
@@ -548,58 +559,6 @@ function BudgetRollupSection({ projects }) {
   )
 }
 
-// ─── SECTION: Geographic Hotspots ────────────────────────────────────────────
-
-function GeographicHotspotsSection({ documents }) {
-  const hotspots = useMemo(() => {
-    const counts = {}
-    documents
-      .filter(isOverdue)
-      .forEach(doc => {
-        const muni = doc.project_instances?.beneficiaries?.municipality
-        if (!muni) return
-        counts[muni] = (counts[muni] ?? 0) + 1
-      })
-
-    return Object.entries(counts)
-      .sort(([, a], [, b]) => b - a)
-      .slice(0, 8)
-  }, [documents])
-
-  const max = hotspots[0]?.[1] ?? 1
-
-  return (
-    <Card>
-      <SectionHeader title="Overdue documents by municipality" hint="Top 8 municipalities by number of overdue documents." />
-      {hotspots.length === 0 ? (
-        <EmptyNote>No overdue documents.</EmptyNote>
-      ) : (
-        <div className="space-y-2">
-          {hotspots.map(([muni, count]) => (
-            <div key={muni} className="flex items-center gap-3">
-              <span className="text-xs text-gray-600 w-32 flex-shrink-0 truncate">{muni}</span>
-              <div className="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden">
-                <div
-                  className="h-full bg-red-400 rounded-full transition-all"
-                  style={{ width: `${Math.round((count / max) * 100)}%` }}
-                />
-              </div>
-              <span className="text-xs font-semibold text-red-500 w-12 text-right flex-shrink-0 tabular-nums">
-                {count}
-              </span>
-            </div>
-          ))}
-        </div>
-      )}
-    </Card>
-  )
-}
-
-// ─── SECTION: Current-year budget ────────────────────────────────────────────
-// The Provincial CEST office's budget for this year vs. what Provincial
-// projects have committed (rules in lib/budget.js). Fetches its own data so
-// the rest of the Dashboard never waits on it. Details live on /budget.
-
 function BudgetCard({ projects }) {
   const { isAdmin } = useAuth()
   const { budgets, loading, error } = useBudgets()
@@ -616,9 +575,7 @@ function BudgetCard({ projects }) {
     <Card>
       <div className="flex items-start justify-between gap-3 mb-3">
         <SectionHeader title={`${year} budget`} hint="Provincial projects only" />
-        <Link to="/budget" className="text-xs text-blue-500 hover:text-blue-700 whitespace-nowrap">
-          View details →
-        </Link>
+        <Link to="/budget" className="text-xs text-blue-500 hover:text-blue-700 whitespace-nowrap">View details →</Link>
       </div>
 
       {loading ? (
@@ -628,9 +585,7 @@ function BudgetCard({ projects }) {
       ) : allocated == null ? (
         <p className="text-sm text-gray-500">
           No budget set for {year} yet.{' '}
-          {isAdmin
-            ? <Link to="/budget" className="text-blue-500 underline">Set it on the Budget page</Link>
-            : 'An admin can set it.'}
+          {isAdmin ? <Link to="/budget" className="text-blue-500 underline">Set it on the Budget page</Link> : 'An admin can set it.'}
         </p>
       ) : (
         <>
@@ -650,9 +605,7 @@ function BudgetCard({ projects }) {
             </div>
             <div>
               <div className="text-xs text-gray-500 mb-1">Remaining</div>
-              <div className={`text-lg sm:text-xl font-bold tabular-nums ${remaining < 0 ? 'text-red-500' : 'text-gray-800'}`}>
-                {formatPeso(remaining)}
-              </div>
+              <div className={`text-lg sm:text-xl font-bold tabular-nums ${remaining < 0 ? 'text-red-500' : 'text-gray-800'}`}>{formatPeso(remaining)}</div>
             </div>
           </div>
           <div className="mt-3 h-2 bg-gray-200 rounded-full overflow-hidden">
@@ -670,9 +623,41 @@ function BudgetCard({ projects }) {
   )
 }
 
-// ─── Main Component ───────────────────────────────────────────────────────────
+// ─── Hotspots / agency breakdown ─────────────────────────────────────────────
 
-// ─── SECTION: By implementing agency ────────────────────────────────────────
+function GeographicHotspotsSection({ documents }) {
+  const hotspots = useMemo(() => {
+    const counts = {}
+    documents.filter(isOverdue).forEach(doc => {
+      const muni = doc.project_instances?.beneficiaries?.municipality
+      if (muni) counts[muni] = (counts[muni] ?? 0) + 1
+    })
+    return Object.entries(counts).sort(([, a], [, b]) => b - a).slice(0, 8)
+  }, [documents])
+
+  const max = hotspots[0]?.[1] ?? 1
+
+  return (
+    <Card>
+      <SectionHeader title="Overdue documents by municipality" hint="Top 8 municipalities by number of overdue documents." />
+      {hotspots.length === 0 ? (
+        <EmptyNote>No overdue documents.</EmptyNote>
+      ) : (
+        <div className="space-y-2">
+          {hotspots.map(([muni, count]) => (
+            <div key={muni} className="flex items-center gap-3">
+              <span className="text-xs text-gray-600 w-32 flex-shrink-0 truncate">{muni}</span>
+              <div className="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden">
+                <div className="h-full bg-red-400 rounded-full transition-all" style={{ width: `${Math.round((count / max) * 100)}%` }} />
+              </div>
+              <span className="text-xs font-semibold text-red-500 w-12 text-right flex-shrink-0 tabular-nums">{count}</span>
+            </div>
+          ))}
+        </div>
+      )}
+    </Card>
+  )
+}
 
 const NO_AGENCY = '(No implementing agency)'
 
@@ -700,7 +685,7 @@ function AgencyBreakdownSection({ projects, documents }) {
       {rows.length === 0 ? (
         <EmptyNote>No projects yet</EmptyNote>
       ) : (
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto max-h-96 overflow-y-auto">
           <table className="w-full text-sm">
             <thead className="text-xs text-gray-500">
               <tr>
@@ -729,27 +714,33 @@ function AgencyBreakdownSection({ projects, documents }) {
   )
 }
 
+// ─── Main component ──────────────────────────────────────────────────────────
+
 export default function Dashboard() {
-  const { documents, loading: docsLoading, error: docsError } = useAllDocuments()
-  const { projects, loading: projLoading, error: projError } = useProjects()
-  const { beneficiaries, loading: benLoading, error: benError } = useBeneficiaries()
-  const { remarks, loading: remarksLoading } = useAllRemarks(10)
+  const toast = useToast()
+  const { profile, canEdit } = useAuth()
+  const { documents, loading: docsLoading, error: docsError, refetch: refetchDocs } = useAllDocuments()
+  const { projects, loading: projLoading, error: projError, refetch: refetchProjects } = useProjects()
+  const { beneficiaries, loading: benLoading, error: benError, refetch: refetchBens } = useBeneficiaries()
+  const { remarks, pinned, pinnedError, loading: remarksLoading, refetch: refetchRemarks, setPinned } = useAllRemarks(10)
+  const [analyticsOpen, setAnalyticsOpen] = useLocalState('dashboardAnalyticsOpen', false)
+
+  const loading = docsLoading || projLoading || benLoading
+
+  // Skeleton only for the very first load, so Refresh never blanks the page.
+  const [ready, setReady] = useState(false)
+  useEffect(() => { if (!loading) setReady(true) }, [loading])
 
   const { overdue, upcoming } = useMemo(() => {
-    const overdue = documents
-      .filter(isOverdue)
-      .sort((a, b) => new Date(a.expected_date) - new Date(b.expected_date))
-    const upcoming = documents
-      .filter(doc => isUpcoming(doc))
-      .sort((a, b) => new Date(a.expected_date) - new Date(b.expected_date))
-    return { overdue, upcoming }
+    const byDate = (a, b) => new Date(a.expected_date) - new Date(b.expected_date)
+    return {
+      overdue: documents.filter(isOverdue).sort(byDate),
+      upcoming: documents.filter(d => isUpcoming(d)).sort(byDate),
+    }
   }, [documents])
 
   const progress = useMemo(() => computeProgress(documents), [documents])
-  const totalAmount = useMemo(
-    () => projects.reduce((sum, p) => sum + (Number(p.amount) || 0), 0),
-    [projects]
-  )
+  const totalAmount = useMemo(() => projects.reduce((sum, p) => sum + (Number(p.amount) || 0), 0), [projects])
 
   const attention = useMemo(() => ({
     overdueDocs: overdue.length,
@@ -759,76 +750,75 @@ export default function Dashboard() {
     noAgency: projects.filter(p => !implementingAgency(p)).length,
   }), [overdue, upcoming, projects])
 
-  const loading = docsLoading || projLoading || benLoading
+  function refreshAll() {
+    refetchDocs(); refetchProjects(); refetchBens(); refetchRemarks()
+  }
+
+  async function togglePin(id, value) {
+    const { error } = await setPinned(id, value)
+    if (error) toast.error(error)
+    else toast.success(value ? 'Remark pinned' : 'Remark unpinned')
+    return { error }
+  }
+
   const error = docsError || projError || benError
+  if (!ready) return <DashboardSkeleton />
+  if (error)  return <div className="max-w-6xl mx-auto p-6 text-red-500 text-sm">Error: {error}</div>
 
-  if (loading) return <DashboardSkeleton />
-  if (error)   return <div className="max-w-6xl mx-auto p-6 text-red-500 text-sm">Error: {error}</div>
-
+  const firstName = (profile?.full_name ?? '').split(' ')[0]
   const today = new Date().toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })
 
   return (
     <div className="max-w-6xl mx-auto w-full space-y-5 pb-12">
-      <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <h1 className="text-xl font-bold text-gray-800">Dashboard</h1>
-        <span className="text-sm text-gray-500">{today}</span>
+      <div className="flex flex-wrap items-end justify-between gap-2">
+        <div>
+          <h1 className="text-xl font-bold text-gray-800">{greeting()}{firstName ? `, ${firstName}` : ''}</h1>
+          <span className="text-sm text-gray-500">{today}</span>
+        </div>
+        <button
+          onClick={refreshAll}
+          disabled={loading}
+          className="border border-gray-300 rounded px-3 py-1.5 text-sm hover:bg-gray-50 disabled:opacity-50"
+        >
+          {loading ? 'Refreshing…' : '↻ Refresh'}
+        </button>
       </div>
 
       <AttentionStrip {...attention} />
 
-      <QuickActions />
+      <KpiRow projects={projects} beneficiaryCount={beneficiaries.length} progress={progress} totalAmount={totalAmount} />
 
-      <KpiRow
-        projects={projects}
-        beneficiaryCount={beneficiaries.length}
-        progress={progress}
-        totalAmount={totalAmount}
-      />
+      {/* Work queue: what I'm tracking + what's stuck in the pipeline */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <PinnedRemarksPanel pinned={pinned} error={pinnedError} canPin={canEdit} onTogglePin={togglePin} />
+        <InProgressDocsPanel documents={documents} />
+      </div>
 
-      {/* This year's budget (Provincial projects) */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <DocListPanel title="Overdue" docs={overdue} tone="overdue" emptyText="No overdue documents 🎉" />
+        <DocListPanel title={`Upcoming (next ${UPCOMING_WINDOW_DAYS} days)`} docs={upcoming} tone="upcoming" emptyText="Nothing due soon" />
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        {remarksLoading && remarks.length === 0
+          ? <ListPanel title="Recent activity" count={0}><EmptyNote>Loading activity...</EmptyNote></ListPanel>
+          : <RecentActivityPanel remarks={remarks} canPin={canEdit} onTogglePin={togglePin} />}
+        <RecentlyUpdatedPanel projects={projects} />
+      </div>
+
       <BudgetCard projects={projects} />
 
-      {/* Overdue + Upcoming */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <DocListCard
-          title="Overdue"
-          docs={overdue}
-          tone="overdue"
-          emptyText="No overdue documents 🎉"
-        />
-        <DocListCard
-          title={`Upcoming (next ${UPCOMING_WINDOW_DAYS} days)`}
-          docs={upcoming}
-          tone="upcoming"
-          emptyText="Nothing due soon"
-        />
-      </div>
-
-      {/* Recent Activity + Recently Updated */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {remarksLoading
-          ? <Card><EmptyNote>Loading activity...</EmptyNote></Card>
-          : <RecentActivitySection remarks={remarks} />}
-        <RecentlyUpdatedSection projects={projects} />
-      </div>
-
-      {/* Status & Compliance + Attention Flags */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <StatusComplianceSection documents={documents} />
-        <AttentionFlagsSection projects={projects} documents={documents} />
+        <DataChecksSection projects={projects} documents={documents} />
       </div>
 
-      {/* Charts */}
-      <ChartsSection projects={projects} />
-
-      {/* Budget Rollup */}
-      <BudgetRollupSection projects={projects} />
-
-      {/* By implementing agency */}
-      <AgencyBreakdownSection projects={projects} documents={documents} />
-
-      {/* Overdue hotspots — full width, bottom */}
-      <GeographicHotspotsSection documents={documents} />
+      <Collapsible title="More analytics" open={analyticsOpen} onToggle={() => setAnalyticsOpen(v => !v)}>
+        <ChartsSection projects={projects} />
+        <BudgetRollupSection projects={projects} totalAmount={totalAmount} />
+        <AgencyBreakdownSection projects={projects} documents={documents} />
+        <GeographicHotspotsSection documents={documents} />
+      </Collapsible>
     </div>
   )
 }
