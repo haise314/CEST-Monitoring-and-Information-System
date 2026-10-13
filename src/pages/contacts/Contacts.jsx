@@ -2,7 +2,6 @@ import { useState, useMemo, useEffect } from 'react'
 import { useSearchParams } from 'react-router'
 import { useReactTable, getCoreRowModel, getSortedRowModel, flexRender } from '@tanstack/react-table'
 import { useContacts } from '../../hooks/useContacts'
-import { useFormData } from '../../hooks/useFormData'
 import { useColumnSizing } from '../../hooks/useColumnSizing'
 import ResizableTh from '../../components/common/ResizableTh'
 import { useToast } from '../../lib/ToastContext'
@@ -17,7 +16,6 @@ export default function Contacts() {
   const toast = useToast()
   const { canEdit } = useAuth()
   const [searchParams, setSearchParams] = useSearchParams()
-  const { beneficiaries } = useFormData() // already fetches beneficiaries for dropdowns elsewhere
 
   const [search, setSearch]         = useState('')
   const [sorting, setSorting]       = useState([])
@@ -42,7 +40,7 @@ export default function Contacts() {
     const q = search.trim().toLowerCase()
     if (!q) return contacts
     return contacts.filter(c =>
-      [c.name, c.role, c.contact_number, ...(c.beneficiaries ?? []).flatMap(b => [b.name, b.municipality])]
+      [c.name, c.role, c.contact_number, c.email]
         .filter(Boolean)
         .some(field => field.toLowerCase().includes(q))
     )
@@ -109,7 +107,7 @@ export default function Contacts() {
         <div className="flex flex-wrap items-center gap-2">
           <input
             type="text"
-            placeholder="Search name, beneficiary, municipality..."
+            placeholder="Search name, role, number, email..."
             value={search}
             onChange={e => setSearch(e.target.value)}
             className="border border-gray-300 rounded px-3 py-1.5 text-sm w-full sm:w-72 focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -194,12 +192,10 @@ export default function Contacts() {
       >
         {table.getRowModel().rows.map(row => {
           const c = row.original
-          const org = (c.beneficiaries ?? []).map(b => b.name).join('; ')
           return (
             <MobileCard key={row.id} onClick={() => openEdit(c)}>
               <div className="text-sm font-semibold text-gray-800 break-words">{c.name}</div>
               {c.role && <div className="text-xs text-gray-500 mt-0.5">{c.role}</div>}
-              {org && <div className="text-xs text-gray-400 mt-0.5 break-words">{org}</div>}
               {(c.contact_number || c.messenger_link) && (
                 <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-2 text-sm">
                   {c.contact_number && (
@@ -233,7 +229,6 @@ export default function Contacts() {
       {showModal && (
         <ContactModal
           contact={editingContact}
-          beneficiaries={beneficiaries}
           onClose={() => setShowModal(false)}
           onSave={handleSave}
           readOnly={!canEdit}

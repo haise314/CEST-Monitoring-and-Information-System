@@ -3,71 +3,39 @@ import { useAuth } from '../lib/AuthContext'
 
 const NO_EDIT = "You don't have permission to make changes."
 
-// Write-only contact operations, with no fetching of their own, so a page can
-// save a contact without loading the whole contacts table. Same contract as
-// the other hooks: nothing throws, every call returns { error } (string|null).
-//
-// A contact belongs to many beneficiaries through contact_beneficiaries.
-// saveContact() goes through the save_contact() database function so the
-// contact row and its links are written in ONE transaction.
-// (Needs migrations/05_contact_email.sql for the p_email argument.)
+// Contacts are standalone now (no beneficiary links).
+// Every call returns { error } (string|null); nothing throws.
 export function useContactMutations() {
   const { canEdit } = useAuth()
 
-  // data: { name, role, contact_number, email, messenger_link, beneficiary_ids }
-  // id null = create. Resolves { error, id }.
+  // data: { name, role, contact_number, email, messenger_link }; id null = create
   async function saveContact(id, data) {
     if (!canEdit) return { error: NO_EDIT, id: null }
-    const { data: newId, error } = await supabase.rpc('save_contact', {
-      p_id:              id ?? null,
-      p_name:            data.name,
-      p_role:            data.role ?? null,
-      p_contact_number:  data.contact_number ?? null,
-      p_messenger_link:  data.messenger_link ?? null,
-      p_beneficiary_ids: (data.beneficiary_ids ?? []).map(Number),
-      p_email:           data.email ?? null,
-    })
+    const row = {
+      name:           data.name,
+      role:           data.role ?? null,
+      contact_number: data.contact_number ?? null,
+      email:          data.email ?? null,
+      messenger_link: data.messenger_link ?? null,
+    }
+    const q = id == null
+      ? supabase.from('beneficiary_contacts').insert(row)
+      : supabase.from('beneficiary_contacts').update(row).eq('id', id)
+    const { data: out, error } = await q.select('id')
     if (error) return { error: error.message, id: null }
-    return { error: null, id: newId }
+    if (!out || out.length === 0) return { error: NO_EDIT, id: null }
+    return { error: null, id: out[0].id }
   }
 
-  async function linkContact(contactId, beneficiaryId) {
-    if (!canEdit) return { error: NO_EDIT }
-    const { error } = await supabase
-      .from('contact_beneficiaries')
-      .upsert(
-        { contact_id: contactId, beneficiary_id: beneficiaryId },
-        { onConflict: 'contact_id,beneficiary_id', ignoreDuplicates: true }
-      )
-    return { error: error ? error.message : null }
-  }
-
-  // Removes the link only — the contact itself is kept.
-  async function unlinkContact(contactId, beneficiaryId) {
-    if (!canEdit) return { error: NO_EDIT }
-    const { data, error } = await supabase
-      .from('contact_beneficiaries')
-      .delete()
-      .eq('contact_id', contactId)
-      .eq('beneficiary_id', beneficiaryId)
-      .select('id')
-    if (error) return { error: error.message }
-    if (!data || data.length === 0) return { error: NO_EDIT }
-    return { error: null }
-  }
-
-  // Deletes the contact everywhere (links and project links cascade).
+  // Deletes the contact everywhere (project links cascade).
   async function deleteContact(id) {
     if (!canEdit) return { error: NO_EDIT }
     const { data, error } = await supabase
-      .from('beneficiary_contacts')
-      .delete()
-      .eq('id', id)
-      .select('id')
+      .from('beneficiary_contacts').delete().eq('id', id).select('id')
     if (error) return { error: error.message }
     if (!data || data.length === 0) return { error: NO_EDIT }
     return { error: null }
   }
 
-  return { saveContact, linkContact, unlinkContact, deleteContact }
+  return { saveContact, deleteContact }
 }

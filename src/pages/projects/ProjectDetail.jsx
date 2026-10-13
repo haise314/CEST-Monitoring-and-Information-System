@@ -14,6 +14,7 @@ import ProjectTypesManager from './ProjectTypesManager'
 import { useToast } from '../../lib/ToastContext'
 import { useAuth } from '../../lib/AuthContext'
 import SectionNav from '../../components/common/SectionNav'
+import ConfirmDialog from '../../components/common/ConfirmDialog'
 import { projectOwnerName } from '../../lib/projectAgencies'
 
 // Not in columns.jsx's STATIC_OPTIONS (that file only covers project-level
@@ -134,9 +135,9 @@ export default function ProjectDetail() {
   // ── Change this project's beneficiary (this project only) ──
   const [swapping, setSwapping]             = useState(false)
   const [newBenId, setNewBenId]             = useState('')
-  const [unlinkContacts, setUnlinkContacts] = useState(true)
   const [swapBusy, setSwapBusy]             = useState(false)
   const [swapError, setSwapError]           = useState(null)
+  const [confirmRemoveBen, setConfirmRemoveBen] = useState(false)
 
   // ── Danger zone ──
   const [deleting, setDeleting]           = useState(false)
@@ -278,12 +279,23 @@ export default function ProjectDetail() {
   async function handleSwapBeneficiary() {
     setSwapBusy(true)
     setSwapError(null)
-    const { error } = await reassignBeneficiary(project.id, Number(newBenId), unlinkContacts)
+    const { error } = await reassignBeneficiary(project.id, Number(newBenId), false)
     setSwapBusy(false)
     if (error) { setSwapError(error); return }
     setSwapping(false)
     setNewBenId('')
     toast.success('Beneficiary changed')
+  }
+
+  async function handleRemoveBeneficiary() {
+    setSwapBusy(true)
+    setSwapError(null)
+    const { error } = await updateProject(project.id, { beneficiary_id: null })
+    setSwapBusy(false)
+    setConfirmRemoveBen(false)
+    if (error) { setSwapError(error); return }
+    setBenForm({})
+    toast.success('Beneficiary removed from this project')
   }
 
   async function handleDelete() {
@@ -330,6 +342,16 @@ export default function ProjectDetail() {
           {projectOwnerName(project) ?? '—'}
           <span className="ml-2 text-sm font-normal text-gray-400">· {project.year}</span>
         </h1>
+        {project.gdrive_folder_link && (
+          <a
+            href={project.gdrive_folder_link}
+            target="_blank"
+            rel="noreferrer"
+            className="inline-flex items-center gap-1.5 mt-2 border border-blue-200 bg-blue-50 text-blue-700 rounded px-3 py-1.5 text-xs font-medium hover:bg-blue-100"
+          >
+            📁 Open Drive folder ↗
+          </a>
+        )}
       </div>
 
       <SectionNav items={SECTION_NAV} />
@@ -550,6 +572,7 @@ export default function ProjectDetail() {
           different beneficiary. */}
       <Section id="sec-beneficiary" title="Agencies & Beneficiaries" locked={!canEdit}>
         <ProjectParties project={project} beneficiaries={beneficiaries} updateBeneficiary={updateBeneficiary}>
+        {project.beneficiary_id ? (<>
         <div className="grid grid-cols-2 gap-3">
           <Field label="Name">
             <input
@@ -618,6 +641,10 @@ export default function ProjectDetail() {
           </p>
         </div>
 
+        </>) : (
+          <p className="text-xs text-amber-600">No beneficiary set for this project.</p>
+        )}
+
         {/* Swap this project to a different beneficiary */}
         <div className="pt-3 border-t border-gray-100">
           {!swapping ? (
@@ -628,8 +655,18 @@ export default function ProjectDetail() {
                 disabled={dirty}
                 className="text-xs text-blue-500 hover:text-blue-700 underline disabled:opacity-40 disabled:no-underline disabled:cursor-not-allowed"
               >
-                Wrong beneficiary? Change it for this project only
+                {project.beneficiary_id ? 'Wrong beneficiary? Change it for this project only' : 'Set a beneficiary for this project'}
               </button>
+              {project.beneficiary_id && (
+                <button
+                  type="button"
+                  onClick={() => setConfirmRemoveBen(true)}
+                  disabled={dirty}
+                  className="ml-4 text-xs text-red-500 hover:text-red-700 underline disabled:opacity-40 disabled:no-underline disabled:cursor-not-allowed"
+                >
+                  Remove beneficiary from this project
+                </button>
+              )}
               {dirty && (
                 <p className="text-xs text-amber-600 mt-1">Save your other changes first.</p>
               )}
@@ -650,19 +687,7 @@ export default function ProjectDetail() {
                 searchPlaceholder="Search beneficiaries..."
                 className={selectClass}
               />
-              <label className="flex items-start gap-2 text-xs text-gray-600 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={unlinkContacts}
-                  onChange={e => setUnlinkContacts(e.target.checked)}
-                  className="mt-0.5 h-4 w-4 rounded"
-                />
-                <span>
-                  Remove this project's contacts that don't belong to the new beneficiary
-                  <span className="block text-gray-400">Only the link is removed; the contacts are kept.</span>
-                </span>
-              </label>
-              {swapError && <p className="text-red-500 text-xs">{swapError}</p>}
+                            {swapError && <p className="text-red-500 text-xs">{swapError}</p>}
               <div className="flex gap-2">
                 <button
                   type="button"
@@ -872,6 +897,17 @@ export default function ProjectDetail() {
           Cancel
         </button>
       </div>
+      )}
+
+      {confirmRemoveBen && (
+        <ConfirmDialog
+          title="Remove this beneficiary?"
+          message={`"${project.beneficiaries?.name ?? ''}" will be removed from this project only. The organization and its other projects are not affected.`}
+          confirmLabel="Yes, remove"
+          busy={swapBusy}
+          onCancel={() => setConfirmRemoveBen(false)}
+          onConfirm={handleRemoveBeneficiary}
+        />
       )}
 
       {showTypeManager && (

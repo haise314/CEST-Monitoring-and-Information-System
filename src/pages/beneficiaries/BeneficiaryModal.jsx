@@ -1,7 +1,6 @@
 import { useState, useEffect, useMemo } from 'react'
 import ModalShell from '../../components/common/ModalShell'
 import ConfirmDialog from '../../components/common/ConfirmDialog'
-import BeneficiaryContacts from './BeneficiaryContacts'
 
 const CATEGORIES = ['LGU', 'BLGU', 'SUC', 'NGA', 'SDO', 'Academe', 'NGO', 'Cooperative', 'Private', 'Others']
 
@@ -196,8 +195,6 @@ export default function BeneficiaryModal({
                 onChange={e => handleChange('barangay', e.target.value)} className={okInput} />
             </Field>
           </fieldset>
-
-          {beneficiary && <BeneficiaryContacts beneficiary={beneficiary} />}
 
           {/* Danger Zone — only when editing. Delete guard kept: blocked while
               projects still reference this beneficiary (NO ACTION foreign key). */}

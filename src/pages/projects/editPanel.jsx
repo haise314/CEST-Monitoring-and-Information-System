@@ -231,6 +231,17 @@ export default function EditPanel({ project, onClose, onUpdate, onDelete, onDocu
         >
           Open full page ↗
         </Link>
+        {project.gdrive_folder_link && (
+          <a
+            href={project.gdrive_folder_link}
+            target="_blank"
+            rel="noreferrer"
+            title="Open this project's Google Drive folder"
+            className="text-sm font-medium text-blue-600 hover:text-blue-800 whitespace-nowrap py-1"
+          >
+            📁 Drive folder ↗
+          </a>
+        )}
 
         <span className={`text-xs hidden sm:inline ${dirty ? 'text-amber-600' : 'text-gray-500'}`}>
           {canEdit ? (dirty ? 'Unsaved changes · Ctrl+S to save' : 'All changes saved') : ''}
