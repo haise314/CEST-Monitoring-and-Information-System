@@ -123,8 +123,14 @@ export default function AddModal({ onClose, onAdd }) {
     : entryPoints
 
   async function handleSubmit(openAfter) {
-    if (!form.year || !form.project_type_id || !form.beneficiary_id || !form.project_category) {
-      setError('Year, Project Type, Beneficiary, and Project Category are required.')
+    const missing = []
+    if (!form.year)             missing.push('Year')
+    if (!form.project_type_id)  missing.push('Project Type')
+    if (!form.beneficiary_id)   missing.push('Beneficiary')
+    if (!form.project_category) missing.push('Project Category')
+
+    if (missing.length > 0) {
+      setError(`Please fill in: ${missing.join(', ')}.`)
       return
     }
 
