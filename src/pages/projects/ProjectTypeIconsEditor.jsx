@@ -21,13 +21,15 @@ export default function ProjectTypeIconEditor({ type, onSave }) {
   const [draft, setDraft]   = useState(null) // sanitized SVG awaiting save
   const [error, setError]   = useState(null)
   const [saving, setSaving] = useState(false)
+  const [warning, setWarning] = useState(null)
 
   async function handleFile(e) {
     const file = e.target.files?.[0]
     e.target.value = ''
     if (!file) return
-    const { svg, error } = sanitizeSvg(await file.text())
+    const { svg, error, warning } = sanitizeSvg(await file.text())
     setError(error ?? null)
+    setWarning(warning ?? null)
     setDraft(error ? null : svg)
   }
 
@@ -64,6 +66,7 @@ export default function ProjectTypeIconEditor({ type, onSave }) {
         </button>
       )}
       {error && <span className="text-xs text-red-500">{error}</span>}
+      {draft && warning && !error && <span className="text-xs text-amber-600">{warning}</span>}
     </div>
   )
 }

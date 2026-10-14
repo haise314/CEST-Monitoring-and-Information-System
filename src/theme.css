@@ -185,3 +185,5 @@ body {
   background: #1d4ed8; color: #fff; font: 600 13px/1 system-ui;
   border: 3px solid #fff; box-shadow: 0 1px 4px rgba(0,0,0,.4);
 }
+/* Satellite imagery must not look inverted in dark mode. */
+.dark .leaflet-tile-pane .cest-satellite { filter: invert(1) hue-rotate(180deg) contrast(1.11) brightness(1.05); }
