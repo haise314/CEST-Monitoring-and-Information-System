@@ -22,6 +22,8 @@ const EMPTY_FORM = {
   address:          '',
   entry_point:      '',
   date_deployed:    '',
+  start_date:       '',
+  end_date:         '',
 }
 
 const BENEFICIARY_CATEGORIES = ['LGU', 'BLGU', 'SUC', 'NGA', 'SDO', 'Academe', 'NGO', 'Cooperative', 'Private', 'Others']
@@ -150,6 +152,8 @@ export default function AddModal({ onClose, onAdd }) {
       address:          form.address.trim() || null,
       entry_point:      form.entry_point     || null,
       date_deployed:    form.date_deployed   || null,
+      start_date:       form.start_date      || null,
+      end_date:         form.end_date        || null,
     }
 
     const { error, id } = await onAdd(payload)
@@ -484,6 +488,16 @@ export default function AddModal({ onClose, onAdd }) {
                 onChange={e => handleChange('date_deployed', e.target.value)}
                 className={inputClass}
               />
+            </Field>
+
+            <Field label="Project Start Date">
+              <input type="date" value={form.start_date}
+                onChange={e => handleChange('start_date', e.target.value)} className={inputClass} />
+            </Field>
+
+            <Field label="Project End Date">
+              <input type="date" value={form.end_date}
+                onChange={e => handleChange('end_date', e.target.value)} className={inputClass} />
             </Field>
 
             <Field label="Entry Point" className="sm:col-span-2">

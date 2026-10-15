@@ -88,6 +88,8 @@ export const ALL_COLUMNS = [
   { accessorKey: 'property_number',  header: 'Property No.',     group: 'Core', size: 140, minSize: 100, cell: ({ getValue }) => getValue() ?? '—' },
   { accessorKey: 'amount',           header: 'Amount',           group: 'Core', size: 130, minSize: 100, cell: ({ getValue }) => getValue() != null ? `₱${Number(getValue()).toLocaleString()}` : '—' },
   { accessorKey: 'date_deployed',    header: 'Date Deployed',    group: 'Core', size: 130, minSize: 100, cell: ({ getValue }) => getValue() ?? '—' },
+  { accessorKey: 'start_date',      header: 'Start Date',      group: 'Core', size: 130, minSize: 100, cell: ({ getValue }) => getValue() ?? '—' },
+  { accessorKey: 'end_date',        header: 'End Date',        group: 'Core', size: 130, minSize: 100, cell: ({ getValue }) => getValue() ?? '—' },
   { accessorKey: 'address',          header: 'Address',          group: 'Core', size: 260, minSize: 120, cell: ({ getValue }) => getValue() ?? '—' },
   { accessorKey: 'entry_point',      header: 'Entry Point',      group: 'Core', size: 150, minSize: 100, cell: ({ getValue }) => getValue() ?? '—' },
 
@@ -153,6 +155,8 @@ export const DEFAULT_VISIBLE = {
   // Hidden by default
   intervention: false,
   date_deployed: false,
+  start_date: false,
+  end_date: false,
   entry_point: false,
   category: false,
   district: false,

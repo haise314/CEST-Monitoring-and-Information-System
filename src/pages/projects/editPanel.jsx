@@ -47,6 +47,8 @@ function formFromProject(project) {
     address:             project.address             ?? '',
     amount:              project.amount              ?? '',
     date_deployed:       project.date_deployed       ?? '',
+    start_date:          project.start_date          ?? '',
+    end_date:            project.end_date            ?? '',
     entry_point:         project.entry_point         ?? '',
     intervention:        project.intervention        ?? '',
     overall_status:      project.overall_status      ?? '',
@@ -146,6 +148,8 @@ export default function EditPanel({ project, onClose, onUpdate, onDelete, onDocu
       address:             form.address.trim()             || null,
       amount:              parseAmount(form.amount),
       date_deployed:       form.date_deployed              || null,
+      start_date:          form.start_date                 || null,
+      end_date:            form.end_date                   || null,
       entry_point:         form.entry_point                || null,
       intervention:        form.intervention               || null,
       overall_status:      form.overall_status             || null,
@@ -423,6 +427,20 @@ export default function EditPanel({ project, onClose, onUpdate, onDelete, onDocu
                   )}
                 </Field>
               </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <Field label="Project Start Date">
+                  <input type="date" value={form.start_date}
+                    onChange={e => handleChange('start_date', e.target.value)} className={inputClass} />
+                </Field>
+                <Field label="Project End Date">
+                  <input type="date" value={form.end_date}
+                    onChange={e => handleChange('end_date', e.target.value)} className={inputClass} />
+                </Field>
+              </div>
+              <p className="text-xs text-gray-500 -mt-1">
+                Report due dates are computed from Date Deployed (progress reports) and End Date (completion / terminal).
+              </p>
 
               <Field label="Address" >
                 <input

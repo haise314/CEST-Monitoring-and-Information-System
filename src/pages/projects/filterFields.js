@@ -12,6 +12,8 @@ export const PROJECT_FILTER_FIELDS = [
   { id: 'intervention',     label: 'Intervention',     group: 'Core', type: 'text',   get: p => p.intervention },
   { id: 'property_number',  label: 'Property no.',     group: 'Core', type: 'text',   get: p => p.property_number },
   { id: 'amount',           label: 'Amount',           group: 'Core', type: 'number', format: 'currency', get: p => p.amount },
+  { id: 'start_date',       label: 'Start date',       group: 'Core', type: 'date',   get: p => p.start_date },
+  { id: 'end_date',         label: 'End date',         group: 'Core', type: 'date',   get: p => p.end_date },
   { id: 'date_deployed',    label: 'Date deployed',    group: 'Core', type: 'date',   get: p => p.date_deployed },
   { id: 'entry_point',      label: 'Entry point',      group: 'Core', type: 'select', get: p => p.entry_point },
 

@@ -356,9 +356,10 @@ function PhaseSection({ phase, phaseProgress, onUpdate }) {
 // hook instance holding the same underlying rows elsewhere (e.g. Documents.jsx's
 // useAllDocuments(), which is a separate cache) can be told to refetch.
 export default function DocumentChecklist({ project, onChanged }) {
-  const { documents, loading, error, generateDocuments, updateDocument } = useDocuments(project.id)
+  const { documents, loading, error, generateDocuments, fillDueDates, updateDocument } = useDocuments(project.id)
   const [generating, setGenerating]       = useState(false)
   const [generateError, setGenerateError] = useState(null)
+  const [filling, setFilling]             = useState(false)
   const toast = useToast()
   const { canEdit } = useAuth()
 
@@ -369,13 +370,27 @@ export default function DocumentChecklist({ project, onChanged }) {
     }
     setGenerating(true)
     setGenerateError(null)
-    const { error, added } = await generateDocuments(project.project_category)
+    const { error, added } = await generateDocuments(project)
     setGenerating(false)
     if (error) setGenerateError(error)
     else {
       onChanged?.()
       toast.success(added ? `Added ${added} document${added === 1 ? '' : 's'} to the checklist` : 'Checklist is already up to date')
     }
+  }
+
+  async function handleFillDates() {
+    setFilling(true)
+    setGenerateError(null)
+    const { error, updated } = await fillDueDates(project)
+    setFilling(false)
+    if (error) { setGenerateError(error); return }
+    if (updated > 0) onChanged?.()
+    toast.success(
+      updated > 0
+        ? `Set ${updated} due date${updated === 1 ? '' : 's'}`
+        : 'No due dates to set. Check the project\'s Date Deployed / End Date.'
+    )
   }
 
   // Wrap updateDocument so every field edit also notifies the parent.
@@ -474,6 +489,14 @@ export default function DocumentChecklist({ project, onChanged }) {
           className="text-xs text-blue-600 hover:text-blue-800 underline disabled:opacity-50"
         >
           {generating ? 'Syncing...' : '+ Sync missing documents'}
+        </button>
+        <button
+          onClick={handleFillDates}
+          disabled={filling}
+          title="Fills blank due dates from the project's Date Deployed / End Date. Existing dates are not changed."
+          className="text-xs text-blue-600 hover:text-blue-800 underline disabled:opacity-50"
+        >
+          {filling ? 'Setting...' : '⏰ Auto-set due dates'}
         </button>
         {generateError && (
           <span className="text-red-600 text-xs">{generateError}</span>
