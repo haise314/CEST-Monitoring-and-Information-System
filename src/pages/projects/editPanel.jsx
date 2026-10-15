@@ -7,6 +7,7 @@ import ConfirmDialog from '../../components/common/ConfirmDialog'
 import { STATIC_OPTIONS, SCOPE_OPTIONS, parseAmount } from './columns'
 import DocumentChecklist from './DocumentChecklist'
 import ProjectContacts from './ProjectContacts'
+import EntryPointsManager from './EntryPointsManager'
 import { implementingAgency, cooperatingAgencies, additionalBeneficiaries, projectOwnerName } from '../../lib/projectAgencies'
 import { useToast } from '../../lib/ToastContext'
 import { useAuth } from '../../lib/AuthContext'
@@ -68,9 +69,9 @@ function isChanged(current, baseline) {
 // Quick-edit modal for one project (used by Projects and Documents).
 // Centered on desktop, bottom sheet on phones (ModalShell).
 // Ctrl/Cmd+S saves. Closing or leaving with unsaved edits asks first.
-export default function EditPanel({ project, onClose, onUpdate, onDelete, onDocumentsChanged }) {
+export default function EditPanel({ project, onClose, onUpdate, onDelete, onDocumentsChanged, onProjectsChanged }) {
   const { canEdit, isAdmin } = useAuth()
-  const { projectTypes, entryPoints, loading } = useFormData()
+  const { projectTypes, entryPoints, loading, refetchEntryPoints } = useFormData()
   const toast = useToast()
   const navigate = useNavigate()
 
@@ -85,6 +86,7 @@ export default function EditPanel({ project, onClose, onUpdate, onDelete, onDocu
   const [confirmLeave, setConfirmLeave]               = useState(null) // null | 'close' | 'open'
 
   // Inline "add new entry point" — same pattern as addModal.jsx.
+  const [showEntryManager, setShowEntryManager] = useState(false)
   const [addingEntryPoint, setAddingEntryPoint]     = useState(false)
   const [newEntryPointValue, setNewEntryPointValue] = useState('')
 
@@ -425,6 +427,17 @@ export default function EditPanel({ project, onClose, onUpdate, onDelete, onDocu
                       <option value="__new_entry__">+ Add new entry point...</option>
                     </Select>
                   )}
+                {canEdit && !addingEntryPoint && (
+                  <button
+                    type="button"
+                    onClick={() => setShowEntryManager(true)}
+                    disabled={dirty}
+                    title={dirty ? 'Save your other changes first' : 'Rename or delete entry points'}
+                    className="text-xs text-blue-500 hover:text-blue-700 underline mt-1 disabled:opacity-40 disabled:no-underline disabled:cursor-not-allowed"
+                  >
+                    Manage entry points
+                  </button>
+                )}
                 </Field>
               </div>
 
@@ -601,6 +614,13 @@ export default function EditPanel({ project, onClose, onUpdate, onDelete, onDocu
           </>
         )}
       </ModalShell>
+
+      {showEntryManager && (
+        <EntryPointsManager
+          onClose={() => setShowEntryManager(false)}
+          onChanged={async () => { await refetchEntryPoints(); await onProjectsChanged?.() }}
+        />
+      )}
 
       {showCategoryWarning && (
         <ConfirmDialog

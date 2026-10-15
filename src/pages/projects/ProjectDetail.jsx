@@ -11,6 +11,7 @@ import ProjectContacts from './ProjectContacts'
 import RemarksSection from './RemarksSection'
 import ProjectParties from './ProjectParties'
 import ProjectTypesManager from './ProjectTypesManager'
+import EntryPointsManager from './EntryPointsManager'
 import { useToast } from '../../lib/ToastContext'
 import { useAuth } from '../../lib/AuthContext'
 import SectionNav from '../../components/common/SectionNav'
@@ -101,9 +102,9 @@ export default function ProjectDetail() {
   const navigate = useNavigate()
   const toast = useToast()
 
-  const { projects, loading, updateProject, deleteProject, reassignBeneficiary } = useProjects()
+  const { projects, loading, updateProject, deleteProject, reassignBeneficiary, refetchQuiet: refetchProjects } = useProjects()
   const { updateBeneficiary } = useBeneficiaries()
-  const { projectTypes, beneficiaries, entryPoints, loading: formDataLoading, addProjectType, addBeneficiary, refetchProjectTypes } = useFormData()
+  const { projectTypes, beneficiaries, entryPoints, loading: formDataLoading, addProjectType, addBeneficiary, refetchProjectTypes, refetchEntryPoints } = useFormData()
 
   // Same "derive from the live list" pattern as Projects.jsx/Overview.jsx —
   // never a stale snapshot after a refetch.
@@ -124,6 +125,7 @@ export default function ProjectDetail() {
   const [newTypeName, setNewTypeName]           = useState('')
   const [addingTypeSaving, setAddingTypeSaving] = useState(false)
   const [typeError, setTypeError]               = useState(null)
+  const [showEntryManager, setShowEntryManager] = useState(false)
   const [showTypeManager, setShowTypeManager]   = useState(false)
 
   // ── Beneficiary form state (separate save, separate table) ──
@@ -560,6 +562,17 @@ export default function ProjectDetail() {
               <option value="__new_entry__">+ Add new entry point...</option>
             </Select>
           )}
+                {canEdit && !addingEntryPoint && (
+                  <button
+                    type="button"
+                    onClick={() => setShowEntryManager(true)}
+                    disabled={dirty}
+                    title={dirty ? 'Save your other changes first' : 'Rename or delete entry points'}
+                    className="text-xs text-blue-500 hover:text-blue-700 underline mt-1 disabled:opacity-40 disabled:no-underline disabled:cursor-not-allowed"
+                  >
+                    Manage entry points
+                  </button>
+                )}
         </Field>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -945,6 +958,13 @@ export default function ProjectDetail() {
           busy={swapBusy}
           onCancel={() => setConfirmRemoveBen(false)}
           onConfirm={handleRemoveBeneficiary}
+        />
+      )}
+
+      {showEntryManager && (
+        <EntryPointsManager
+          onClose={() => setShowEntryManager(false)}
+          onChanged={() => Promise.all([refetchEntryPoints(), refetchProjects()])}
         />
       )}
 

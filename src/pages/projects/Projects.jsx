@@ -29,7 +29,7 @@ import StatusCell, { OperationalCell } from './statusCell'
 import { MobileCardList, MobileCard, Pill } from '../../components/common/MobileCards'
 
 function Projects() {
-  const { projects, loading, error, addProject, updateProject, deleteProject } = useProjects()
+  const { projects, loading, error, addProject, updateProject, deleteProject, refetchQuiet } = useProjects()
 
   const toast = useToast()
   const { canEdit } = useAuth()
@@ -279,6 +279,7 @@ function Projects() {
           onClose={() => setSelectedProjectId(null)}
           onUpdate={updateProject}
           onDelete={deleteProject}
+          onProjectsChanged={refetchQuiet}
         />
       )}
 

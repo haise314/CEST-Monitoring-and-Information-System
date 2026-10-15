@@ -89,5 +89,11 @@ export function useFormData() {
     if (data) setProjectTypes(data)
   }
 
-  return { projectTypes, beneficiaries, entryPoints, loading, addProjectType, addBeneficiary, refetchProjectTypes }
+  // Silent refresh of the entry-point options (after the manager renames/deletes).
+  async function refetchEntryPoints() {
+    const { data } = await supabase.from('project_instances').select('entry_point').not('entry_point', 'is', null)
+    if (data) setEntryPoints([...new Set(data.map(r => r.entry_point).filter(Boolean))].sort())
+  }
+
+  return { projectTypes, beneficiaries, entryPoints, loading, addProjectType, addBeneficiary, refetchProjectTypes, refetchEntryPoints }
 }

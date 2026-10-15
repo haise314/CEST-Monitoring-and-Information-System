@@ -15,8 +15,8 @@ export function useProjects() {
     fetchProjects()
   }, [])
 
-  async function fetchProjects() {
-    setLoading(true)
+  async function fetchProjects(silent = false) {
+    if (!silent) setLoading(true)
     try {
       const { data, error } = await supabase
         .from('project_instances')
@@ -93,6 +93,7 @@ export function useProjects() {
     loading,
     error,
     refetch: fetchProjects,
+    refetchQuiet: () => fetchProjects(true),
     addProject,
     updateProject,
     reassignBeneficiary,

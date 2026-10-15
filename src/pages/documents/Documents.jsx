@@ -183,7 +183,7 @@ export default function Documents() {
   const isNarrow = useIsNarrow()
   const pinned = isNarrow ? PINNED_COLUMNS_NARROW : PINNED_COLUMNS
   const lastPinnedId = isNarrow ? 'beneficiary' : 'location'
-  const { projects, loading: projectsLoading, updateProject, deleteProject } = useProjects()
+  const { projects, loading: projectsLoading, updateProject, deleteProject, refetchQuiet } = useProjects()
   const { documents, loading: docsLoading, refetch: refetchDocuments }     = useAllDocuments()
   const { documentTypes, loading: typesLoading }                             = useDocumentTypes()
 
@@ -608,6 +608,7 @@ export default function Documents() {
           onUpdate={updateProject}
           onDelete={deleteProject}
           onDocumentsChanged={refetchDocuments}
+          onProjectsChanged={refetchQuiet}
         />
       )}
     </div>
