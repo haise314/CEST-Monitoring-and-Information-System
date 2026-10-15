@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict pt0HOzD7gTwyAqS2SJsOliZjQDPV8tJ4Jq1fDEE2TqBVKJo0bBf2maQgzkIxWX2
+\restrict cTCkSySQPsvmTJiCBrvR8uKieHPv3Qb6Ug0gmdC8COMQzbCb4tutYMV6hcYtzI7
 
 -- Dumped from database version 17.6
 -- Dumped by pg_dump version 17.11 (Ubuntu 17.11-1.pgdg24.04+2)
@@ -2000,5 +2000,5 @@ CREATE POLICY "update: editors" ON public.tasks FOR UPDATE TO authenticated USIN
 -- PostgreSQL database dump complete
 --
 
-\unrestrict pt0HOzD7gTwyAqS2SJsOliZjQDPV8tJ4Jq1fDEE2TqBVKJo0bBf2maQgzkIxWX2
+\unrestrict cTCkSySQPsvmTJiCBrvR8uKieHPv3Qb6Ug0gmdC8COMQzbCb4tutYMV6hcYtzI7
 

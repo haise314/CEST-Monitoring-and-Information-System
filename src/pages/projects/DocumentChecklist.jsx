@@ -198,7 +198,7 @@ function LinkCell({ value, stage, onChange }) {
 
 // ─── Document Row ─────────────────────────────────────────────────────────────
 
-function DocumentRow({ doc, onUpdate }) {
+function DocumentRow({ doc, onUpdate, onDelete }) {
   const { canEdit } = useAuth()
   const [showNotes, setShowNotes] = useState(Boolean(doc.notes))
   const [notes, setNotes]         = useState(doc.notes ?? '')
@@ -254,6 +254,19 @@ function DocumentRow({ doc, onUpdate }) {
               {overdue ? 'Overdue' : shortLabel(status)}
             </span>
           )}
+
+                    {onDelete && (
+            <button
+              type="button"
+              onClick={() => onDelete(doc)}
+              title="Delete this document"
+              aria-label={`Delete ${doc.custom_label ?? 'document'}`}
+              className="text-gray-400 hover:text-red-600 text-sm leading-none px-1.5 py-1 flex-shrink-0"
+            >
+              ✕
+            </button>
+          )}
+
         </div>
 
         {/* Line 2 (or inline when wide): due date · link + stage · checkboxes · notes */}
@@ -419,15 +432,13 @@ function OthersSection({ docs, onUpdate, onAdd, onDelete }) {
       {open && (
         <div className="px-3 pt-1 pb-2">
           {docs.length === 0 && <p className="text-xs text-gray-600 py-2">None yet.</p>}
-          {docs.map(doc => (
-            <div key={doc.id}>
-              <DocumentRow doc={doc} onUpdate={onUpdate} />
-              {isAdmin && (
-                <button onClick={() => setToDelete(doc)} className="ml-9 -mt-1 mb-1 text-xs text-red-500 hover:text-red-700 underline">
-                  Delete
-                </button>
-              )}
-            </div>
+                    {docs.map(doc => (
+            <DocumentRow
+              key={doc.id}
+              doc={doc}
+              onUpdate={onUpdate}
+              onDelete={isAdmin ? setToDelete : undefined}
+            />
           ))}
 
           {canEdit && (
