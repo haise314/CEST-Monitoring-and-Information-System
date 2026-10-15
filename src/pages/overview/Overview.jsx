@@ -10,6 +10,7 @@ const PHASE_SHORT = {
   'Semi-Annual':        'Semi-Ann.',
   'Annual':              'Annual',
   'Transfer':            'Transfer',
+  'Liquidation':         'Liquid.',
 }
 
 const CATEGORY_COLORS = {

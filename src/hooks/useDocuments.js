@@ -3,6 +3,8 @@ import { supabase } from '../lib/supabase'
 import { useAuth } from '../lib/AuthContext'
 import { expectedDateFor } from '../lib/documentDeadlines'
 
+const NO_EDIT = "You don't have permission to make changes."
+
 export function useDocuments(projectId) {
   const { canEdit } = useAuth()
   const [documents, setDocuments] = useState([])
@@ -148,6 +150,30 @@ export function useDocuments(projectId) {
     return { error: null, updated: done.size }
   }
 
+  // "Others": a one-off document with a free-text label and no document type.
+  async function addCustomDocument(label) {
+    if (!canEdit) return { error: NO_EDIT }
+    const trimmed = (label ?? '').trim()
+    if (!trimmed) return { error: 'Name is required.' }
+    const { data, error } = await supabase
+      .from('documents')
+      .insert({ project_id: projectId, custom_label: trimmed })
+      .select('*')
+      .single()
+    if (error) return { error: error.message }
+    setDocuments(prev => [...prev, { ...data, document_types: null }])
+    return { error: null }
+  }
+
+  // RLS: only admins may delete documents (editors can mark N/A instead).
+  async function deleteDocument(id) {
+    const { data, error } = await supabase.from('documents').delete().eq('id', id).select('id')
+    if (error) return { error: error.message }
+    if (!data || data.length === 0) return { error: 'Only an admin can delete documents.' }
+    setDocuments(prev => prev.filter(d => d.id !== id))
+    return { error: null }
+  }
+
   // Optimistic update — reflects immediately in UI, syncs to DB
   async function updateDocument(id, updates) {
     const { error } = await supabase
@@ -170,6 +196,8 @@ export function useDocuments(projectId) {
     generateDocuments,
     fillDueDates,
     updateDocument,
+    addCustomDocument,
+    deleteDocument,
     refetch: fetchDocuments,
   }
 }

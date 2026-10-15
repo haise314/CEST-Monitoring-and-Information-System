@@ -1,6 +1,6 @@
 import { isAccomplished } from './documentStatus'
 
-export const PHASE_ORDER = ['Pre-Implementation', 'Semi-Annual', 'Annual', 'Transfer']
+export const PHASE_ORDER = ['Pre-Implementation', 'Semi-Annual', 'Annual', 'Transfer', 'Liquidation']
 
 // Complete = same rule as documentStatus.js (final soft copy, hard copy,
 // claimable, or submitted). Draft / for-checking / for-signing links don't count.
@@ -23,7 +23,8 @@ export function computeProgress(documents = []) {
     return acc
   }, {})
 
-  const allApplicable = documents.filter(d => !d.is_not_applicable)
+  // custom ("Others") documents have no type/phase and don't count toward compliance
+  const allApplicable = documents.filter(d => !d.is_not_applicable && d.document_types?.phase)
   const allComplete = allApplicable.filter(isComplete)
 
   return {

@@ -6,6 +6,7 @@ import { useToast } from '../../lib/ToastContext'
 import { useAuth } from '../../lib/AuthContext'
 import Select from '../../components/common/Select'
 import { addMonths } from '../../lib/dates'
+import ConfirmDialog from '../../components/common/ConfirmDialog'
 
 // Same status scale as the dots on the Documents page (lib/documentStatus.js),
 // so the two screens always agree.
@@ -371,6 +372,100 @@ function PhaseSection({ phase, phaseProgress, periodEnd, onUpdate }) {
   )
 }
 
+// ─── Others (custom documents) ────────────────────────────────────────────────
+function OthersSection({ docs, onUpdate, onAdd, onDelete }) {
+  const { canEdit, isAdmin } = useAuth()
+  const [open, setOpen]       = useState(true)
+  const [label, setLabel]     = useState('')
+  const [busy, setBusy]       = useState(false)
+  const [err, setErr]         = useState(null)
+  const [toDelete, setToDelete] = useState(null)
+  const [deleting, setDeleting] = useState(false)
+
+  if (docs.length === 0 && !canEdit) return null
+
+  async function add() {
+    if (!label.trim()) return
+    setBusy(true); setErr(null)
+    const { error } = await onAdd(label)
+    setBusy(false)
+    if (error) setErr(error)
+    else setLabel('')
+  }
+
+  async function confirmDelete() {
+    setDeleting(true)
+    const { error } = await onDelete(toDelete.id)
+    setDeleting(false)
+    setToDelete(null)
+    if (error) setErr(error)
+  }
+
+  return (
+    <div className="mb-2 border border-gray-200 rounded-lg overflow-hidden">
+      <button
+        onClick={() => setOpen(v => !v)}
+        className="w-full flex items-center justify-between px-3 py-2 text-left bg-gray-50 hover:bg-gray-100"
+      >
+        <span className="text-xs font-semibold text-gray-800">
+          Others
+          <span className="ml-2 font-normal text-gray-500">· additional documents (not counted in compliance)</span>
+        </span>
+        <span className="flex items-center gap-2 text-xs text-gray-500">
+          {docs.length} {open ? '▲' : '▼'}
+        </span>
+      </button>
+
+      {open && (
+        <div className="px-3 pt-1 pb-2">
+          {docs.length === 0 && <p className="text-xs text-gray-600 py-2">None yet.</p>}
+          {docs.map(doc => (
+            <div key={doc.id}>
+              <DocumentRow doc={doc} onUpdate={onUpdate} />
+              {isAdmin && (
+                <button onClick={() => setToDelete(doc)} className="ml-9 -mt-1 mb-1 text-xs text-red-500 hover:text-red-700 underline">
+                  Delete
+                </button>
+              )}
+            </div>
+          ))}
+
+          {canEdit && (
+            <div className="flex gap-2 mt-2">
+              <input
+                value={label}
+                onChange={e => setLabel(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && add()}
+                placeholder="Add a document, e.g. Letter of Endorsement..."
+                className="flex-1 min-w-0 border border-gray-300 rounded px-2 py-1.5 text-base sm:text-xs bg-white text-gray-800 focus:outline-none focus:ring-1 focus:ring-blue-400"
+              />
+              <button
+                onClick={add}
+                disabled={busy || !label.trim()}
+                className="bg-blue-600 text-white rounded px-3 py-1.5 text-xs font-medium hover:bg-blue-700 disabled:opacity-50"
+              >
+                {busy ? '...' : '+ Add'}
+              </button>
+            </div>
+          )}
+          {err && <p className="text-red-600 text-xs mt-1">{err}</p>}
+        </div>
+      )}
+
+      {toDelete && (
+        <ConfirmDialog
+          title="Delete this document?"
+          message={`"${toDelete.custom_label}" will be removed from this project. This cannot be undone.`}
+          confirmLabel="Yes, delete"
+          busy={deleting}
+          onCancel={() => setToDelete(null)}
+          onConfirm={confirmDelete}
+        />
+      )}
+    </div>
+  )
+}
+
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 // onChanged: optional. Called after any successful document mutation
@@ -379,7 +474,7 @@ function PhaseSection({ phase, phaseProgress, periodEnd, onUpdate }) {
 // hook instance holding the same underlying rows elsewhere (e.g. Documents.jsx's
 // useAllDocuments(), which is a separate cache) can be told to refetch.
 export default function DocumentChecklist({ project, onChanged }) {
-  const { documents, loading, error, generateDocuments, fillDueDates, updateDocument } = useDocuments(project.id)
+  const { documents, loading, error, generateDocuments, fillDueDates, updateDocument, addCustomDocument, deleteDocument } = useDocuments(project.id)
   const [generating, setGenerating]       = useState(false)
   const [generateError, setGenerateError] = useState(null)
   const [filling, setFilling]             = useState(false)
@@ -429,6 +524,18 @@ export default function DocumentChecklist({ project, onChanged }) {
     )
   }
 
+  async function handleAddCustom(label) {
+    const r = await addCustomDocument(label)
+    if (!r.error) { onChanged?.(); toast.success('Document added') }
+    return r
+  }
+
+  async function handleDeleteCustom(id) {
+    const r = await deleteDocument(id)
+    if (!r.error) { onChanged?.(); toast.success('Document deleted') }
+    return r
+  }
+
   // Wrap updateDocument so every field edit also notifies the parent.
   async function handleUpdate(id, updates) {
     const result = await updateDocument(id, updates)
@@ -437,6 +544,7 @@ export default function DocumentChecklist({ project, onChanged }) {
   }
 
   const { byPhase, overallPct, totalApplicable, totalComplete } = computeProgress(documents)
+  const customDocs = documents.filter(d => !d.document_types)
 
   if (loading) return (
     <div className="text-xs text-gray-600 py-3 text-center">Loading documents...</div>
@@ -517,6 +625,13 @@ export default function DocumentChecklist({ project, onChanged }) {
           />
         )
       })}
+
+      <OthersSection
+        docs={customDocs}
+        onUpdate={handleUpdate}
+        onAdd={handleAddCustom}
+        onDelete={handleDeleteCustom}
+      />
 
       {/* Sync missing docs (e.g. after category change) */}
       <div className={canEdit ? 'mt-2 flex items-center gap-2' : 'hidden'}>
