@@ -33,8 +33,9 @@ export function useDocuments(projectId) {
     }
   }
 
-  // Generates document rows from document_types for the given category.
-  // Add-only — never deletes existing documents.
+  // Generates document rows from document_types for the project's category.
+  // Add-only for rows. Blank documents that no longer fit the category are
+  // marked N/A; ones with data are left alone and counted in `stale`.
   async function generateDocuments(project) {
     const projectCategory = project.project_category
     const { data: types, error: typesError } = await supabase
@@ -45,8 +46,27 @@ export function useDocuments(projectId) {
 
     if (typesError) return { error: typesError.message, added: 0 }
 
-    // Skip document types already present for this project
-    const existingTypeIds = new Set(documents.map(d => d.document_type_id))
+    // Read existing rows fresh from the DB (not React state) so a double-click
+    // or a second tab can't generate duplicates.
+    const { data: existing, error: existingError } = await supabase
+      .from('documents').select('document_type_id').eq('project_id', projectId)
+    if (existingError) return { error: existingError.message, added: 0 }
+    const existingTypeIds = new Set((existing ?? []).map(d => d.document_type_id))
+
+    // Documents the current category doesn't use
+    const isBlank = d => !d.submitted && !d.has_hard_copy && !d.hard_copy_claimable && !d.gdrive_link && !d.notes
+    const outdated = documents.filter(d =>
+      !d.is_not_applicable && d.document_types?.applies_to &&
+      !['Both', projectCategory].includes(d.document_types.applies_to)
+    )
+    const blankIds = outdated.filter(isBlank).map(d => d.id)
+    const stale = outdated.length - blankIds.length
+    let markedNA = 0
+    if (blankIds.length > 0) {
+      const { data: done } = await supabase.from('documents')
+        .update({ is_not_applicable: true }).in('id', blankIds).select('id')
+      markedNA = done?.length ?? 0
+    }
 
     const newDocs = types
       .filter(t => !existingTypeIds.has(t.id))
@@ -58,24 +78,31 @@ export function useDocuments(projectId) {
           submitted:           false,
           has_hard_copy:       false,
           hard_copy_claimable: false,
-          // Optional docs (Monitoring Form, equipment/refund items) default to
-          // N/A — user enables them when they apply
+          // Optional docs default to N/A; the user enables them when they apply
           is_not_applicable:   !t.is_required,
           expected_date:       date,
           expected_date_auto:  date ? true : null,
         }
       })
 
-    if (newDocs.length === 0) return { error: null, added: 0 }
+    if (newDocs.length === 0) {
+      if (markedNA > 0) await fetchDocuments()
+      return { error: null, added: 0, stale, markedNA }
+    }
 
-    const { error: insertError } = await supabase
+    // Skips rows that already exist (needs the documents_project_type_key unique
+    // constraint). If the constraint isn't there yet, fall back to a plain insert.
+    let res = await supabase
       .from('documents')
-      .insert(newDocs)
-
-    if (insertError) return { error: insertError.message, added: 0 }
+      .upsert(newDocs, { onConflict: 'project_id,document_type_id', ignoreDuplicates: true })
+      .select('id')
+    if (res.error && res.error.code === '42P10') {
+      res = await supabase.from('documents').insert(newDocs).select('id')
+    }
+    if (res.error) return { error: res.error.message, added: 0, stale, markedNA }
 
     await fetchDocuments()
-    return { error: null, added: newDocs.length }
+    return { error: null, added: res.data?.length ?? 0, stale, markedNA }
   }
 
   // Keeps rule-based due dates in step with the project's dates. Touches only:

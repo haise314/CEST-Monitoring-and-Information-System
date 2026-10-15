@@ -401,12 +401,17 @@ export default function DocumentChecklist({ project, onChanged }) {
     }
     setGenerating(true)
     setGenerateError(null)
-    const { error, added } = await generateDocuments(project)
+    const { error, added, stale, markedNA } = await generateDocuments(project)
     setGenerating(false)
     if (error) setGenerateError(error)
     else {
       onChanged?.()
-      toast.success(added ? `Added ${added} document${added === 1 ? '' : 's'} to the checklist` : 'Checklist is already up to date')
+      const parts = []
+      if (added) parts.push(`Added ${added} document${added === 1 ? '' : 's'}`)
+      if (markedNA) parts.push(`${markedNA} unused document${markedNA === 1 ? '' : 's'} marked N/A`)
+      let msg = parts.length ? parts.join(', ') : 'Checklist is already up to date'
+      if (stale) msg += `. ${stale} document${stale === 1 ? ' has' : 's have'} data but no longer apply to this category: review them.`
+      toast.success(msg)
     }
   }
 
