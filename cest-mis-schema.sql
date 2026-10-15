@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict sKdfYapa9lnUQjptWN1bD7uWZ3b5GYRxAl84IG3PU1nb1WSZIyBXtPI804xVSiV
+\restrict GL7G1zyrxu1bEEp5QFzz7iQ43j4b2xewuwN9Dq2dK7kQ1eZu6XXdu5cjxrFFakQ
 
 -- Dumped from database version 17.6
 -- Dumped by pg_dump version 17.11 (Ubuntu 17.11-1.pgdg24.04+2)
@@ -747,6 +747,7 @@ CREATE TABLE public.documents (
     is_not_applicable boolean DEFAULT false NOT NULL,
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
     link_stage text,
+    expected_date_auto boolean,
     CONSTRAINT document_label_check CHECK (((document_type_id IS NOT NULL) OR (custom_label IS NOT NULL))),
     CONSTRAINT documents_link_stage_check CHECK ((link_stage = ANY (ARRAY['draft'::text, 'checking'::text, 'signing'::text, 'final'::text])))
 );
@@ -903,7 +904,9 @@ CREATE TABLE public.project_instances (
     project_scope public.project_scope DEFAULT 'Provincial'::public.project_scope NOT NULL,
     latitude numeric(9,6),
     longitude numeric(9,6),
-    address text
+    address text,
+    start_date date,
+    end_date date
 );
 
 
@@ -1996,5 +1999,5 @@ CREATE POLICY "update: editors" ON public.tasks FOR UPDATE TO authenticated USIN
 -- PostgreSQL database dump complete
 --
 
-\unrestrict sKdfYapa9lnUQjptWN1bD7uWZ3b5GYRxAl84IG3PU1nb1WSZIyBXtPI804xVSiV
+\unrestrict GL7G1zyrxu1bEEp5QFzz7iQ43j4b2xewuwN9Dq2dK7kQ1eZu6XXdu5cjxrFFakQ
 

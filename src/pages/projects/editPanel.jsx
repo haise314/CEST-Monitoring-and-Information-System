@@ -439,7 +439,7 @@ export default function EditPanel({ project, onClose, onUpdate, onDelete, onDocu
                 </Field>
               </div>
               <p className="text-xs text-gray-500 -mt-1">
-                Report due dates are computed from Date Deployed (progress reports) and End Date (completion / terminal).
+                Report due dates are computed from Start Date (semester reports; falls back to Date Deployed) and End Date (completion report and liquidation).
               </p>
 
               <Field label="Address" >

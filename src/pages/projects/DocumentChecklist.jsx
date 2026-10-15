@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useDocuments } from '../../hooks/useDocuments'
 import { PHASE_ORDER, computeProgress, progressBarColor } from '../../lib/documentProgress'
 import { getDocStatus, STATUS_META, LINK_STAGES, isOverdue, isUpcoming } from '../../lib/documentStatus'
@@ -242,7 +242,7 @@ function DocumentRow({ doc, onUpdate }) {
           <div className="w-full pl-9 @2xl:w-auto @2xl:pl-0 flex flex-wrap items-center gap-x-4 gap-y-2">
             <ExpectedDateCell
               doc={doc}
-              onChange={val => handleCheck('expected_date', val)}
+              onChange={val => onUpdate(doc.id, { expected_date: val, expected_date_auto: false })}
             />
 
             <LinkCell
@@ -363,6 +363,14 @@ export default function DocumentChecklist({ project, onChanged }) {
   const toast = useToast()
   const { canEdit } = useAuth()
 
+  // Fills blank due dates and recalculates auto-set ones whenever the project's
+  // start / end / deployed dates change. Dates entered by hand are never touched.
+  const anchorKey = `${project.start_date}|${project.end_date}|${project.date_deployed}`
+  useEffect(() => {
+    if (loading || !canEdit) return
+    fillDueDates(project).then(r => { if (r.updated > 0) onChanged?.() })
+  }, [loading, canEdit, anchorKey, documents]) // eslint-disable-line react-hooks/exhaustive-deps
+
   async function handleGenerate() {
     if (!project.project_category) {
       setGenerateError('Set a Project Category first.')
@@ -382,14 +390,14 @@ export default function DocumentChecklist({ project, onChanged }) {
   async function handleFillDates() {
     setFilling(true)
     setGenerateError(null)
-    const { error, updated } = await fillDueDates(project)
+    const { error, updated } = await fillDueDates(project, { force: true })
     setFilling(false)
     if (error) { setGenerateError(error); return }
     if (updated > 0) onChanged?.()
     toast.success(
       updated > 0
         ? `Set ${updated} due date${updated === 1 ? '' : 's'}`
-        : 'No due dates to set. Check the project\'s Date Deployed / End Date.'
+        : 'No due dates to set. Check the project\'s Start Date / End Date.'
     )
   }
 
@@ -493,7 +501,7 @@ export default function DocumentChecklist({ project, onChanged }) {
         <button
           onClick={handleFillDates}
           disabled={filling}
-          title="Fills blank due dates from the project's Date Deployed / End Date. Existing dates are not changed."
+          title="Sets blank due dates and refreshes auto-set ones from the project's Start Date / End Date. Dates you entered by hand are not changed."
           className="text-xs text-blue-600 hover:text-blue-800 underline disabled:opacity-50"
         >
           {filling ? 'Setting...' : '⏰ Auto-set due dates'}
