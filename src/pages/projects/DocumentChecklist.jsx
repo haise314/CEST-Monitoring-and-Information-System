@@ -5,6 +5,7 @@ import { getDocStatus, STATUS_META, LINK_STAGES, isOverdue, isUpcoming } from '.
 import { useToast } from '../../lib/ToastContext'
 import { useAuth } from '../../lib/AuthContext'
 import Select from '../../components/common/Select'
+import { addMonths } from '../../lib/dates'
 
 // Same status scale as the dots on the Documents page (lib/documentStatus.js),
 // so the two screens always agree.
@@ -45,6 +46,23 @@ function formatShortDate(dateStr) {
   const [, m, d] = dateStr.split('-').map(Number)
   const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
   return `${months[m - 1]} ${d}`
+}
+
+// Semester boundaries, counted from the project start date (falls back to the
+// deployment date), the same anchor documentDeadlines.js uses. These are the
+// semester END dates; the report due dates add a grace period on top of them.
+const PHASE_MONTHS = { 'Semi-Annual': 6, 'Annual': 12 }
+
+function phaseEndDate(project, phase) {
+  const months = PHASE_MONTHS[phase]
+  const anchor = project.start_date || project.date_deployed
+  return months && anchor ? addMonths(anchor, months) : null
+}
+
+function formatFullDate(dateStr) {
+  const [y, m, d] = dateStr.split('-').map(Number)
+  const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
+  return `${months[m - 1]} ${d}, ${y}`
 }
 
 // ─── Expected Date Cell ───────────────────────────────────────────────────────
@@ -302,7 +320,7 @@ function DocumentRow({ doc, onUpdate }) {
 
 // ─── Phase Section ────────────────────────────────────────────────────────────
 
-function PhaseSection({ phase, phaseProgress, onUpdate }) {
+function PhaseSection({ phase, phaseProgress, periodEnd, onUpdate }) {
   const [open, setOpen] = useState(true)
   const { docs, applicableCount, completeCount, pct } = phaseProgress
   const barColor = progressBarColor(pct)
@@ -318,6 +336,11 @@ function PhaseSection({ phase, phaseProgress, onUpdate }) {
       >
         <span className="text-xs font-semibold text-gray-800">
           {done && <span className="text-green-600 mr-1">✓</span>}{phase}
+          {periodEnd && (
+            <span className="ml-2 font-normal text-gray-500" title="End of this reporting period (start date + 6 / 12 months)">
+              · ends {formatFullDate(periodEnd)}
+            </span>
+          )}
         </span>
         <div className="flex items-center gap-2">
           <span className={`text-xs ${done ? 'text-green-700 font-medium' : 'text-gray-600'}`}>
@@ -484,6 +507,7 @@ export default function DocumentChecklist({ project, onChanged }) {
             key={phase}
             phase={phase}
             phaseProgress={phaseProgress}
+            periodEnd={phaseEndDate(project, phase)}
             onUpdate={handleUpdate}
           />
         )
