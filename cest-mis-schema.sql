@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict ngcety97L9AdRkwJ3rywVsse7rDC0snSiW8XXzZHHqYFMIF3mqDRGmeqRhO1Q4P
+\restrict pt0HOzD7gTwyAqS2SJsOliZjQDPV8tJ4Jq1fDEE2TqBVKJo0bBf2maQgzkIxWX2
 
 -- Dumped from database version 17.6
 -- Dumped by pg_dump version 17.11 (Ubuntu 17.11-1.pgdg24.04+2)
@@ -91,7 +91,8 @@ CREATE TYPE public.document_phase AS ENUM (
     'Pre-Implementation',
     'Semi-Annual',
     'Annual',
-    'Transfer'
+    'Transfer',
+    'Liquidation'
 );
 
 
@@ -1999,5 +2000,5 @@ CREATE POLICY "update: editors" ON public.tasks FOR UPDATE TO authenticated USIN
 -- PostgreSQL database dump complete
 --
 
-\unrestrict ngcety97L9AdRkwJ3rywVsse7rDC0snSiW8XXzZHHqYFMIF3mqDRGmeqRhO1Q4P
+\unrestrict pt0HOzD7gTwyAqS2SJsOliZjQDPV8tJ4Jq1fDEE2TqBVKJo0bBf2maQgzkIxWX2
 
